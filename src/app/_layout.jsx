@@ -1,0 +1,21 @@
+import { Stack } from "expo-router";
+
+const isLoggedIn = true; // Replace with actual authentication logic
+
+export default function RootLayout() {
+  return (
+    <Stack>
+
+      <Stack.Protected guard={isLoggedIn}>
+        <Stack.Screen name="(tabs)"  options={{ headerShown: false }}/>
+        <Stack.Screen name="(add-trips)" options={{ headerShown: false, presentation: "modal", title: "Modal" }}/>
+      </Stack.Protected>
+
+      <Stack.Protected guard={!isLoggedIn}>
+        <Stack.Screen name="sign-in" options={{headerShown: false}}/>
+        <Stack.Screen name="sign-up" options={{headerShown: false}}/>
+      </Stack.Protected>
+      
+    </Stack>
+  );
+}
