@@ -9,6 +9,7 @@ export default function RootLayout() {
       <Stack.Protected guard={isLoggedIn}>
         <Stack.Screen name="(tabs)"  options={{ headerShown: false }}/>
         <Stack.Screen name="(add-trips)" options={{ headerShown: false, presentation: "modal", title: "Modal" }}/>
+        <Stack.Screen name="(trip-info)/[tripId]" options={{ headerShown: false }}/>
       </Stack.Protected>
 
       <Stack.Protected guard={!isLoggedIn}>

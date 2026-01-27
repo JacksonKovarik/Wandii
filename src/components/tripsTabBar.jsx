@@ -1,6 +1,7 @@
 import { useRoute } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { Text, TouchableOpacity, View } from "react-native";
+import { Colors } from "../constants/colors";
 
 export default function TripsTabBar() {
     const route = useRoute();
@@ -28,7 +29,7 @@ export default function TripsTabBar() {
                     alignItems: "center",
                 }}
             >
-                <Text style={{ fontSize: 16, color: route.name === "upcoming" ? "black" : "#828282" }}>Upcoming</Text>
+                <Text style={{ fontSize: 16, color: route.name === "upcoming" ? "black" : Colors.textSecondary }}>Upcoming</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -41,7 +42,7 @@ export default function TripsTabBar() {
                     alignItems: "center",
                 }}
             >
-                <Text style={{ fontSize: 16, color: route.name === "past" ? "black" : "#828282" }}>Past</Text>
+                <Text style={{ fontSize: 16, color: route.name === "past" ? "black" : Colors.textSecondary }}>Past</Text>
             </TouchableOpacity>
         </View>
     );
