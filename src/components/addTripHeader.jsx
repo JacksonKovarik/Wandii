@@ -1,24 +1,62 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 export default function AddTripHeader({ title }) {
     const router = useRouter();
-    let page = title === "tripPlanFirst" ? 1 : title === "tripPlanSecond" ? 2 : 3;
+    const page = title === "tripPlanFirst" ? 1 : title === "tripPlanSecond" ? 2 : 3;
+    const isFirstPage = title === "tripPlanFirst";
 
     return (
-        <View style={{ backgroundColor: 'white', padding: 10 }}>
-            <View style={{ flexDirection: 'row', marginVertical: 20, marginBottom: 10, marginHorizontal: '5%', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <TouchableOpacity onPress={() => { router.back() }} >
-                        { title === "tripPlanFirst" ? <MaterialIcons name="close" size={28} color="black" /> : <MaterialIcons name="arrow-back" size={28} color="black" /> }
-                    </TouchableOpacity>
-                    <View style={{ flexDirection: 'row', gap: 6 }}>
-                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF8820' }} />
-                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: page >= 2 ? '#FF8820' : '#CCCCCC' }} />
-                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: page === 3 ? '#FF8820' : '#CCCCCC' }} />
-                    </View>
-                    <View style={{ width: 28 }} />
+        <View style={styles.container}>
+            <View style={styles.headerRow}>
+                <TouchableOpacity onPress={() => router.back()}>
+                    <MaterialIcons 
+                        name={isFirstPage ? "close" : "arrow-back"} 
+                        size={28} 
+                        color="black" 
+                    />
+                </TouchableOpacity>
+                <View style={styles.progressContainer}>
+                    <View style={[styles.progressDot, styles.progressActive]} />
+                    <View style={[styles.progressDot, page >= 2 ? styles.progressActive : styles.progressInactive]} />
+                    <View style={[styles.progressDot, page === 3 ? styles.progressActive : styles.progressInactive]} />
+                </View>
+                <View style={styles.spacer} />
             </View>
         </View>
     );
-};
+}
+
+const styles = StyleSheet.create({
+    container: {
+        backgroundColor: 'white',
+        padding: 10,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        marginVertical: 20,
+        marginBottom: 10,
+        marginHorizontal: '5%',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    progressContainer: {
+        flexDirection: 'row',
+        gap: 6,
+    },
+    progressDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+    },
+    progressActive: {
+        backgroundColor: '#FF8820',
+    },
+    progressInactive: {
+        backgroundColor: '#CCCCCC',
+    },
+    spacer: {
+        width: 28,
+    },
+});

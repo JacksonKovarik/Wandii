@@ -1,27 +1,32 @@
 import AddTripButton from "@/src/components/addTripButton";
-import TripsTabBar from "@/src/components/tripsTabBar";
+import ReusableTabBar from "@/src/components/reusableTabBar";
 import { Tabs } from "expo-router";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 const customHeader = () => (
-    <View style={{ backgroundColor: 'white', padding: 10 }}>
-        <View style={{ marginTop: 60, marginBottom: 10 }}>
-            <View style={{ flexDirection: 'row', marginHorizontal: '5%', alignItems: 'flex-end' }}>
-                <Text style={{ fontSize: 34, fontWeight: 'bold', marginBottom: 5 }}>My Trips</Text>
+    <View style={styles.container}>
+        <View style={styles.headerContent}>
+            <View style={styles.titleRow}>
+                <Text style={styles.title}>My Trips</Text>
                 <AddTripButton />
             </View>
-            <View style={{ width: '100%', alignItems: 'center' }}>
-                <TripsTabBar />
+            <View style={styles.tabBarContainer}>
+                <ReusableTabBar 
+                    tabs={[
+                        { label: "Upcoming", name: "upcoming", route: `/(tabs)/(trips)/upcoming` },
+                        { label: "Past", name: "past", route: `/(tabs)/(trips)/past` },
+                    ]}
+                />
             </View>
         </View>
     </View>
 );
 
-export default function Layout() {
+export default function TripsLayout() {
   return (
     <Tabs 
         screenOptions={{ 
-            tabBarStyle: {display: 'none'},
+            tabBarStyle: { display: 'none' },
             header: () => customHeader(),
         }} 
     >
@@ -30,3 +35,28 @@ export default function Layout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        backgroundColor: 'white',
+        padding: 10,
+    },
+    headerContent: {
+        marginTop: 60,
+        marginBottom: 10,
+    },
+    titleRow: {
+        flexDirection: 'row',
+        marginHorizontal: '5%',
+        alignItems: 'flex-end',
+    },
+    title: {
+        fontSize: 34,
+        fontWeight: 'bold',
+        marginBottom: 5,
+    },
+    tabBarContainer: {
+        width: '100%',
+        alignItems: 'center',
+    },
+});
