@@ -6,6 +6,9 @@ export default function RootLayout() {
   return (
     <Stack>
 
+      {/* Make the root index route the welcome screen */}
+      <Stack.Screen name="index" options={{ headerShown: false }} />
+      
       <Stack.Protected guard={isLoggedIn}>
         <Stack.Screen name="(tabs)"  options={{ headerShown: false }}/>
         <Stack.Screen name="(add-trips)" options={{ headerShown: false, presentation: "modal", title: "Modal" }}/>
