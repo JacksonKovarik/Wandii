@@ -20,7 +20,7 @@ export default function Index() {
 const styles = StyleSheet.create({
   image:
     {
-      width: 200,
+      width: 300,
       height: 200,
       margin: 20
     }
