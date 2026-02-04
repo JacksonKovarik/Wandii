@@ -1,4 +1,4 @@
-import { Text, View } from "react-native";
+import { View, Text, Image, StyleSheet } from "react-native";
 import GetStartedButton from "../components/getStartedButton";
 
 export default function Index() {
@@ -10,8 +10,18 @@ export default function Index() {
         alignItems: "center",
       }}
     >
+      <Image source={require("../../assets/images/placeholderWelcome.png")} style={styles.image}/>
       <Text>Welcome Screen</Text>
       <GetStartedButton></GetStartedButton>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  image:
+    {
+      width: 200,
+      height: 200,
+      margin: 20
+    }
+});
