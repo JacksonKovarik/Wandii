@@ -1,0 +1,71 @@
+
+/**
+ * Utility functions for date manipulation and formatting.
+ */
+const DateUtils = {
+
+    /**
+     * Formats a Date object to 'YYYY-MM-DD' string format.
+     * @param {Date} date - The date to format.
+     * @returns {string} Formatted date string.
+     */
+    formatDateToYYYYMMDD(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    },
+
+    /**
+     * Parses a 'YYYY-MM-DD' formatted string to a Date object.
+     * @param {string} dateString - The date string to parse.
+     * @returns {Date} Parsed Date object.
+     */
+    parseYYYYMMDDToDate(dateString) {
+        const [year, month, day] = dateString.split('-').map(Number);
+        return new Date(year, month - 1, day);
+    },
+
+    /**
+     * Check if two dates are the same day.
+     * @param {Date} date1 - The first date.
+     * @param {Date} date2 - The second date.
+     * @returns {boolean} True if both dates are the same day, false otherwise.
+     */
+    isSameDay(date1, date2) {
+        return (
+        date1.getFullYear() === date2.getFullYear() &&
+        date1.getMonth() === date2.getMonth() &&
+        date1.getDate() === date2.getDate()
+        );
+    },
+
+    /**
+     * Format Date range to "Oct 5 - Oct 10, 2023"
+     * @param {Date} date1 - The first date.
+     * @param {Date} date2 - The second date.
+     * @returns {string} Formatted date range string.
+     */
+    formatRange(date1, date2) {
+        const monthNames = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        ];
+
+        const month1 = monthNames[date1.getMonth()];
+        const day1 = date1.getDate();
+        const year1 = date1.getFullYear();
+
+        const month2 = monthNames[date2.getMonth()];
+        const day2 = date2.getDate();
+        const year2 = date2.getFullYear();
+
+        if (this.isSameDay(date1, date2)) {
+        return `${month1} ${day1}, ${year1}`;
+        } else {
+        return `${month1} ${day1} - ${month2} ${day2}, ${year2}`;
+        }
+    },  
+};
+
+export default DateUtils;
