@@ -1,5 +1,6 @@
 import { useRouter, useSegments } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { moderateScale } from "react-native-size-matters";
 import { Colors } from "../constants/colors";
 
 export default function TripInfoTabBar({ tripId }) {
@@ -65,7 +66,7 @@ const styles = StyleSheet.create({
     },
     tabText: {
         marginTop: 'auto',
-        fontSize: 17,
+        fontSize: moderateScale(17),
         fontWeight: 'bold',
     },
     tabUnderline: {

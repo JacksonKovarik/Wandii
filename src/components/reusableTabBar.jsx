@@ -1,6 +1,7 @@
 import { useRoute } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { moderateScale } from "react-native-size-matters";
 import { Colors } from "../constants/colors";
 
 export default function ReusableTabBar({ tabs, extraBgStyle, extraTextStyle }) {
@@ -40,15 +41,16 @@ const styles = StyleSheet.create({
         display: 'flex',
         width: '90%',
         flexDirection: "row",
-        marginTop: 10,
-        padding: 5,
-        borderRadius: 5,
+        marginTop: moderateScale(10),
+        padding: moderateScale(5),
+        borderRadius: moderateScale(5),
         backgroundColor: '#EFEFEF',
     },
     tab: {
         flex: 1,
-        padding: 7,
-        borderRadius: 5,
+        paddingHorizontal: moderateScale(4),
+        paddingVertical: moderateScale(8),
+        borderRadius: moderateScale(5),
         alignItems: "center",
     },
     tabActive: {
@@ -59,7 +61,7 @@ const styles = StyleSheet.create({
     },
     tabText: {
         fontWeight: 'bold',
-        fontSize: 16,
+        fontSize: moderateScale(16),
     },
     tabTextActive: {
         color: "black",

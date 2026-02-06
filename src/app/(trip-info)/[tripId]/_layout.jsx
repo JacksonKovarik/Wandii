@@ -1,7 +1,10 @@
 import TripInfoTabBar from "@/src/components/tripInfoTabBar";
+import DateUtils from "@/src/utils/DateUtils";
+import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, useLocalSearchParams } from "expo-router";
 import { ImageBackground, StyleSheet, Text, View } from "react-native";
+import { moderateScale } from "react-native-size-matters";
 
 const LOCAL_IMAGES = {
     kyoto: require("../../../../assets/images/Kyoto.jpg"),
@@ -23,16 +26,19 @@ const CustomHeader = ({ trip }) => (
                 locations={[0, 0.49, 0.78, 1]}
             />
 
-            <View style={styles.contentWrapper}>
-                <View style={styles.spacer} />
-                <View style={styles.textContainer}>
-                    <Text style={styles.destination}>{trip.destination}</Text>
-                    <Text style={styles.dateRange}>{trip.startDate} - {trip.endDate}</Text>
+            <View style={ styles.contentWrapper }>
+                <View style={ styles.spacer } />
+                <View style={ styles.textContainer }>
+                    <Text style={ styles.destination }>{ trip.destination }</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(6) }}>
+                        <MaterialIcons name="calendar-today" size={moderateScale(12)} color="white" />
+                        <Text style={ styles.dateRange }>{ DateUtils.formatRange(DateUtils.parseYYYYMMDDToDate(trip.startDate), DateUtils.parseYYYYMMDDToDate(trip.endDate)) }</Text>
+                    </View>
                 </View>
             </View>
         </ImageBackground>
 
-        <TripInfoTabBar tripId={trip.id}/>
+        <TripInfoTabBar tripId={ trip.id }/>
     </View>
 );
 
@@ -83,8 +89,8 @@ const styles = StyleSheet.create({
     contentWrapper: {
         flex: 1,
         paddingHorizontal: '5%',
-        paddingTop: '20%',
-        paddingBottom: '8%',
+        paddingTop: moderateScale(40),
+        paddingBottom: moderateScale(28),
     },
     spacer: {
         flex: 1,
@@ -94,12 +100,12 @@ const styles = StyleSheet.create({
     },
     destination: {
         color: 'white',
-        fontSize: 28,
+        fontSize: moderateScale(25),
         fontWeight: 'bold',
     },
     dateRange: {
         color: 'white',
-        fontSize: 16,
+        fontSize: moderateScale(12),
         marginTop: 4,
     },
 });
