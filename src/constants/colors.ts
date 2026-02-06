@@ -11,7 +11,10 @@ export const Colors = {
     dangerLight: 'rgba(255,96,96,.25)',
     
     darkBlue: '#0B1221',
+
     textSecondary: '#9D9D9D',
     textSecondaryDark: '#828282',
     textSecondaryLight: '#c4c4c4',
+
+    lightGray: 'rgba(217,217,217,.25)',
 }

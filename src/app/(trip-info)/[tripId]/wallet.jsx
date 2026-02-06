@@ -1,14 +1,17 @@
 import ProgressBar from "@/src/components/progressBar";
 import { Colors } from '@/src/constants/colors';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { Checkbox } from 'expo-checkbox';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -45,7 +48,10 @@ export default function WalletScreenRedesign() {
   const { tripId } = useLocalSearchParams(); // 1. Get tripId from the route
   const [isLoading, setIsLoading] = useState(true);
   const [tripData, setTripData] = useState(null);
-
+  const [modalVisible, setModalVisible] = useState(false);
+  const [isSplitEqually, setIsSplitEqually] = useState(true);
+  const [selectedMembers, setSelectedMembers] = useState({});
+  const [selectedCategory, setSelectedCategory] = useState(null);
   // 2. Fetch data when the component mounts or tripId changes
   useEffect(() => {
     if (tripId) {
@@ -66,6 +72,7 @@ export default function WalletScreenRedesign() {
     );
   }
 
+  
   // Destructure data for use in the component
   const { groupBalances, transactions, budgetData } = tripData;
   const percentSpent = Math.floor(budgetData.totalSpent / budgetData.totalBudget * 100);
@@ -102,6 +109,67 @@ export default function WalletScreenRedesign() {
     );
   };
 
+  const MemberSelecter = ({ member }) => {
+    const isSelected = !!selectedMembers[member.id];
+    return (
+      <TouchableOpacity 
+        style={{backgroundColor: isSelected ? Colors.primaryLight : Colors.lightGray, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, justifyContent: 'space-between', borderWidth: 1, borderColor: isSelected ? Colors.primary : Colors.textSecondaryLight }} 
+        onPress={() => setSelectedMembers(prev => ({ ...prev, [member.id]: !prev[member.id] }))}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} >
+          <View style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden' }}>
+            <Image source={{ uri: member.avatar }} style={{ flex: 1 }} />
+          </View>
+          
+          <Text 
+            style={{ 
+              fontSize: 16, 
+              color: isSelected ? Colors.darkBlue : Colors.textSecondary, 
+              fontWeight: '600' 
+            }}
+          >{member.name}</Text>
+        </View>
+        { isSplitEqually ? 
+          <Checkbox
+            value={isSelected}
+            onValueChange={() => setSelectedMembers(prev => ({ ...prev, [member.id]: !prev[member.id] }))}
+            color={isSelected ? Colors.primary : undefined}
+            style={{ borderWidth: 1, borderRadius: 9999}}
+          />
+          : 
+          isSelected && 
+            <TextInput
+              placeholder="Amount"
+              placeholderTextColor={Colors.textSecondaryDark}
+              keyboardType="numeric"
+              style={{ 
+                width: 80, 
+                padding: 8, 
+                fontSize: 14, 
+                fontWeight: '600', 
+                color: Colors.darkBlue,
+                backgroundColor: 'white', 
+                borderRadius: 8,
+                borderWidth: 1, 
+                borderColor: isSelected ? Colors.primary : Colors.textSecondaryLight,
+                textAlign: 'center',
+              }}
+              editable={isSelected}
+            />
+        }
+        
+      </TouchableOpacity>
+    );
+  };
+
+  const modalCategories = [
+    { id: 1, name: 'Food' },
+    { id: 2, name: 'Transport' },
+    { id: 3, name: 'Accommodation' },
+    { id: 4, name: 'Activities'},
+    { id: 5, name: 'Other' },
+  ];
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       
@@ -134,6 +202,11 @@ export default function WalletScreenRedesign() {
           <Text style={styles.totalBudget}>of ${budgetData.totalBudget.toFixed(2)}</Text>
         </View>
       </View>
+
+      {/* Add Expense Button */}
+      <TouchableOpacity style={styles.addExpenseButton} onPress={() => setModalVisible(true)}>
+        <Text style={styles.addExpenseButtonText}>Add Expense</Text>
+      </TouchableOpacity>
 
       {/* 2. Redesigned Group Balances */}
       <View style={styles.sectionContainer}>
@@ -188,12 +261,97 @@ export default function WalletScreenRedesign() {
           </View>
         ))}
       </View>
+      
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => {
+          // Essential for Android back button handling
+          setModalVisible(!modalVisible);
+        }}
+      >
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalTitle}>Add Shared Expense</Text>
 
+              <Text style={styles.modalLabel}>AMOUNT</Text>
+              <View style={styles.modalAmountContainer}>
+                <Text style={styles.modalCurrencySymbol}>$</Text>
+                <TextInput
+                  placeholder="0.00"
+                  placeholderTextColor={Colors.textSecondaryDark}
+                  keyboardType="numeric"
+                  style={styles.modalAmountInput}
+                />
+              </View>
+              
+              {/* Title Input */}
+              <Text style={styles.modalLabel}>Title</Text>
+              <TextInput
+                placeholder="e.g., Dinner at Sushi Place"
+                style={styles.modalTextInput}
+              />
+              
+              {/* Category Selection */}
+              <Text style={styles.modalLabel}>Category</Text>
+              <View style={styles.modalCategoryContainer}>
+                {modalCategories.map((category) => (
+                  <TouchableOpacity 
+                    key={category.id} 
+                    style={[
+                      styles.modalCategoryButton,
+                      { 
+                      backgroundColor: selectedCategory === category.id ? Colors.primaryLight : Colors.lightGray, 
+                      borderColor: selectedCategory === category.id ? Colors.primary : Colors.textSecondaryLight 
+                      }
+                    ]} 
+                    onPress={() => setSelectedCategory(prevId => prevId === category.id ? null : category.id)}
+                  >
+                    <Text style={[styles.modalCategoryButtonText, { color: selectedCategory === category.id ? Colors.darkBlue : Colors.textSecondary }]}>{category.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              {/* List of Group Members */}
+              <View style={styles.modalSplitHeader}>
+                <Text style={styles.modalLabel}>Split With</Text>
+                <View style={styles.modalSplitEquallyContainer}>
+                  <Text style={styles.modalSplitEquallyText}>Split Equally</Text>
+                  <Checkbox 
+                    value={isSplitEqually} 
+                    onValueChange={() => setIsSplitEqually(!isSplitEqually)} 
+                    color={isSplitEqually ? Colors.primary : undefined}
+                    style={styles.modalCheckbox}
+                    hitSlop={10}
+                  />
+                </View>
+              </View>
+              <View style={styles.modalMemberList}>
+                {groupBalances.map((member) => {
+                  return <MemberSelecter key={member.id} member={member} />;
+                })}
+              </View>
+              
+              {/* 3. Button to close the Modal */}
+              <TouchableOpacity 
+                style={styles.modalSubmitButton}
+                onPress={() => setModalVisible(!modalVisible)}
+              >
+                <Text style={styles.modalSubmitButtonText}>Close Modal</Text>
+              </TouchableOpacity>
+            
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  // --- General Screen Styles ---
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -284,6 +442,136 @@ const styles = StyleSheet.create({
   totalBudget: {
     color: '#94A3B8',
     fontSize: moderateScale(12),
+  },
+
+  // --- Add Expense Button Styles ---
+  addExpenseButton: {
+    width: '80%',
+    alignSelf: 'center',
+    marginBottom: moderateScale(24),
+    backgroundColor: Colors.primary,
+    paddingVertical: moderateScale(14),
+    borderRadius: moderateScale(12),
+    alignItems: 'center',
+
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  addExpenseButtonText: {
+    color: 'white',
+    fontSize: moderateScale(16),
+    fontWeight: '700',
+  },
+
+  // --- Modal Styles ---
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Dimmed background
+  },
+  modalView: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: 'white',
+    padding: '8%',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20, 
+    fontWeight: 'bold', 
+    marginBottom: 25
+  },
+  modalLabel: {
+    fontSize: 16, 
+    marginBottom: 12, 
+    color: Colors.textSecondaryDark, 
+    fontWeight: '600'
+  },
+  modalAmountContainer: {
+    flexDirection: 'row', 
+    width: '100%', 
+    borderBottomWidth: 2, 
+    borderBottomColor: Colors.primary, 
+    marginBottom: 20, 
+    gap: 10, 
+    paddingBottom: 10,
+    alignItems: 'center',
+  },
+  modalCurrencySymbol: {
+    fontSize: 28, 
+    fontWeight: 'bold', 
+    color: Colors.darkBlue
+  },
+  modalAmountInput: {
+    fontSize: 28, 
+    fontWeight: 'bold', 
+    color: Colors.darkBlue,
+    flex: 1,
+  },
+  modalTextInput: {
+    width: '100%', 
+    backgroundColor: Colors.lightGray, 
+    padding: 20, 
+    fontSize: 14, 
+    borderRadius: 10, 
+    marginBottom: 20, 
+    fontWeight: '500', 
+    color: Colors.darkBlue
+  },
+  modalCategoryContainer: {
+    flexDirection: 'row', 
+    gap: 12, 
+    marginBottom: 25, 
+    flexWrap: 'wrap'
+  },
+  modalCategoryButton: {
+    padding: 12, 
+    borderRadius: 10, 
+    borderWidth: 1, 
+  },
+  modalCategoryButtonText: {
+    fontWeight: '600'
+  },
+  modalSplitHeader: {
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center'
+  },
+  modalSplitEquallyContainer: {
+    flexDirection: 'row', 
+    gap: 10, 
+    alignItems: 'center'
+  },
+  modalSplitEquallyText: {
+    fontSize: 14, color: Colors.textSecondary, fontWeight: '600'
+  },
+  modalCheckbox: {
+    borderWidth: 1
+  },
+  modalMemberList: {
+    gap: 10,
+    marginTop: 10,
+  },
+  modalSubmitButton: {
+    backgroundColor: Colors.darkBlue, 
+    padding: 20, 
+    borderRadius: 10, 
+    marginTop: 20
+  },
+  modalSubmitButtonText: {
+    color: 'white', 
+    fontWeight: 'bold', 
+    fontSize: 16, 
+    alignSelf: 'center'
   },
 
   // --- Group Section Styles ---
