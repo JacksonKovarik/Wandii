@@ -1,5 +1,5 @@
 import NextStepButton from "@/src/components/nextStepButton";
-import { formatDateRange } from "@/src/tools/dateFormat";
+import DateUtils from "@/src/utils/DateUtils";
 import { useState } from "react";
 import { Keyboard, Modal, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
@@ -11,9 +11,9 @@ const [destination, setDestination] = useState('');
 const [startDate, setStartDate] = useState(null);
 const [endDate, setEndDate] = useState(null);
 const [calendarVisible, setCalendarVisible] = useState(false);
-const formattedDates = formatDateRange(startDate, endDate);
-const[tempStart, setTempStart] = useState(null);
-const[tempEnd, setTempEnd] = useState(null);
+const formattedDates = DateUtils.formatDateRange(startDate, endDate);
+const [tempStart, setTempStart] = useState(null);
+const [tempEnd, setTempEnd] = useState(null);
 
 const onDayPress = (day) => {
   if (!tempStart || (tempStart && tempEnd)) {
