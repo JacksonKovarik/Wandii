@@ -1,36 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
+import Slider from '@react-native-community/slider';
 import * as ImagePicker from "expo-image-picker";
 import { Link } from "expo-router";
 import { useState } from "react";
-import { Image, PanResponder, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale, verticalScale } from "react-native-size-matters";
 
 export default function TripPlanThird() {
 const [coverPhoto, setCoverPhoto] = useState(null);
 const [budget, setBudget] = useState(0);
-const [dot, setDot] = useState(0);
-const [barWidth, setBarWidth] = useState(0);
-const segmentWidth = barWidth / 3;
-const[startDot, setStartDot] = useState(0);
-
-const panResponder = PanResponder.create ({
-  onStartShouldSetPanResponder: () => true,
-  onPanResponderGrant: () => {
-    setStartDot(dot);
-  },
-  onPanResponderMove: (_, gesture) => {
-    const newDot = Math.max(0, Math.min(gesture.dx + dot, barWidth));++
-  setDot(newDot);
-},
-  onPanResponderRelease: () => {
-    const segmentWidth = barWidth / 3;
-    const snapIndex = Math.round(dot / segmentWidth);
-    const snapped = snapIndex * segmentWidth;
-
-    setDot(snapped);
-    setBudget(snapIndex + 1);
-  },
-});
 
 const pickImage = async () => {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -70,39 +48,24 @@ const pickImage = async () => {
           </TouchableOpacity>
 
            <Text style={ styles.label }>Budget Estimation</Text> 
-
-              <View style={ styles.budgetBar}  
-              onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
-              >
-                <View style={[ styles.budgetBarFill, { width: dot }]} />
-                <View style={[
-                  styles.dot,
-                  { position: 'absolute', top: -7, left: dot - 10, }, ]}
-                    {...panResponder.panHandlers}
-                  />
-              </View>
+           <View>
+            <Slider
+              style={{width: 355, height: 40}}
+              minimumValue={0}
+              maximumValue={1}
+              minimumTrackTintColor="#FF8820"
+              maximumTrackTintColor="#EBEBEB"
+              tapToSeek={ true }
+              thumbTintColor="#FF8820"
+/>
+           </View>
                     
-              <View style={styles.budgetLabels}>
-                {[ '$', '$$', '$$$', '$$$$' ].map((symbol, index) => (
-                <TouchableOpacity
-                  key={ index }
-                  onPress={() => {
-                    setBudget(index + 1);
-                    setDot((barWidth / 3) * index);
-                  }}
-                  >
-                  <Text style={[
-                    styles.budgetText,
-                    budget === index + 1 && styles.selectedBudget,
-                  ]}
-                  >
-                    {symbol}
-                  </Text>
-                </TouchableOpacity>
-                ))}
-              </View>
-
            <Text style={ styles.label }>Trip Vibe</Text> 
+           <TouchableOpacity style={ styles.vibeButton }>
+            <Text style={ styles.label }>
+              Relaxing
+            </Text>
+           </TouchableOpacity>
         </View>     
 
             <View style={ styles.bottomContainer }>
@@ -123,6 +86,14 @@ const styles = StyleSheet.create ({
         paddingVertical: verticalScale(20),   
         borderRadius: moderateScale(10),      
         alignItems: 'center',
+    },
+
+    vibeButton: {
+      width: '90%',
+      backgroundColor: 'white',
+      paddingVertical: verticalScale(20),   
+      borderRadius: moderateScale(10),      
+      alignItems: 'center',
     },
 
     bottomContainer: {
@@ -205,60 +176,5 @@ const styles = StyleSheet.create ({
       width: '100%',
       height: '100%',
       borderRadius: moderateScale(12),   
-    },
-
-    budgetContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      width: '75%',
-      marginBottom: 20,
-    },
-
-    budgetOption: {
-      alignItems: 'center',
-    },
-
-    budgetText: {
-      fontSize: moderateScale(18),   
-      color: '#9d9d9d',
-      fontWeight: '600',
-    },
-
-    selectedBudget: {
-      color: '#ff8820',
-    },
-
-    dot: {
-      width: 20,
-      height: 20,
-      borderRadius: moderateScale(10),   
-      backgroundColor: '#ff8820',
-      position: 'absolute',
-      top: -7,
-    },
-
-    budgetBar: {
-      width: '90%',
-      alignSelf: 'center',
-      height: 6,
-      backgroundColor: '#e0e0e0',
-      borderRadius: moderateScale(3),   
-      marginTop: 10,
-      marginBottom: 20,
-      position: 'relative',
-    },
-
-    budgetBarFill: {
-      height: '100%',
-      backgroundColor: '#ff8820',
-      borderRadius: moderateScale(3),   
-    },
-
-    budgetLabels: {
-      width: '90%',
-      alignSelf: 'center',
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      marginTop: 10,
     },
 });
