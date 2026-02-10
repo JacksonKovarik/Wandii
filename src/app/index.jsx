@@ -10,8 +10,8 @@ export default function Index() {
         alignItems: "center",
       }}
     >
-      <Image source={require("../../assets/images/placeholderWelcome.png")} style={styles.image}/>
-      <Text>Welcome Screen</Text>
+      <Image source={require("../../assets/images/Logo.png")} style={styles.image}/>
+      <Text style={styles.text}>Wandii</Text>
       <GetStartedButton></GetStartedButton>
     </View>
   );
@@ -20,8 +20,11 @@ export default function Index() {
 const styles = StyleSheet.create({
   image:
     {
-      width: 300,
-      height: 200,
       margin: 20
+    },
+
+  text:
+    {
+      fontSize: 30
     }
 });
