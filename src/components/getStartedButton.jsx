@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Pressable, Text, StyleSheet } from 'react-native';
-import { Colors } from "../constants/colors"
-import { getIsLoggedIn } from "../lib/auth";
+import { Colors } from "@/src/constants/colors"
+import { getIsLoggedIn } from "@/src/utils/auth";
 
 export default function GetStartedButton() {
   const router = useRouter();

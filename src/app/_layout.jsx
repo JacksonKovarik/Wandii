@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
-import { getIsLoggedIn } from "../lib/auth";
+import { getIsLoggedIn } from "@/src/utils/auth";
 
 const isLoggedIn = getIsLoggedIn(); // Replace with actual authentication logic
 
