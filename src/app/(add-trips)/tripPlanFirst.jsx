@@ -73,7 +73,7 @@ if (tempStart && tempEnd) {
             style={ styles.inputText }
             multiline={ false }
             numberOfLines={ 1 }
-            maxLength={ 45 }
+            maxLength={ 40 }
           />
          </View>
 
