@@ -7,6 +7,7 @@ import { moderateScale, verticalScale } from "react-native-size-matters";
 
 export default function TripPlanFirst() {
 const [tripName, setTripName] = useState('');
+const [destination, setDestination] = useState('');
 const [startDate, setStartDate] = useState(null);
 const [endDate, setEndDate] = useState(null);
 const [calendarVisible, setCalendarVisible] = useState(false);
@@ -65,8 +66,8 @@ if (tempStart && tempEnd) {
         <Text style={ styles.label }>Destination</Text>
           <View style={ styles.inputBar }>
           <TextInput
-            value={ tripName }
-            onChangeText={ setTripName }
+            value={ destination }
+            onChangeText={ setDestination }
             placeholder='e.g. Kyoto, Japan'
             placeholderTextColor= '#9d9d9d'
             style={ styles.inputText }
