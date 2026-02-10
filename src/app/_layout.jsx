@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
+import { getIsLoggedIn } from "../lib/auth";
 
-const isLoggedIn = true; // Replace with actual authentication logic
+const isLoggedIn = getIsLoggedIn(); // Replace with actual authentication logic
 
 export default function RootLayout() {
   return (
