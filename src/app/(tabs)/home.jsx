@@ -1,16 +1,16 @@
 import { Text, View } from "react-native";
+import PlanNewTripCard from "@/src/components/planNewTripCard";
 
-
-export default function Index() {
+export default function Home() {
   return (
     <View
       style={{
         flex: 1,
-        justifyContent: "center",
+        //justifyContent: "center",
         alignItems: "center",
       }}
     >
-      <Text>Home Screen</Text>
+      <PlanNewTripCard></PlanNewTripCard>
     </View>
   );
 }
