@@ -66,7 +66,7 @@ export default function TripInfoLayout() {
                 <Tabs.Screen name="(plan)" options={{ title: "Plan" }} />
                 <Tabs.Screen name="wallet" options={{ title: "Wallet" }} />
                 <Tabs.Screen name="docs" options={{ title: "Docs" }} />
-                <Tabs.Screen name="chat" options={{ title: "Chat" }} />
+                <Tabs.Screen name="memories" options={{ title: "Memories" }} />
             </Tabs>
         </View>
     );

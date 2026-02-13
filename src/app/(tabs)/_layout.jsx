@@ -7,7 +7,7 @@ export default function Layout() {
   return (
     <Tabs screenOptions={{tabBarActiveTintColor: Colors.primary, tabBarInactiveTintColor: Colors.textSecondary}}>
       <Tabs.Screen 
-        name="index" 
+        name="home" 
         options={{
           title: "Home", 
           tabBarIcon: ({ color }) => <MaterialIcons name="home" size={24} color={color} />
