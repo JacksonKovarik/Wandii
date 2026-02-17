@@ -16,5 +16,6 @@ export const Colors = {
     textSecondaryDark: '#828282',
     textSecondaryLight: '#c4c4c4',
 
+    gray: '#9D9D9D',
     lightGray: 'rgba(217,217,217,.25)',
 }
