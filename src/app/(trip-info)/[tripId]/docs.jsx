@@ -33,7 +33,7 @@ export default function Docs() {
       {/* Trip Journal Header */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: moderateScale(20) }}>
         <Text style={styles.sectionTitle}>Travel Documents</Text>
-        <TouchableOpacity style={{ flexDirection: 'row', gap: 5 }}onPress={() => console.log('New journal entry pressed')}>
+        <TouchableOpacity style={{ flexDirection: 'row', gap: 5 }}onPress={() => console.log('New doc pressed')}>
           <MaterialIcons name="upload" size={moderateScale(18)} color={Colors.primary} />
           <Text style={styles.newEntryButton}>Upload</Text>
         </TouchableOpacity>

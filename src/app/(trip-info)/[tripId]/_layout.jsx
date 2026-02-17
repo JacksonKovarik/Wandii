@@ -1,15 +1,23 @@
 import TripInfoTabBar from "@/src/components/tripInfoTabBar";
 import DateUtils from "@/src/utils/DateUtils";
 import { MaterialIcons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, useLocalSearchParams } from "expo-router";
-import { ImageBackground, StyleSheet, Text, View } from "react-native";
+import { ImageBackground, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 const LOCAL_IMAGES = {
     kyoto: require("../../../../assets/images/Kyoto.jpg"),
     // paris: require("../../../../assets/images/Paris.jpg"),
 };
+const HeaderButton = ({ icon, onPress }) => (
+    <TouchableOpacity onPress={onPress}>
+        <BlurView intensity={10} tint="default" style={{ width: 34, height: 34, borderRadius: 20, backgroundColor: 'rgba(255, 255, 255, 0.35)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+            <MaterialIcons name={icon} size={moderateScale(22)} color="white" />
+        </BlurView>
+    </TouchableOpacity>
+);
 
 const CustomHeader = ({ trip }) => (
     <View style={styles.headerContainer}>
@@ -26,6 +34,14 @@ const CustomHeader = ({ trip }) => (
                 locations={[0, 0.49, 0.78, 1]}
             />
 
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: '5%', paddingTop: moderateScale(65) }}>
+                <HeaderButton icon="arrow-back" onPress={() => console.log('back')}/>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(12) }}>
+                    <HeaderButton icon="search" onPress={() => console.log('search')} />
+                    <HeaderButton icon="settings" onPress={() => console.log('settings')} />
+                </View>
+            </View>
+            
             <View style={ styles.contentWrapper }>
                 <View style={ styles.spacer } />
                 <View style={ styles.textContainer }>
