@@ -12,7 +12,7 @@ export default function TripInfoTabBar({ tripId }) {
 
     const tabs = [
         { name: 'Overview', path: 'overview', checkSegments: ['overview'] },
-        { name: 'Plan', path: '(plan)/idea-board', checkSegments: ['idea-board', 'timeline', 'map'] },
+        { name: 'Plan', path: '(plan)/idea-board', checkSegments: ['idea-board', 'timeline', 'map', 'stays'] },
         { name: 'Wallet', path: 'wallet', checkSegments: ['wallet'] },
         { name: 'Docs', path: 'docs', checkSegments: ['docs'] },
         { name: 'Memories', path: 'memories', checkSegments: ['memories'] },

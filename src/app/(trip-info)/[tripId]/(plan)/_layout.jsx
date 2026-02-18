@@ -11,6 +11,7 @@ export default function PlanLayout() {
         <Tabs.Screen name="idea-board" options={{ title: "Idea Board" }} />
         <Tabs.Screen name="timeline" options={{ title: "Timeline" }} />
         <Tabs.Screen name="map" options={{ title: "Map" }} />
+        <Tabs.Screen name="stays" options={{ title: "Stays" }} />
     </Tabs>
   );
 }

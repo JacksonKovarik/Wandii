@@ -4,20 +4,21 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 import { Colors } from "../constants/colors";
 
-export default function ReusableTabBar({ tabs, extraBgStyle, extraTextStyle }) {
+export default function ReusableTabBar({ tabs, extraBgStyles, extraTabStyles }) {
     const route = useRoute();
     const router = useRouter();
 
     const isActive = (tabName) => route.name === tabName;
 
     return (
-        <View style={[styles.container, extraBgStyle]}>
+        <View style={[styles.container, extraBgStyles]}>
             {tabs.map((tab) => (
                 <TouchableOpacity
                     key={tab.route}
                     onPress={() => router.navigate(tab.route)}
                     style={[
                         styles.tab,
+                        extraTabStyles,
                         isActive(tab.name) ? styles.tabActive : styles.tabInactive,
                     ]}
                 >
@@ -25,8 +26,8 @@ export default function ReusableTabBar({ tabs, extraBgStyle, extraTextStyle }) {
                         style={[
                             styles.tabText,
                             isActive(tab.name) ? styles.tabTextActive : styles.tabTextInactive,
-                            extraTextStyle,
                         ]}
+                        numberOfLines={1}
                     >
                         {tab.label}
                     </Text>
@@ -39,15 +40,15 @@ export default function ReusableTabBar({ tabs, extraBgStyle, extraTextStyle }) {
 const styles = StyleSheet.create({
     container: {
         display: 'flex',
-        width: '90%',
         flexDirection: "row",
         marginTop: moderateScale(10),
         padding: moderateScale(5),
-        borderRadius: moderateScale(5),
+        borderRadius: moderateScale(10),
         backgroundColor: '#E0E0E0',
+        gap: moderateScale(10),
+        maxWidth: '90%'
     },
     tab: {
-        flex: 1,
         paddingHorizontal: moderateScale(4),
         paddingVertical: moderateScale(8),
         borderRadius: moderateScale(5),
@@ -61,7 +62,7 @@ const styles = StyleSheet.create({
     },
     tabText: {
         fontWeight: 'bold',
-        fontSize: moderateScale(16),
+        fontSize: moderateScale(14),
     },
     tabTextActive: {
         color: "black",

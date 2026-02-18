@@ -13,10 +13,9 @@ export default function IdeaBoard() {
             tabs={[
               { label: "Idea Board", name: "idea-board", route: `/(trip-info)/${tripId}/(plan)/idea-board` },
               { label: "Timeline", name: "timeline", route: `/(trip-info)/${tripId}/(plan)/timeline` },
-              { label: "Map", name: "map", route: `/(trip-info)/${tripId}/(plan)/map` }
+              { label: "Map", name: "map", route: `/(trip-info)/${tripId}/(plan)/map` },
+              { label: "Stays", name: "stays", route: `/(trip-info)/${tripId}/(plan)/stays` },
             ]}
-            extraBgStyle={{ backgroundColor: '#E0E0E0', width: '75%'}}
-            extraTextStyle={{ fontSize: 14 }}
           />
         </View>
       </View>

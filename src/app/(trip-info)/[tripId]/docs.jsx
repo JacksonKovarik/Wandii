@@ -9,8 +9,8 @@ const DocumentCard = ({ title, size }) => {
   const fileType = lastDotIndex !== -1 ? title.substring(lastDotIndex + 1) : '';
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: moderateScale(15), borderRadius: moderateScale(10), marginBottom: moderateScale(15), gap: moderateScale(15) }}>
-      <View style={{ width: 60, height: 60, borderRadius: 10, backgroundColor: Colors.lightGray }} />
+    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: moderateScale(10), borderRadius: moderateScale(10), marginBottom: moderateScale(15), gap: moderateScale(15) }}>
+      <View style={{ width: 70, height: 70, borderRadius: 10, backgroundColor: Colors.lightGray }} />
       <View>
         <Text style={{ fontSize: moderateScale(14), fontWeight: '700', color: Colors.darkBlue }}>{name}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: moderateScale(5) }}>

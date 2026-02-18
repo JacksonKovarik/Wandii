@@ -15,34 +15,53 @@ export default function Timeline() {
         setSelectedDate(dateObj);
     };
 
-    const timelineData = [
-      {
-          id: '1',
-          time: '9:00 AM',
-          title: 'Meiji Shrine',
-          category: 'Culture',
-          type: 'event',
-      },
-      {
-          id: '2',
-          time: '12:30 PM',
-          title: 'Ichiran Ramen',
-          category: 'Lunch Reservation',
-          type: 'event',
-      },
-      {
-          id: '3',
-          title: '3 hour time gap',
-          type: 'gap', // Special type for the grey gap
-      },
-      {
-          id: '4',
-          time: '4:30 PM',
-          title: 'Tokyo Skytree',
-          category: 'Culture',
-          type: 'event',
-      },
-    ];
+    const timelineData = {
+      '2023-10-12': [
+        { id: '1', time: '9:00 AM', title: 'Meiji Shrine', category: 'Culture', type: 'event' },
+        { id: '2', time: '12:30 PM', title: 'Ichiran Ramen', category: 'Lunch Reservation', type: 'event' },
+        { id: '3', title: '3 hour time gap', type: 'gap' },
+        { id: '4', time: '4:30 PM', title: 'Tokyo Skytree', category: 'Sightseeing', type: 'event' },
+      ],
+      '2023-10-13': [
+        { id: '5', time: '10:00 AM', title: 'Ghibli Museum', category: 'Museum', type: 'event' },
+        { id: '6', title: '2 hour time gap', type: 'gap' },
+        { id: '7', time: '1:00 PM', title: 'Shibuya Crossing', category: 'Sightseeing', type: 'event' },
+        { id: '8', time: '3:00 PM', title: 'Hachiko Statue', category: 'Landmark', type: 'event' },
+        { id: '9', time: '7:00 PM', title: 'Dinner in Shinjuku', category: 'Food', type: 'event' },
+      ],
+      '2023-10-14': [
+        { id: '10', time: '11:00 AM', title: 'Ueno Park & Zoo', category: 'Leisure', type: 'event' },
+        { id: '11', time: '2:00 PM', title: 'Tokyo National Museum', category: 'Museum', type: 'event' },
+        { id: '12', title: '4 hour time gap', type: 'gap' },
+        { id: '13', time: '7:30 PM', title: 'Robot Restaurant Show', category: 'Entertainment', type: 'event' },
+      ],
+      '2023-10-15': [], // A day with no events
+      '2023-10-16': [
+        { id: '14', time: '9:30 AM', title: 'Day trip to Hakone', category: 'Excursion', type: 'event' },
+        { id: '15', time: '12:00 PM', title: 'Lake Ashi Cruise', category: 'Activity', type: 'event' },
+        { id: '16', time: '3:00 PM', title: 'Hakone Ropeway', category: 'Sightseeing', type: 'event' },
+      ],
+      '2023-10-17': [
+        { id: '17', time: '10:00 AM', title: 'Akihabara Electric Town', category: 'Shopping', type: 'event' },
+        { id: '18', time: '1:00 PM', title: 'Maid Cafe Experience', category: 'Food & Culture', type: 'event' },
+      ],
+      '2023-10-18': [
+        { id: '19', time: 'All Day', title: 'Free Day / Shopping', category: 'Leisure', type: 'event' },
+      ],
+      '2023-10-19': [
+        { id: '20', time: '8:00 AM', title: 'Tsukiji Outer Market', category: 'Food', type: 'event' },
+        { id: '21', title: '2 hour time gap', type: 'gap' },
+        { id: '22', time: '11:00 AM', title: 'Imperial Palace East Garden', category: 'History', type: 'event' },
+      ],
+    };
+
+    const getSelectedDateData = () => {
+      if (!selectedDate) return [];
+      const dateString = DateUtils.formatDateToYYYYMMDD(selectedDate);
+      return timelineData[dateString] || [];
+    };
+
+    const currentDayData = getSelectedDateData();
 
     const DateBadge = ({ date }) => {
         const dateObj = DateUtils.parseYYYYMMDDToDate(date);
@@ -75,7 +94,7 @@ export default function Timeline() {
     };
 
     const TimelineList = ({ item, index }) => {
-        const isLast = index === timelineData.length - 1;
+        const isLast = index === currentDayData.length - 1;
         return (
             <View style={styles.itemContainer}>
                 {/* Left Side: Timeline Track */}
@@ -136,9 +155,8 @@ export default function Timeline() {
                           { label: "Idea Board", name: "idea-board", route: `/(trip-info)/${tripId}/(plan)/idea-board` },
                           { label: "Timeline", name: "timeline", route: `/(trip-info)/${tripId}/(plan)/timeline` },
                           { label: "Map", name: "map", route: `/(trip-info)/${tripId}/(plan)/map` },
+                          { label: "Stays", name: "stays", route: `/(trip-info)/${tripId}/(plan)/stays` },
                         ]}
-                        extraBgStyle={styles.reusableTabBarBg}
-                        extraTextStyle={styles.reusableTabBarText}
                     />
                 </View>
             </View>
@@ -173,10 +191,10 @@ export default function Timeline() {
                   
                   <View style={styles.headerContainer}>
                       <Text style={styles.headerDate}>{selectedDate ? selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null}</Text>
-                      <Text style={styles.headerSubtitle}>{timelineData.length} Events Scheduled</Text>
+                      <Text style={styles.headerSubtitle}>{currentDayData.filter(i => i.type === 'event').length} Events Scheduled</Text>
                   </View>
               </View>
-              { timelineData.map((item, index) => (
+              { currentDayData.map((item, index) => (
                   <TimelineList key={item.id} item={item} index={index} />
               )) }
             </View>
@@ -208,6 +226,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: '5%',
     marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   dateScroller: {
     backgroundColor: 'white',
