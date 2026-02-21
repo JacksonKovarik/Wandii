@@ -1,45 +1,15 @@
 import { Colors } from "@/src/constants/colors";
+import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Dimensions, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 export default function Memories() {
-
+  const { memories = [] } = useTrip();
   const { width: screenWidth } = Dimensions.get('window');
   const cardWidth = screenWidth * 0.9;
   const cardSpacing = (screenWidth - cardWidth) / 2;
-
-
-  const journalEntries = [
-    {
-      id: 1,
-      day: 1,
-      title: 'Day 1 - Arrived in Kyoto!',
-      description: 'The flight was long but we finally made it. The weather is perfect. Checked into the Airbnb in Shinjuku and immediately went for Ramen.',
-      date: 'Oct 12, 2023',
-      time: '2:45 PM',
-      images: [1, 2, 3],
-    },
-    {
-      id: 2,
-      day: 2,
-      title: 'Day 2 - Explored Arashiyama',
-      description: 'Visited the bamboo forest and Tenryu-ji Temple. The scenery was breathtaking and the weather was perfect for a day of sightseeing.',
-      date: 'Oct 13, 2023',
-      time: '5:30 PM',
-      images: [4, 5],
-    },
-    {
-      id: 3,
-      day: 3,
-      title: 'Day 3 - Foodie Adventures',
-      description: 'Tried so many delicious foods today! From sushi to matcha desserts, every meal was a new adventure. Can\'t wait to see what tomorrow brings!',
-      date: 'Oct 14, 2023',
-      time: '8:15 PM',
-      images: [6],
-    },
-  ];  
 
   const JournalCard = (props) => {
     return (
@@ -116,7 +86,7 @@ export default function Memories() {
       </View>
 
       <FlatList
-        data={journalEntries}
+        data={memories}
         renderItem={({ item }) => <JournalCard {...item} />}
         keyExtractor={item => item.id.toString()}
         horizontal

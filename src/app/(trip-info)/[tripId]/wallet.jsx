@@ -2,10 +2,8 @@ import ProgressBar from "@/src/components/progressBar";
 import { Colors } from '@/src/constants/colors';
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { Checkbox } from 'expo-checkbox';
-import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   Modal,
   ScrollView,
@@ -17,64 +15,22 @@ import {
 } from 'react-native';
 import { moderateScale } from 'react-native-size-matters';
 
-// --- Mock Data & API ---
-// In a real app, this data would come from your backend API.
-const MOCK_TRIP_DATA = {
-  'default-trip': {
-    groupBalances: [
-      { id: 1, name: 'Hunter', balance: 45.00, avatar: 'https://i.pravatar.cc/150?u=hunter' },
-      { id: 2, name: 'Ashley', balance: 75.00, avatar: 'https://i.pravatar.cc/150?u=ashley' },
-      { id: 3, name: 'Sarah', balance: -24.50, avatar: 'https://i.pravatar.cc/150?u=sarah' },
-    ],
-    transactions: [
-      { id: 1, title: 'Sushi Dinner', payer: 'You', split: 'Split equally', amount: 128.50, icon: 'food-fork-drink' },
-      { id: 2, title: 'Uber to Hotel', payer: 'Hunter', split: 'Split equally', amount: 24.50, icon: 'car' },
-    ],
-    budgetData: { totalSpent: 1240.50, totalBudget: 3200.00 },
-  },
-  // Add more trip data here keyed by tripId
-};
+import { useTrip } from "@/src/utils/TripContext";
 
-// This function simulates fetching data for a specific trip.
-const fetchTripData = async (tripId) => {
-  console.log(`Fetching data for trip: ${tripId}`);
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  return MOCK_TRIP_DATA[tripId] || MOCK_TRIP_DATA['default-trip'];
-};
-// --- End Mock Data & API ---
+export default function WalletScreen() {
+  const tripDate = useTrip();  
 
-export default function WalletScreenRedesign() {
-  const { tripId } = useLocalSearchParams(); // 1. Get tripId from the route
-  const [isLoading, setIsLoading] = useState(true);
-  const [tripData, setTripData] = useState(null);
+  const { 
+    groupBalances = [], 
+    transactions = [], 
+    budgetData = { totalSpent: 0, totalBudget: 0 } 
+  } = tripDate;
+
   const [modalVisible, setModalVisible] = useState(false);
   const [isSplitEqually, setIsSplitEqually] = useState(true);
   const [selectedMembers, setSelectedMembers] = useState({});
   const [selectedCategory, setSelectedCategory] = useState(null);
-  // 2. Fetch data when the component mounts or tripId changes
-  useEffect(() => {
-    if (tripId) {
-      setIsLoading(true);
-      fetchTripData(tripId).then(data => {
-        setTripData(data);
-        setIsLoading(false);
-      });
-    }
-  }, [tripId]);
 
-  // 3. Show a loading indicator while fetching
-  if (isLoading || !tripData) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
-
-  
-  // Destructure data for use in the component
-  const { groupBalances, transactions, budgetData } = tripData;
   const percentSpent = Math.floor(budgetData.totalSpent / budgetData.totalBudget * 100);
 
   // Calculate net balance from the group balances

@@ -1,9 +1,10 @@
 import { Colors } from "@/src/constants/colors";
+import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
-const DocumentCard = ({ title, size }) => {
+const DocumentCard = ({ title, size, date }) => {
   const lastDotIndex = title.lastIndexOf('.');
   const name = lastDotIndex !== -1 ? title.substring(0, lastDotIndex) : title;
   const fileType = lastDotIndex !== -1 ? title.substring(lastDotIndex + 1) : '';
@@ -16,7 +17,9 @@ const DocumentCard = ({ title, size }) => {
         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: moderateScale(5) }}>
           <Text style={{ fontSize: moderateScale(12), color: Colors.gray }}>{fileType.toUpperCase()} </Text>
           <Text style={{ fontSize: moderateScale(16), color: Colors.gray, marginTop: moderateScale(-1), fontWeight: '700'}}>•</Text>
-          <Text style={{ fontSize: moderateScale(12), color: Colors.gray }}> {size}</Text>
+          <Text style={{ fontSize: moderateScale(12), color: Colors.gray }}> {size} </Text>
+          <Text style={{ fontSize: moderateScale(16), color: Colors.gray, marginTop: moderateScale(-1), fontWeight: '700'}}>•</Text>
+          <Text style={{ fontSize: moderateScale(12), color: Colors.gray }}> {date}</Text>
         </View>
       </View>
       <TouchableOpacity onPress={() => console.log(`Download ${title} pressed`)} style={{ padding: moderateScale(5), marginLeft: 'auto', marginRight: moderateScale(5) }}>
@@ -27,6 +30,7 @@ const DocumentCard = ({ title, size }) => {
 };
 
 export default function Docs() {
+  const { documents = [] } = useTrip();
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -39,10 +43,9 @@ export default function Docs() {
         </TouchableOpacity>
         
       </View>
-      <DocumentCard title="Passport.pdf" date="2024-06-01" size="2.5 MB" />
-      <DocumentCard title="Visa.pdf" date="2024-06-02" size="1.8 MB" />
-      <DocumentCard title="Flight Tickets.pdf" date="2024-06-03" size="0.9 MB" />
-      <DocumentCard title="Insurance.pdf" date="2024-06-04" size="3.1 MB" />
+      {documents.map((doc) => (
+        <DocumentCard key={doc.id} title={doc.title} date={doc.date} size={doc.size} />
+      ))}
 
       {/* This TouchableOpacity replaces the View to make it interactive */}
       <TouchableOpacity style={styles.uploadContainer} onPress={() => console.log('Upload area tapped')}>

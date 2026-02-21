@@ -1,44 +1,21 @@
 import ReusableTabBar from "@/src/components/reusableTabBar";
 import { Colors } from "@/src/constants/colors";
 import { openAddressInMaps } from "@/src/utils/LinkingUtils";
+import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import * as Clipboard from 'expo-clipboard';
-import { useLocalSearchParams } from "expo-router";
 import { ImageBackground, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 export default function Stays() {
-  const tripId = useLocalSearchParams();
+  const tripData = useTrip();
+  const { staysData = []} = tripData
   
   const copyToClipboard = async ({ textToCopy }) => {
     await Clipboard.setStringAsync(textToCopy);
     alert('Text copied to clipboard!');
   };
-
-  const staysData = [
-    {
-      id: '1',
-      name: 'Ryokan Yamazaki',
-      address: '11-1 Hirano Miyamotocho, Kita Ward, Kyoto',
-      checkIn: '10/20 2:00 PM',
-      checkOut: '10/24 12:00 PM',
-    },
-    {
-      id: '2',
-      name: 'Park Hyatt Tokyo',
-      address: '3-7-1-2 Nishi-Shinjuku, Shinjuku-Ku, Tokyo',
-      checkIn: '10/24 3:00 PM',
-      checkOut: '10/28 11:00 AM',
-    },
-    {
-      id: '3',
-      name: 'Capsule Hotel Anshin Oyado',
-      address: '4-2-10 Shinjuku, Shinjuku-ku, Tokyo',
-      checkIn: '10/28 4:00 PM',
-      checkOut: '10/29 10:00 AM',
-    },
-  ];
 
   const StayCard = ({ stay }) => {
     return (
@@ -107,10 +84,10 @@ export default function Stays() {
         <View style={{ width: '100%', alignItems: 'center' }}>
           <ReusableTabBar 
             tabs={[
-                { label: "Idea Board", name: "idea-board", route: `/(trip-info)/${tripId}/(plan)/idea-board` },
-                { label: "Timeline", name: "timeline", route: `/(trip-info)/${tripId}/(plan)/timeline` },
-                { label: "Map", name: "map", route: `/(trip-info)/${tripId}/(plan)/map` },
-                { label: "Stays", name: "stays", route: `/(trip-info)/${tripId}/(plan)/stays` },
+                { label: "Idea Board", name: "idea-board", route: `/(trip-info)/${tripData.id}/(plan)/idea-board` },
+                { label: "Timeline", name: "timeline", route: `/(trip-info)/${tripData.id}/(plan)/timeline` },
+                { label: "Map", name: "map", route: `/(trip-info)/${tripData.id}/(plan)/map` },
+                { label: "Stays", name: "stays", route: `/(trip-info)/${tripData.id}/(plan)/stays` },
             ]}
             extraBgStyle={{ backgroundColor: '#E0E0E0'}}
           />

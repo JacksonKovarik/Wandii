@@ -1,76 +1,18 @@
 import ProgressBar from "@/src/components/progressBar";
 import { Colors } from "@/src/constants/colors";
-import { useLocalSearchParams } from "expo-router";
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 import InAppNotification from "@/src/components/inAppNotification";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from 'expo-blur';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 
-// --- Mock Data & API ---
-// This simulates fetching overview data for a specific trip from a backend.
-const MOCK_OVERVIEW_DATA = {
-  'trip-123': {
-    takeoffDays: 12,
-    weather: { temp: 72, location: 'Tokyo, JP', icon: 'wb-sunny' },
-    readinessPercent: 60,
-    notifications: [
-      { id: 1, title: "2 Decisions Pending", description: "Welcome Dinner, Museum Day", icon: "mail", color: Colors.primary, lightColor: Colors.primaryLight, onPress: () => console.log("Decisions pressed") },
-      { id: 2, title: "Settle Debts", description: "You owe Hunter $45", icon: "payments", color: Colors.danger, lightColor: Colors.dangerLight, onPress: () => console.log("Settle Debts pressed") },
-    ],
-    group: [
-      { id: 1, name: "Alice B.", initials: "AB", profileColor: '#1E90FF', profilePic: null, active: false },
-      { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', profilePic: null, active: true },
-      { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', profilePic: null, active: true },
-    ],
-  },
-  'trip-456': {
-    takeoffDays: 3,
-    weather: { temp: 85, location: 'Bali, ID', icon: 'wb-sunny' },
-    readinessPercent: 90,
-    notifications: [
-      { id: 1, title: "Flight Reminder", description: "Your flight leaves in 3 days", icon: "flight", color: Colors.primary, lightColor: Colors.primaryLight, onPress: () => console.log("Flight reminder pressed") },
-    ],
-    group: [
-      { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', profilePic: null, active: true },
-      { id: 4, name: "John D.", initials: "JD", profileColor: '#FF6347', profilePic: null, active: true },
-    ],
-  },
-};
-
-const fetchOverviewData = async (tripId) => {
-  console.log(`Fetching overview data for trip: ${tripId}`);
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
-  return MOCK_OVERVIEW_DATA[tripId] || MOCK_OVERVIEW_DATA['trip-123']; // Fallback to default
-};
-// --- End Mock Data & API ---
+import { useTrip } from "@/src/utils/TripContext";
 
 export default function Overview() {
-  const { tripId } = useLocalSearchParams();
-  const [isLoading, setIsLoading] = useState(true);
-  const [overviewData, setOverviewData] = useState(null);
-
-  useEffect(() => {
-    if (tripId) {
-      setIsLoading(true);
-      fetchOverviewData(tripId).then(data => {
-        setOverviewData(data);
-        setIsLoading(false);
-      });
-    }
-  }, [tripId]);
-
-  if (isLoading || !overviewData) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
-    );
-  }
-
-  const { takeoffDays, weather, readinessPercent, notifications, group } = overviewData;
+  const tripData = useTrip();
+  const { takeoffDays, weather, readinessPercent, notifications, group } = tripData;
 
   return (
     <ScrollView style={styles.container}>
