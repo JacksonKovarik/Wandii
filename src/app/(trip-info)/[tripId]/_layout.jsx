@@ -54,8 +54,7 @@ const MOCK_TRIP_DATA = {
             '2023-10-12': [
                 { id: '1', time: '9:00 AM', title: 'Meiji Shrine', category: 'Culture', type: 'event' },
                 { id: '2', time: '12:30 PM', title: 'Ichiran Ramen', category: 'Lunch Reservation', type: 'event' },
-                { id: '3', title: '3 hour time gap', type: 'gap' },
-                { id: '4', time: '4:30 PM', title: 'Tokyo Skytree', category: 'Sightseeing', type: 'event' },
+                { id: '3', time: '4:30 PM', title: 'Tokyo Skytree', category: 'Sightseeing', type: 'event' },
             ],
             '2023-10-13': [
                 { id: '5', time: '10:00 AM', title: 'Shinjuku Gyoen National Garden', category: 'Nature', type: 'event' },
@@ -169,6 +168,11 @@ export default function TripInfoLayout() {
     const [tripData, setTripData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    const [unassignedIdeas, setUnassignedIdeas] = useState([
+        { id: 'v1', title: 'Senso-ji Temple', category: 'Culture' },
+        { id: 'v2', title: 'Robot Café', category: 'Fun' }
+    ]);
+
     useEffect(() => {
         if (tripId) {
             setIsLoading(true);
@@ -179,6 +183,35 @@ export default function TripInfoLayout() {
         }
     }, [tripId]);
 
+    const addEventToBucket = (date, event) => {
+        setTripData(prev => ({
+            ...prev,
+            timelineData: {
+                ...prev.timelineData,
+                [date]: [...(prev.timelineData[date] || []), { ...event, id: Date.now().toString(), type: 'event', time: 'TBD' }]
+            }
+        }));
+        setUnassignedIdeas(prev => prev.filter(item => item.id !== event.id));
+    };
+
+    const updateDayEvents = (date, newlyOrderedData) => {
+        setTripData(prev => ({
+            ...prev,
+            timelineData: {
+                ...prev.timelineData,
+                [date]: newlyOrderedData
+            }
+        }));
+    };
+
+    const contextValue = {
+        ...tripData,      // All your destination, dates, and timelineData
+        unassignedIdeas,       // The draggable cards array
+        addEventToBucket,    // The drop function
+        updateDayEvents   // The reorder function
+
+    };
+
     if (isLoading || !tripData) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
@@ -188,7 +221,7 @@ export default function TripInfoLayout() {
     }
 
     return (
-        <TripContext.Provider value={tripData}>
+        <TripContext.Provider value={contextValue}>
             <View style={{ flex: 1 }}>
                 <CustomHeader trip={tripData} />
                 <Tabs 
