@@ -2,6 +2,7 @@ import AddTripButton from "@/src/components/addTripButton";
 import ReusableTabBar from "@/src/components/reusableTabBar";
 import { Tabs } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
+import { moderateScale } from "react-native-size-matters";
 
 const customHeader = () => (
     <View style={styles.container}>
@@ -41,21 +42,31 @@ const styles = StyleSheet.create({
     container: {
         backgroundColor: 'white',
         padding: 10,
+        shadowColor: "#9D9D9D",
+        borderBottomLeftRadius: moderateScale(20),   
+        borderBottomRightRadius: moderateScale(20),  
+        shadowOpacity: .4,
+        shadowRadius: .8,
+        shadowOffset: {width: 0, height: 2},
     },
+
     headerContent: {
         marginTop: 60,
         marginBottom: 10,
     },
+
     titleRow: {
         flexDirection: 'row',
         marginHorizontal: '5%',
         alignItems: 'flex-end',
     },
+
     title: {
-        fontSize: 34,
+        fontSize: moderateScale(34),   
         fontWeight: 'bold',
         marginBottom: 5,
     },
+
     tabBarContainer: {
         width: '100%',
         alignItems: 'center',

@@ -66,6 +66,22 @@ const DateUtils = {
         return `${month1} ${day1} - ${month2} ${day2}, ${year2}`;
         }
     },  
+
+    formatDate(input) {
+        if (!input) return null;
+        const date = typeof input === 'string' ? new Date(input) : input;
+
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const yy = String(date.getFullYear()).slice(-2);
+
+        return `${mm}/${dd}/${yy}`;
+    },
+
+    formatDateRange(start, end) {
+        if (!start || ! end) return "Select Dates";
+        return `${this.formatDate(start)} - ${this.formatDate(end)}`;
+    },
 };
 
 export default DateUtils;
