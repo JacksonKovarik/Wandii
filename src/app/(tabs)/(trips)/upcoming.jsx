@@ -1,4 +1,5 @@
 import AddTripButton from "@/src/components/addTripButton";
+import { Link } from "expo-router";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { moderateScale, verticalScale } from "react-native-size-matters";
 
@@ -14,6 +15,9 @@ export default function Upcoming() {
           centered={true}
         />
       </View>
+
+      <Link href="/(trip-info)/1">Go To Trip Info</Link>
+
     </ScrollView>
   );
 }
