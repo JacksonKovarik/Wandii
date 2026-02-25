@@ -16,7 +16,7 @@ export default function Upcoming() {
         />
       </View>
 
-      <Link href="/(trip-info)/1">Go To Trip Info</Link>
+      <Link href="/(trip-info)/1/overview">Go To Trip Info</Link>
 
     </ScrollView>
   );
