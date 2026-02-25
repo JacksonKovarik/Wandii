@@ -1,7 +1,10 @@
 import { Colors } from "@/src/constants/colors";
 import { useTrip } from "@/src/utils/TripContext";
+import { pickImage } from "@/src/utils/UploadImage";
 import { MaterialIcons } from "@expo/vector-icons";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import * as DocumentPicker from 'expo-document-picker';
+import { useRef, useState } from "react";
+import { Animated, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 const DocumentCard = ({ title, size, date }) => {
@@ -31,45 +34,107 @@ const DocumentCard = ({ title, size, date }) => {
 
 export default function Docs() {
   const { documents = [] } = useTrip();
+  const [modalVisible, setModalVisible] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(300)).current; // 300 pushes it off-screen initially
+
+  const openModal = () => {
+    setModalVisible(true);
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true })
+    ]).start();
+  };
+
+  const closeModal = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 300, duration: 250, useNativeDriver: true })
+    ]).start(() => {
+      setModalVisible(false); // Hide the modal only AFTER animations finish
+    });
+  };
+
+  const pickDocument = async () => {
+    let result = await DocumentPicker.getDocumentAsync({});
+    console.log(result);
+    if (!result.canceled) {
+      console.log(result.assets[0].uri)
+      return result.assets[0].uri;
+    }
+    return null;
+  }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-      {/* Trip Journal Header */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: moderateScale(20) }}>
-        <Text style={styles.sectionTitle}>Travel Documents</Text>
-        <TouchableOpacity style={{ flexDirection: 'row', gap: 5 }}onPress={() => console.log('New doc pressed')}>
-          <MaterialIcons name="upload" size={moderateScale(18)} color={Colors.primary} />
-          <Text style={styles.newEntryButton}>Upload</Text>
-        </TouchableOpacity>
-        
-      </View>
-      {documents.map((doc) => (
-        <DocumentCard key={doc.id} title={doc.title} date={doc.date} size={doc.size} />
-      ))}
+    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Trip Journal Header */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: moderateScale(20) }}>
+          <Text style={styles.sectionTitle}>Travel Documents</Text>
+          <TouchableOpacity style={{ flexDirection: 'row', gap: 5 }}onPress={() => openModal()}>
+            <MaterialIcons name="upload" size={moderateScale(18)} color={Colors.primary} />
+            <Text style={styles.newEntryButton}>Upload</Text>
+          </TouchableOpacity>
+          
+        </View>
+        {documents.map((doc) => (
+          <DocumentCard key={doc.id} title={doc.title} date={doc.date} size={doc.size} />
+        ))}
 
-      {/* This TouchableOpacity replaces the View to make it interactive */}
-      <TouchableOpacity style={styles.uploadContainer} onPress={() => console.log('Upload area tapped')}>
-        {/* For more control over dash spacing, you might use a library like 'react-native-dash' here instead of the borderStyle property. */}
-        <MaterialIcons name="cloud-upload" size={moderateScale(24)} color={Colors.gray} />
-        <Text style={styles.uploadText}>Tap to upload PDF or Image</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity style={styles.uploadContainer} onPress={() => openModal()}>
+          <MaterialIcons name="cloud-upload" size={moderateScale(24)} color={Colors.gray} />
+          <Text style={styles.uploadText}>Tap to upload PDF or Image</Text>
+        </TouchableOpacity>
+      </ScrollView>
+      
+      {/* --- Modal --- */}
+      <Modal animationType="none" transparent={true} visible={modalVisible}>
+        <Animated.View style={ { opacity: fadeAnim, flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end', }}>
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => closeModal()} />
+        
+          <Animated.View style={[ styles.bottomSheet, { transform: [{ translateY: slideAnim }] }]}>
+            <Text style={styles.sheetTitle}>Add Document</Text>
+            
+            <TouchableOpacity style={styles.sheetButton} onPress={() => console.log('Camera')}>
+              <MaterialIcons name="photo-camera" size={24} color={Colors.primary} />
+              <Text style={styles.sheetButtonText}>Take Photo</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.sheetButton} onPress={() => pickImage()}>
+              <MaterialIcons name="photo-library" size={24} color={Colors.primary} />
+              <Text style={styles.sheetButtonText}>Choose from Gallery</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.sheetButton} onPress={() => pickDocument()}>
+              <MaterialIcons name="folder" size={24} color={Colors.primary} />
+              <Text style={styles.sheetButtonText}>Browse Files (PDF)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={closeModal} style={styles.cancelButton}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </Animated.View>
+
+        </Animated.View>
+      </Modal>
+
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-      flex: 1,
-      backgroundColor: Colors.background,
-    },
-    scrollContent: {
-      padding: '5%',
-    },
-    sectionTitle: {
-      fontSize: moderateScale(16),
-      fontWeight: '700',
-      color: Colors.darkBlue,
-    },
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  scrollContent: {
+    padding: '5%',
+  },
+  sectionTitle: {
+    fontSize: moderateScale(16),
+    fontWeight: '700',
+    color: Colors.darkBlue,
+  },
   newEntryButton: {
     fontSize: moderateScale(14),
     color: Colors.primary,
@@ -89,4 +154,47 @@ const styles = StyleSheet.create({
     color: Colors.gray,
     marginTop: moderateScale(5),
   },
+
+  // --- Modal Styles ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)', // 60% opacity for a nice dark dim
+    justifyContent: 'flex-end',
+  },
+  bottomSheet: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: moderateScale(20),
+    borderTopRightRadius: moderateScale(20),
+    padding: moderateScale(20),
+    paddingBottom: moderateScale(40), // Extra padding for safe area on newer iPhones
+  },
+  sheetTitle: {
+    fontSize: moderateScale(18),
+    fontWeight: '700',
+    color: Colors.darkBlue,
+    marginBottom: moderateScale(20),
+    textAlign: 'center',
+  },
+  sheetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: moderateScale(15),
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.lightGray,
+    gap: moderateScale(15),
+  },
+  sheetButtonText: {
+    fontSize: moderateScale(16),
+    color: Colors.darkBlue,
+  },
+  cancelButton: {
+    marginTop: moderateScale(20),
+    alignItems: 'center',
+    paddingVertical: moderateScale(10),
+  },
+  cancelButtonText: {
+    fontSize: moderateScale(16),
+    color: Colors.gray,
+    fontWeight: '600',
+  }
 });
