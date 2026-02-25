@@ -1,6 +1,6 @@
 import { Colors } from "@/src/constants/colors";
+import { MediaUtils } from "@/src/utils/MediaUtils";
 import { useTrip } from "@/src/utils/TripContext";
-import { pickImage } from "@/src/utils/UploadImage";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as DocumentPicker from 'expo-document-picker';
 import { useRef, useState } from "react";
@@ -87,7 +87,7 @@ export default function Docs() {
         </TouchableOpacity>
       </ScrollView>
       
-      {/* --- Modal --- */}
+      {/* --- Upload Modal --- */}
       <Modal animationType="none" transparent={true} visible={modalVisible}>
         <Animated.View style={ { opacity: fadeAnim, flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end', }}>
           <TouchableOpacity style={{ flex: 1 }} onPress={() => closeModal()} />
@@ -95,12 +95,12 @@ export default function Docs() {
           <Animated.View style={[ styles.bottomSheet, { transform: [{ translateY: slideAnim }] }]}>
             <Text style={styles.sheetTitle}>Add Document</Text>
             
-            <TouchableOpacity style={styles.sheetButton} onPress={() => console.log('Camera')}>
+            <TouchableOpacity style={styles.sheetButton} onPress={() => MediaUtils.takePhoto()}>
               <MaterialIcons name="photo-camera" size={24} color={Colors.primary} />
               <Text style={styles.sheetButtonText}>Take Photo</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.sheetButton} onPress={() => pickImage()}>
+            <TouchableOpacity style={styles.sheetButton} onPress={() => MediaUtils.pickImage()}>
               <MaterialIcons name="photo-library" size={24} color={Colors.primary} />
               <Text style={styles.sheetButtonText}>Choose from Gallery</Text>
             </TouchableOpacity>
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   // --- Modal Styles ---
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)', // 60% opacity for a nice dark dim
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'flex-end',
   },
   bottomSheet: {
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: moderateScale(20),
     borderTopRightRadius: moderateScale(20),
     padding: moderateScale(20),
-    paddingBottom: moderateScale(40), // Extra padding for safe area on newer iPhones
+    paddingBottom: moderateScale(40), 
   },
   sheetTitle: {
     fontSize: moderateScale(18),
