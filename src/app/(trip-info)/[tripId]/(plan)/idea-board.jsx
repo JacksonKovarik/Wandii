@@ -1,111 +1,110 @@
 import DeckSwiper from "@/src/components/DeckSwiper";
 import ProgressBar from "@/src/components/progressBar";
 import ReusableTabBar from "@/src/components/reusableTabBar";
+import TripInfoScrollView from "@/src/components/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useCallback, useState } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
+
+const VotingInProgressCard = ({ item }) => {
+  return (
+    <View 
+      style={{ 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        gap: 10, 
+        backgroundColor: '#ffffff', 
+        borderRadius: 15, 
+        padding: 12, 
+        shadowColor: "#000", 
+        shadowOffset: { width: 0, height: 2 }, 
+        shadowOpacity: 0.25, 
+        shadowRadius: 3.84, 
+        elevation: 5 
+      }}
+    >
+      {/* Swapped the gray box for the actual image */}
+      <Image 
+          source={item.image} 
+          style={{ width: 75, height: 75, borderRadius: 10 }}
+          contentFit="cover"
+          cachePolicy={"memory-disk"}
+      />
+      <View style={{ flex: 1}}>
+        {/* Swapped hardcoded text for the dynamic title */}
+        <Text style={{ fontSize: moderateScale(16), fontWeight: '700', color: Colors.darkBlue, marginBottom: moderateScale(2)}}>{item.title}</Text>
+        <Text style={{ fontSize: moderateScale(13), color: Colors.gray }}>New Idea • $$</Text>
+        <View style={{ marginTop: moderateScale(8) }}>
+          <ProgressBar width={'100%'} height={moderateScale(6)} progress={'20%'} progressColor={Colors.success} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 5, }}>
+            <Text style={{ fontSize: moderateScale(11), color: Colors.gray, fontWeight: '600' }}>1/5 Voted</Text>
+            <Text style={{ fontSize: moderateScale(11), color: Colors.gray, fontWeight: '600' }}>Waiting on group</Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const DiscoverCard = ({ item, swipeLeft, swipeRight }) => {
+  return (
+    <View style={styles.discoverCardContainer}>
+      <View style={styles.discoverCardContent}>
+        <Image 
+          source={item.image} 
+          style={{ width: '100%', height: 180 }}
+          contentFit="cover" 
+          transition={200} 
+          cachePolicy="memory-disk" 
+        />
+        <View style={{ padding: 15, justifyContent: 'center' }}>
+          
+          <Text style={{ fontSize: moderateScale(18), fontWeight: '700', color: Colors.darkBlue, marginBottom: moderateScale(5)}}>{item.title}</Text>
+          <Text style={{ fontSize: moderateScale(13), color: Colors.darkGray }}>{item.description}</Text>
+          
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 15, marginTop: moderateScale(10) }}>
+            
+            {/* 2. Attach swipeLeft to the NOPE button */}
+            <TouchableOpacity 
+              style={{ padding: 12, borderRadius: 50, backgroundColor: Colors.danger, alignItems: 'center', justifyContent: 'center' }} 
+              onPress={swipeLeft} 
+              hitSlop={5}
+            >
+              <MaterialIcons name="close" size={moderateScale(20)} color="#ffffff" />
+            </TouchableOpacity>
+
+            {/* 3. Attach swipeRight to the LIKE button */}
+            <TouchableOpacity 
+              style={{ padding: 12, borderRadius: 50, backgroundColor: Colors.success, alignItems: 'center', justifyContent: 'center' }} 
+              onPress={swipeRight} 
+              hitSlop={5}
+            >
+              <MaterialIcons name="check" size={moderateScale(20)} color="#ffffff" />
+            </TouchableOpacity>
+
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 export default function IdeaBoard() {
   const tripData = useTrip();
-  const [discoverItems, setDiscoverItems] = useState(tripData.ideaBoard);
+  const { ideaBoard = [], refreshTripData } = tripData;
+  const [discoverItems, setDiscoverItems] = useState(ideaBoard);
   const [votingItems, setVotingItems] = useState([]);
   
-  const VotingInProgressCard = ({ item }) => {
-    return (
-      <View 
-        style={{ 
-          flexDirection: 'row', 
-          alignItems: 'center', 
-          gap: 10, 
-          backgroundColor: '#ffffff', 
-          borderRadius: 15, 
-          padding: 12, 
-          shadowColor: "#000", 
-          shadowOffset: { width: 0, height: 2 }, 
-          shadowOpacity: 0.25, 
-          shadowRadius: 3.84, 
-          elevation: 5 
-        }}
-      >
-        {/* Swapped the gray box for the actual image */}
-        <Image 
-            source={item.image} 
-            style={{ width: 75, height: 75, borderRadius: 10 }}
-            contentFit="cover"
-            cachePolicy={"memory-disk"}
-        />
-        <View style={{ flex: 1}}>
-          {/* Swapped hardcoded text for the dynamic title */}
-          <Text style={{ fontSize: moderateScale(16), fontWeight: '700', color: Colors.darkBlue, marginBottom: moderateScale(2)}}>{item.title}</Text>
-          <Text style={{ fontSize: moderateScale(13), color: Colors.gray }}>New Idea • $$</Text>
-          <View style={{ marginTop: moderateScale(8) }}>
-            <ProgressBar width={'100%'} height={moderateScale(6)} progress={'20%'} progressColor={Colors.success} />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 5, }}>
-              <Text style={{ fontSize: moderateScale(11), color: Colors.gray, fontWeight: '600' }}>1/5 Voted</Text>
-              <Text style={{ fontSize: moderateScale(11), color: Colors.gray, fontWeight: '600' }}>Waiting on group</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-const DiscoverCard = ({ item, swipeLeft, swipeRight }) => {
-    return (
-      <View style={styles.discoverCardContainer}>
-        <View style={styles.discoverCardContent}>
-          <Image 
-            source={item.image} 
-            style={{ width: '100%', height: 180 }}
-            contentFit="cover" 
-            transition={200} 
-            cachePolicy="memory-disk" 
-          />
-          <View style={{ padding: 15, justifyContent: 'center' }}>
-            
-            <Text style={{ fontSize: moderateScale(18), fontWeight: '700', color: Colors.darkBlue, marginBottom: moderateScale(5)}}>{item.title}</Text>
-            <Text style={{ fontSize: moderateScale(13), color: Colors.darkGray }}>{item.description}</Text>
-            
-            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 15, marginTop: moderateScale(10) }}>
-              
-              {/* 2. Attach swipeLeft to the NOPE button */}
-              <TouchableOpacity 
-                style={{ padding: 12, borderRadius: 50, backgroundColor: Colors.danger, alignItems: 'center', justifyContent: 'center' }} 
-                onPress={swipeLeft} 
-                hitSlop={5}
-              >
-                <MaterialIcons name="close" size={moderateScale(20)} color="#ffffff" />
-              </TouchableOpacity>
-
-              {/* 3. Attach swipeRight to the LIKE button */}
-              <TouchableOpacity 
-                style={{ padding: 12, borderRadius: 50, backgroundColor: Colors.success, alignItems: 'center', justifyContent: 'center' }} 
-                onPress={swipeRight} 
-                hitSlop={5}
-              >
-                <MaterialIcons name="check" size={moderateScale(20)} color="#ffffff" />
-              </TouchableOpacity>
-
-            </View>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  // 4. Extract the new functions from the renderItem arguments
   const renderDiscoverCard = useCallback(({ item, index, swipeLeft, swipeRight }) => {
     return <DiscoverCard item={item} swipeLeft={swipeLeft} swipeRight={swipeRight} />;
   }, []);
 
-
-  
   return (
-    <ScrollView style={styles.container}>
+    <TripInfoScrollView onRefresh={refreshTripData} style={styles.container}>
       {/* Tab Bar */}
       <View style={{ padding: 10 }}>
         <View style={{ width: '100%', alignItems: 'center' }}>
@@ -145,7 +144,7 @@ const DiscoverCard = ({ item, swipeLeft, swipeRight }) => {
             )}
         </View>
       </View>
-    </ScrollView>
+    </TripInfoScrollView>
   );
 }
 

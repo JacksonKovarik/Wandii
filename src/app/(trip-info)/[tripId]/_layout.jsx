@@ -183,6 +183,11 @@ export default function TripInfoLayout() {
         }
     }, [tripId]);
 
+    const refreshTripData = async () => {
+        const freshData = await fetchTripData(tripId);
+        setTripData(freshData);
+    };
+
     const addEventToBucket = (date, event) => {
         setTripData(prev => ({
             ...prev,
@@ -204,12 +209,20 @@ export default function TripInfoLayout() {
         }));
     };
 
+    const deleteStay = (stayId) => {
+        setTripData(prev => ({
+            ...prev,
+            staysData: prev.staysData.filter(stay => stay.id !== stayId)
+        }));
+    }
+
     const contextValue = {
         ...tripData,      // All your destination, dates, and timelineData
         unassignedIdeas,       // The draggable cards array
+        refreshTripData,       // The refresh function
         addEventToBucket,    // The drop function
-        updateDayEvents   // The reorder function
-
+        updateDayEvents,   // The reorder function
+        deleteStay,
     };
 
     if (isLoading || !tripData) {

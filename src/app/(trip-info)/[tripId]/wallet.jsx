@@ -1,5 +1,7 @@
 import ProgressBar from "@/src/components/progressBar";
+import TripInfoScrollView from "@/src/components/tripInfoScrollView";
 import { Colors } from '@/src/constants/colors';
+import { useTrip } from "@/src/utils/TripContext";
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { Checkbox } from 'expo-checkbox';
 import React, { useState } from 'react';
@@ -15,7 +17,85 @@ import {
 } from 'react-native';
 import { moderateScale } from 'react-native-size-matters';
 
-import { useTrip } from "@/src/utils/TripContext";
+const BalanceCard = ({ member }) => {
+  const isOwed = member.balance > 0;
+  return (
+    <View style={styles.memberRow}>
+      <View style={styles.memberInfo}>
+        <Image source={{ uri: member.avatar }} style={styles.avatar} />
+        <View>
+          <Text style={styles.memberName}>{member.name}</Text>
+          <Text style={[styles.balanceStatus, { color: isOwed ? Colors.success : Colors.danger }]}>
+            {isOwed ? 'Owes you' : 'You owe'} ${Math.abs(member.balance).toFixed(2)}
+          </Text>
+        </View>
+      </View>
+      
+      {/* Action Button */}
+      <TouchableOpacity 
+        style={[styles.actionBtn, isOwed ? styles.btnOutline : styles.btnFilled]}
+        onPress={() => console.log(isOwed ? `Action: Remind ${member.name}` : `Action: Pay ${member.name}`)}
+      >
+        <Text style={[styles.btnText, isOwed ? { color: Colors.darkBlue } : { color: 'white' }]}>
+          {isOwed ? 'Remind' : 'Pay'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+const MemberSelecter = ({ member }) => {
+  const isSelected = !!selectedMembers[member.id];
+  return (
+    <TouchableOpacity 
+      style={{backgroundColor: isSelected ? Colors.primaryLight : Colors.lightGray, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, justifyContent: 'space-between', borderWidth: 1, borderColor: isSelected ? Colors.primary : Colors.textSecondaryLight }} 
+      onPress={() => setSelectedMembers(prev => ({ ...prev, [member.id]: !prev[member.id] }))}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} >
+        <View style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden' }}>
+          <Image source={{ uri: member.avatar }} style={{ flex: 1 }} />
+        </View>
+        
+        <Text 
+          style={{ 
+            fontSize: 16, 
+            color: isSelected ? Colors.darkBlue : Colors.textSecondary, 
+            fontWeight: '600' 
+          }}
+        >{member.name}</Text>
+      </View>
+      { isSplitEqually ? 
+        <Checkbox
+          value={isSelected}
+          onValueChange={() => setSelectedMembers(prev => ({ ...prev, [member.id]: !prev[member.id] }))}
+          color={isSelected ? Colors.primary : undefined}
+          style={{ borderWidth: 1, borderRadius: 9999}}
+        />
+        : 
+        isSelected && 
+          <TextInput
+            placeholder="Amount"
+            placeholderTextColor={Colors.textSecondaryDark}
+            keyboardType="numeric"
+            style={{ 
+              width: 80, 
+              padding: 8, 
+              fontSize: 14, 
+              fontWeight: '600', 
+              color: Colors.darkBlue,
+              backgroundColor: 'white', 
+              borderRadius: 8,
+              borderWidth: 1, 
+              borderColor: isSelected ? Colors.primary : Colors.textSecondaryLight,
+              textAlign: 'center',
+            }}
+            editable={isSelected}
+          />
+      }
+      
+    </TouchableOpacity>
+  );
+};
 
 export default function WalletScreen() {
   const tripDate = useTrip();  
@@ -23,7 +103,8 @@ export default function WalletScreen() {
   const { 
     groupBalances = [], 
     transactions = [], 
-    budgetData = { totalSpent: 0, totalBudget: 0 } 
+    budgetData = { totalSpent: 0, totalBudget: 0 },
+    refreshTripData,
   } = tripDate;
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -38,86 +119,6 @@ export default function WalletScreen() {
   const isNetPositive = netBalance >= 0;
   const formattedNetBalance = `${isNetPositive ? '+' : '-'}$${Math.abs(netBalance).toFixed(2)}`;
 
-  const BalanceCard = ({ member }) => {
-    const isOwed = member.balance > 0;
-    return (
-      <View style={styles.memberRow}>
-        <View style={styles.memberInfo}>
-          <Image source={{ uri: member.avatar }} style={styles.avatar} />
-          <View>
-            <Text style={styles.memberName}>{member.name}</Text>
-            <Text style={[styles.balanceStatus, { color: isOwed ? Colors.success : Colors.danger }]}>
-              {isOwed ? 'Owes you' : 'You owe'} ${Math.abs(member.balance).toFixed(2)}
-            </Text>
-          </View>
-        </View>
-        
-        {/* Action Button */}
-        <TouchableOpacity 
-          style={[styles.actionBtn, isOwed ? styles.btnOutline : styles.btnFilled]}
-          onPress={() => console.log(isOwed ? `Action: Remind ${member.name}` : `Action: Pay ${member.name}`)}
-        >
-          <Text style={[styles.btnText, isOwed ? { color: Colors.darkBlue } : { color: 'white' }]}>
-            {isOwed ? 'Remind' : 'Pay'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const MemberSelecter = ({ member }) => {
-    const isSelected = !!selectedMembers[member.id];
-    return (
-      <TouchableOpacity 
-        style={{backgroundColor: isSelected ? Colors.primaryLight : Colors.lightGray, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, justifyContent: 'space-between', borderWidth: 1, borderColor: isSelected ? Colors.primary : Colors.textSecondaryLight }} 
-        onPress={() => setSelectedMembers(prev => ({ ...prev, [member.id]: !prev[member.id] }))}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} >
-          <View style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden' }}>
-            <Image source={{ uri: member.avatar }} style={{ flex: 1 }} />
-          </View>
-          
-          <Text 
-            style={{ 
-              fontSize: 16, 
-              color: isSelected ? Colors.darkBlue : Colors.textSecondary, 
-              fontWeight: '600' 
-            }}
-          >{member.name}</Text>
-        </View>
-        { isSplitEqually ? 
-          <Checkbox
-            value={isSelected}
-            onValueChange={() => setSelectedMembers(prev => ({ ...prev, [member.id]: !prev[member.id] }))}
-            color={isSelected ? Colors.primary : undefined}
-            style={{ borderWidth: 1, borderRadius: 9999}}
-          />
-          : 
-          isSelected && 
-            <TextInput
-              placeholder="Amount"
-              placeholderTextColor={Colors.textSecondaryDark}
-              keyboardType="numeric"
-              style={{ 
-                width: 80, 
-                padding: 8, 
-                fontSize: 14, 
-                fontWeight: '600', 
-                color: Colors.darkBlue,
-                backgroundColor: 'white', 
-                borderRadius: 8,
-                borderWidth: 1, 
-                borderColor: isSelected ? Colors.primary : Colors.textSecondaryLight,
-                textAlign: 'center',
-              }}
-              editable={isSelected}
-            />
-        }
-        
-      </TouchableOpacity>
-    );
-  };
-
   const modalCategories = [
     { id: 1, name: 'Food' },
     { id: 2, name: 'Transport' },
@@ -127,7 +128,7 @@ export default function WalletScreen() {
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <TripInfoScrollView onRefresh={refreshTripData} style={styles.container} contentContainerStyle={styles.scrollContent}>
       
       {/* 1. Main Budget Card */}
       <View style={styles.budgetCard}>
@@ -218,6 +219,7 @@ export default function WalletScreen() {
         ))}
       </View>
       
+      {/* Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -302,7 +304,7 @@ export default function WalletScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </TripInfoScrollView>
   );
 }
 

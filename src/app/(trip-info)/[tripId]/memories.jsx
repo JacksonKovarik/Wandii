@@ -1,12 +1,13 @@
+import TripInfoScrollView from "@/src/components/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Dimensions, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Dimensions, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 export default function Memories() {
-  const { memories = [] } = useTrip();
+  const { memories = [], refreshTripData } = useTrip();
   const { width: screenWidth } = Dimensions.get('window');
   const cardWidth = screenWidth * 0.9;
   const cardSpacing = (screenWidth - cardWidth) / 2;
@@ -75,7 +76,7 @@ export default function Memories() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <TripInfoScrollView onRefresh={refreshTripData} style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       {/* Trip Journal Header */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: moderateScale(20) }}>
         <Text style={styles.sectionTitle}>Trip Journal</Text>
@@ -141,7 +142,7 @@ export default function Memories() {
         <View style={styles.albumImage} />
         <View style={styles.albumImage} />
       </TouchableOpacity>
-    </ScrollView>
+    </TripInfoScrollView>
   );
 }
 

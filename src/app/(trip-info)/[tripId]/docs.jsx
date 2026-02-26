@@ -1,10 +1,11 @@
+import TripInfoScrollView from "@/src/components/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
 import { MediaUtils } from "@/src/utils/MediaUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as DocumentPicker from 'expo-document-picker';
 import { useRef, useState } from "react";
-import { Animated, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Animated, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 const DocumentCard = ({ title, size, date }) => {
@@ -33,7 +34,7 @@ const DocumentCard = ({ title, size, date }) => {
 };
 
 export default function Docs() {
-  const { documents = [] } = useTrip();
+  const { documents = [], refreshTripData } = useTrip();
   const [modalVisible, setModalVisible] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(300)).current; // 300 pushes it off-screen initially
@@ -66,27 +67,28 @@ export default function Docs() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Trip Journal Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: moderateScale(20) }}>
-          <Text style={styles.sectionTitle}>Travel Documents</Text>
-          <TouchableOpacity style={{ flexDirection: 'row', gap: 5 }}onPress={() => openModal()}>
-            <MaterialIcons name="upload" size={moderateScale(18)} color={Colors.primary} />
-            <Text style={styles.newEntryButton}>Upload</Text>
-          </TouchableOpacity>
-          
-        </View>
-        {documents.map((doc) => (
-          <DocumentCard key={doc.id} title={doc.title} date={doc.date} size={doc.size} />
-        ))}
-
-        <TouchableOpacity style={styles.uploadContainer} onPress={() => openModal()}>
-          <MaterialIcons name="cloud-upload" size={moderateScale(24)} color={Colors.gray} />
-          <Text style={styles.uploadText}>Tap to upload PDF or Image</Text>
+    <TripInfoScrollView 
+      style={styles.container} 
+      onRefresh={refreshTripData}
+      contentContainerStyle={styles.scrollContent}
+    >
+      {/* Trip Journal Header */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: moderateScale(20) }}>
+        <Text style={styles.sectionTitle}>Travel Documents</Text>
+        <TouchableOpacity style={{ flexDirection: 'row', gap: 5 }}onPress={() => openModal()}>
+          <MaterialIcons name="upload" size={moderateScale(18)} color={Colors.primary} />
+          <Text style={styles.newEntryButton}>Upload</Text>
         </TouchableOpacity>
-      </ScrollView>
-      
+        
+      </View>
+      {documents.map((doc) => (
+        <DocumentCard key={doc.id} title={doc.title} date={doc.date} size={doc.size} />
+      ))}
+
+      <TouchableOpacity style={styles.uploadContainer} onPress={() => openModal()}>
+        <MaterialIcons name="cloud-upload" size={moderateScale(24)} color={Colors.gray} />
+        <Text style={styles.uploadText}>Tap to upload PDF or Image</Text>
+      </TouchableOpacity>      
       {/* --- Upload Modal --- */}
       <Modal animationType="none" transparent={true} visible={modalVisible}>
         <Animated.View style={ { opacity: fadeAnim, flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end', }}>
@@ -118,7 +120,7 @@ export default function Docs() {
         </Animated.View>
       </Modal>
 
-    </View>
+    </TripInfoScrollView>
   );
 }
 
@@ -126,6 +128,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+
   },
   scrollContent: {
     padding: '5%',
