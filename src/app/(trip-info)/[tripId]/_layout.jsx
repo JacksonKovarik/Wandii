@@ -11,11 +11,13 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
-// --- Global Trip Mock Data ---
+// ==========================================
+// 1. MOCK DATA & FETCHING
+// ==========================================
 const MOCK_TRIP_DATA = {
     'trip-123': {
         id: 'trip-123',
-        name: 'Japan 2026', // Added Trip Name for the header!
+        name: 'Japan 2026',
         takeoffDays: 12,
         destination: 'Kyoto, Japan',
         startDate: '2024-10-12',
@@ -32,13 +34,6 @@ const MOCK_TRIP_DATA = {
             { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', profilePic: null, active: true },
             { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', profilePic: null, active: true },
         ],
-        discoverItems: [
-            { id: '1', title: 'Omoide Yokocho', description: 'Narrow alley packed with yakitori joints. Great for evening.', image: require('../../../../assets/images/Kyoto.jpg') },
-            { id: '2', title: 'Shibuya Crossing', description: "The world's busiest intersection, an iconic Tokyo sight.", image: require('../../../../assets/images/Kyoto.jpg') },
-            { id: '3', title: 'Ghibli Museum', description: 'A whimsical museum showcasing the work of Studio Ghibli.', image: require('../../../../assets/images/Kyoto.jpg') },
-        ],
-
-        // Wallet Data
         budgetData: { totalSpent: 1240.50, totalBudget: 3200.00 },
         groupBalances: [
             { id: 1, name: 'Hunter', balance: 45.00, avatar: 'https://i.pravatar.cc/150?u=hunter' },
@@ -49,7 +44,6 @@ const MOCK_TRIP_DATA = {
             { id: 1, title: 'Sushi Dinner', payer: 'You', split: 'Split equally', amount: 128.50, icon: 'food-fork-drink' },
             { id: 2, title: 'Uber to Hotel', payer: 'Hunter', split: 'Split equally', amount: 24.50, icon: 'car' },
         ],
-
         timelineData: {
             '2023-10-12': [
                 { id: '1', time: '9:00 AM', title: 'Meiji Shrine', category: 'Culture', type: 'event' },
@@ -62,52 +56,23 @@ const MOCK_TRIP_DATA = {
             ]
         },
         staysData: [
-            {
-                id: '1',
-                name: 'Ryokan Yamazaki',
-                address: '11-1 Hirano Miyamotocho, Kita Ward, Kyoto',
-                checkIn: '10/20 2:00 PM',
-                checkOut: '10/24 12:00 PM',
-            },
-            {
-                id: '2',
-                name: 'Park Hyatt Tokyo',
-                address: '3-7-1-2 Nishi-Shinjuku, Shinjuku-Ku, Tokyo',
-                checkIn: '10/24 3:00 PM',
-                checkOut: '10/28 11:00 AM',
-            },
+            { id: '1', name: 'Ryokan Yamazaki', address: '11-1 Hirano Miyamotocho, Kita Ward, Kyoto', checkIn: '10/20 2:00 PM', checkOut: '10/24 12:00 PM' },
+            { id: '2', name: 'Park Hyatt Tokyo', address: '3-7-1-2 Nishi-Shinjuku, Shinjuku-Ku, Tokyo', checkIn: '10/24 3:00 PM', checkOut: '10/28 11:00 AM' },
         ],
-
         documents: [
             { id: '1', title: "Passport_Scan.pdf", date: "2023-06-01", size: "2.4 MB" },
             { id: '2', title: "Visa_Japan.pdf", date: "2023-06-02", size: "1.8 MB" },
             { id: '3', title: "Flight_Confirmation.pdf", date: "2023-06-03", size: "0.9 MB" },
         ],
-
         ideaBoard: [
-            { id: '1', title: 'Omoide Yokocho', description: 'Narrow alley packed with yakitori joints. Great for evening.', image: require('@/assets/images/Kyoto.jpg') },
-            { id: '2', title: 'Shibuya Crossing', description: 'The world\'s busiest intersection, an iconic Tokyo sight.', image: require('@/assets/images/Kyoto.jpg') },
-            { id: '3', title: 'Ghibli Museum', description: 'A whimsical museum showcasing the work of Studio Ghibli.', image: require('@/assets/images/Kyoto.jpg') },
+            { id: '1', title: 'Omoide Yokocho', description: 'Narrow alley packed with yakitori joints. Great for evening.', category: 'Food', image: require('../../../../assets/images/Kyoto.jpg'), votes: { 2: 'yes', 1: 'no' }, status: 'voting' },
+            { id: '2', title: 'Shibuya Crossing', description: "The world's busiest intersection, an iconic Tokyo sight.", category: 'Culture', image: null, votes: { 3: 'yes' }, status: 'voting' },
+            { id: '3', title: 'Ghibli Museum', description: 'A whimsical museum showcasing the work of Studio Ghibli.', category: 'Culture', image: require('../../../../assets/images/Kyoto.jpg'), votes: { 2: 'yes', 3: 'yes' }, status: 'approved' },
+            { id: '4', title: 'Robot Café', description: 'Flashy neon lights and futuristic entertainment!', category: 'Fun', image: require('../../../../assets/images/Kyoto.jpg'), votes: {}, status: 'voting' },    
         ],
         memories: [
-            {
-                id: 1,
-                day: 1,
-                title: 'Arrived in Kyoto!',
-                description: 'The flight was long but we finally made it. Checked into the Ryokan and immediately found ramen.',
-                date: 'Oct 12, 2024',
-                time: '2:45 PM',
-                images: [1, 2, 3],
-            },
-            {
-                id: 2,
-                day: 2,
-                title: 'Bamboo Forest',
-                description: 'Visited Arashiyama. The scenery was breathtaking and the weather was perfect.',
-                date: 'Oct 13, 2024',
-                time: '5:30 PM',
-                images: [4, 5],
-            },
+            { id: 1, day: 1, title: 'Arrived in Kyoto!', description: 'The flight was long but we finally made it. Checked into the Ryokan and immediately found ramen.', date: 'Oct 12, 2024', time: '2:45 PM', images: [1, 2, 3] },
+            { id: 2, day: 2, title: 'Bamboo Forest', description: 'Visited Arashiyama. The scenery was breathtaking and the weather was perfect.', date: 'Oct 13, 2024', time: '5:30 PM', images: [4, 5] },
         ],
     }
 };
@@ -118,6 +83,9 @@ const fetchTripData = async (tripId) => {
   return MOCK_TRIP_DATA[tripId] || MOCK_TRIP_DATA['trip-123']; 
 };
 
+// ==========================================
+// 2. HELPER COMPONENTS
+// ==========================================
 const HeaderButton = ({ icon, onPress }) => (
     <TouchableOpacity onPress={onPress}>
         <BlurView intensity={10} tint="default" style={{ width: 34, height: 34, borderRadius: 20, backgroundColor: 'rgba(255, 255, 255, 0.35)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
@@ -128,50 +96,40 @@ const HeaderButton = ({ icon, onPress }) => (
 
 const CustomHeader = ({ trip }) => (
     <View style={styles.headerContainer}>
-        <Image 
-            source={trip.image}
-            style={styles.gradient}
-            contentFit='cover'
-            cachePolicy='memory-disk'
-        />
-            <LinearGradient
-                style={styles.gradient}
-                colors={['rgba(0,0,0,0)', 'rgba(0,0,0,.2)', 'rgba(0,0,0,.6)', 'rgba(0,0,0,0.8)']}
-                locations={[0, 0.49, 0.78, 1]}
-            />
+        <Image source={trip.image} style={styles.gradient} contentFit='cover' cachePolicy='memory-disk' />
+        <LinearGradient style={styles.gradient} colors={['rgba(0,0,0,0)', 'rgba(0,0,0,.2)', 'rgba(0,0,0,.6)', 'rgba(0,0,0,0.8)']} locations={[0, 0.49, 0.78, 1]} />
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: '5%', paddingTop: moderateScale(65) }}>
-                <HeaderButton icon="arrow-back" onPress={() => console.log('back')}/>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(12) }}>
-                    <HeaderButton icon="search" onPress={() => console.log('search')} />
-                    <HeaderButton icon="settings" onPress={() => console.log('settings')} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: '5%', paddingTop: moderateScale(65) }}>
+            <HeaderButton icon="arrow-back" onPress={() => console.log('back')}/>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(12) }}>
+                <HeaderButton icon="search" onPress={() => console.log('search')} />
+                <HeaderButton icon="settings" onPress={() => console.log('settings')} />
+            </View>
+        </View>
+        
+        <View style={ styles.contentWrapper }>
+            <View style={ styles.spacer } />
+            <View style={ styles.textContainer }>
+                <Text style={ styles.destination }>{ trip.destination }</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(6) }}>
+                    <MaterialIcons name="calendar-today" size={moderateScale(12)} color="white" />
+                    <Text style={ styles.dateRange }>{ DateUtils.formatRange(DateUtils.parseYYYYMMDDToDate(trip.startDate), DateUtils.parseYYYYMMDDToDate(trip.endDate)) }</Text>
                 </View>
             </View>
-            
-            <View style={ styles.contentWrapper }>
-                <View style={ styles.spacer } />
-                <View style={ styles.textContainer }>
-                    <Text style={ styles.destination }>{ trip.destination }</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(6) }}>
-                        <MaterialIcons name="calendar-today" size={moderateScale(12)} color="white" />
-                        <Text style={ styles.dateRange }>{ DateUtils.formatRange(DateUtils.parseYYYYMMDDToDate(trip.startDate), DateUtils.parseYYYYMMDDToDate(trip.endDate)) }</Text>
-                    </View>
-                </View>
-            </View>
-
+        </View>
         <TripInfoTabBar tripId={ trip.id }/>
     </View>
 );
 
+// ==========================================
+// 3. MAIN LAYOUT COMPONENT
+// ==========================================
 export default function TripInfoLayout() {
+    // --- STATE & INITIALIZATION ---
     const { tripId } = useLocalSearchParams();
     const [tripData, setTripData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-
-    const [unassignedIdeas, setUnassignedIdeas] = useState([
-        { id: 'v1', title: 'Senso-ji Temple', category: 'Culture' },
-        { id: 'v2', title: 'Robot Café', category: 'Fun' }
-    ]);
+    const CURRENT_USER_ID = 2; // Mocking Hunter as the active user
 
     useEffect(() => {
         if (tripId) {
@@ -183,48 +141,7 @@ export default function TripInfoLayout() {
         }
     }, [tripId]);
 
-    const refreshTripData = async () => {
-        const freshData = await fetchTripData(tripId);
-        setTripData(freshData);
-    };
-
-    const addEventToBucket = (date, event) => {
-        setTripData(prev => ({
-            ...prev,
-            timelineData: {
-                ...prev.timelineData,
-                [date]: [...(prev.timelineData[date] || []), { ...event, id: Date.now().toString(), type: 'event', time: 'TBD' }]
-            }
-        }));
-        setUnassignedIdeas(prev => prev.filter(item => item.id !== event.id));
-    };
-
-    const updateDayEvents = (date, newlyOrderedData) => {
-        setTripData(prev => ({
-            ...prev,
-            timelineData: {
-                ...prev.timelineData,
-                [date]: newlyOrderedData
-            }
-        }));
-    };
-
-    const deleteStay = (stayId) => {
-        setTripData(prev => ({
-            ...prev,
-            staysData: prev.staysData.filter(stay => stay.id !== stayId)
-        }));
-    }
-
-    const contextValue = {
-        ...tripData,      // All your destination, dates, and timelineData
-        unassignedIdeas,       // The draggable cards array
-        refreshTripData,       // The refresh function
-        addEventToBucket,    // The drop function
-        updateDayEvents,   // The reorder function
-        deleteStay,
-    };
-
+    // --- EARLY RETURN FOR LOADING ---
     if (isLoading || !tripData) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
@@ -233,6 +150,105 @@ export default function TripInfoLayout() {
         );
     }
 
+    // --- DERIVED DATA (Voting Feeds) ---
+    const ideaBoard = tripData.ideaBoard || [];
+
+    const discoverFeed = ideaBoard.filter(idea => {
+        const votes = idea.votes || {};
+        const hasVoted = votes[CURRENT_USER_ID] !== undefined;
+        return !hasVoted && idea.status !== 'approved';
+    });
+
+    const inProgressFeed = ideaBoard.filter(idea => {
+        const votes = idea.votes || {};
+        return votes[CURRENT_USER_ID] === 'yes' && idea.status !== 'approved' && idea.status !== 'scheduled';
+    });
+
+    const unassignedIdeas = ideaBoard.filter(idea => idea.status === 'approved');
+
+    // --- ACTION HANDLERS: Global ---
+    const refreshTripData = async () => {
+        const freshData = await fetchTripData(tripId);
+        setTripData(freshData);
+    };
+
+    // --- ACTION HANDLERS: Idea Board & Voting ---
+    const handleVote = (ideaId, voteType) => {
+        setTripData(prev => {
+            const activeGroupSize = prev.group.filter(member => member.active).length;
+            const requiredVotes = Math.floor(activeGroupSize / 2) + 1;
+
+            const updatedIdeas = prev.ideaBoard.map(idea => {
+                if (idea.id === ideaId) {
+                    const currentVotes = idea.votes || {};
+                    const newVotes = { ...currentVotes, [CURRENT_USER_ID]: voteType };
+                    const yesCount = Object.values(newVotes).filter(v => v === 'yes').length;
+                    const isNowApproved = yesCount >= requiredVotes;
+
+                    return {
+                        ...idea,
+                        votes: newVotes,
+                        status: isNowApproved ? 'approved' : (idea.status || 'voting')
+                    };
+                }
+                return idea;
+            });
+
+            return { ...prev, ideaBoard: updatedIdeas };
+        });
+    };
+
+    // --- ACTION HANDLERS: Timeline ---
+    const addEventToBucket = (date, event) => {
+        setTripData(prev => {
+            // 1. Change the idea's status so it leaves the tray
+            const updatedIdeaBoard = prev.ideaBoard.map(idea => 
+                idea.id === event.id ? { ...idea, status: 'scheduled' } : idea
+            );
+
+            // 2. Add it to the timeline data
+            const newEvent = { ...event, id: Date.now().toString(), type: 'event', time: 'TBD' };
+            
+            return {
+                ...prev,
+                ideaBoard: updatedIdeaBoard,
+                timelineData: {
+                    ...prev.timelineData,
+                    [date]: [...(prev.timelineData[date] || []), newEvent]
+                }
+            };
+        });
+    };
+
+    const updateDayEvents = (date, newlyOrderedData) => {
+        setTripData(prev => ({
+            ...prev,
+            timelineData: { ...prev.timelineData, [date]: newlyOrderedData }
+        }));
+    };
+
+    // --- ACTION HANDLERS: Stays ---
+    const deleteStay = (stayId) => {
+        setTripData(prev => ({
+            ...prev,
+            staysData: prev.staysData.filter(stay => stay.id !== stayId)
+        }));
+    }
+
+    // --- CONTEXT PROVIDER SETUP ---
+    const contextValue = {
+        ...tripData,         // Spreads primitive data (name, destination, dates, etc.)
+        discoverFeed,        // Filtered array
+        inProgressFeed,      // Filtered array
+        unassignedIdeas,     // Filtered array
+        refreshTripData,     // Global func
+        handleVote,          // Idea func
+        addEventToBucket,    // Timeline func
+        updateDayEvents,     // Timeline func
+        deleteStay,          // Stay func
+    };
+
+    // --- RENDER ---
     return (
         <TripContext.Provider value={contextValue}>
             <View style={{ flex: 1 }}>
@@ -241,7 +257,7 @@ export default function TripInfoLayout() {
                     screenOptions={{ 
                         tabBarStyle: { display: "none" },
                         headerShown: false,
-                        unmountOnBlur: true, // Unmount screens when not focused to reset state
+                        unmountOnBlur: true,
                     }} 
                 >
                     <Tabs.Screen name="overview" options={{ title: "Overview" }} />
@@ -255,40 +271,16 @@ export default function TripInfoLayout() {
     );
 }
 
+// ==========================================
+// 4. STYLES
+// ==========================================
 const styles = StyleSheet.create({
-    headerContainer: {
-        height: '39%',
-    },
-    imageBackground: {
-        flex: 1,
-    },
-    gradient: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-    },
-    contentWrapper: {
-        flex: 1,
-        paddingHorizontal: '5%',
-        paddingTop: moderateScale(40),
-        paddingBottom: moderateScale(28),
-    },
-    spacer: {
-        flex: 1,
-    },
-    textContainer: {
-        gap: 4,
-    },
-    destination: {
-        color: 'white',
-        fontSize: moderateScale(25),
-        fontWeight: 'bold',
-    },
-    dateRange: {
-        color: 'white',
-        fontSize: moderateScale(12),
-        marginTop: 4,
-    },
+    headerContainer: { height: '39%' },
+    imageBackground: { flex: 1 },
+    gradient: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+    contentWrapper: { flex: 1, paddingHorizontal: '5%', paddingTop: moderateScale(40), paddingBottom: moderateScale(28) },
+    spacer: { flex: 1 },
+    textContainer: { gap: 4 },
+    destination: { color: 'white', fontSize: moderateScale(25), fontWeight: 'bold' },
+    dateRange: { color: 'white', fontSize: moderateScale(12), marginTop: 4 },
 });

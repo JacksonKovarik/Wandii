@@ -1,3 +1,4 @@
+import AnimatedBottomSheet from "@/src/components/AnimatedBottomSheet";
 import TripInfoScrollView from "@/src/components/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
 import { MediaUtils } from "@/src/utils/MediaUtils";
@@ -5,7 +6,7 @@ import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as DocumentPicker from 'expo-document-picker';
 import { useRef, useState } from "react";
-import { Animated, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 const DocumentCard = ({ title, size, date }) => {
@@ -47,20 +48,14 @@ export default function Docs() {
     ]).start();
   };
 
-  const closeModal = () => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 300, duration: 250, useNativeDriver: true })
-    ]).start(() => {
-      setModalVisible(false); // Hide the modal only AFTER animations finish
-    });
-  };
+
 
   const pickDocument = async () => {
     let result = await DocumentPicker.getDocumentAsync({});
     console.log(result);
     if (!result.canceled) {
       console.log(result.assets[0].uri)
+      setModalVisible(false);
       return result.assets[0].uri;
     }
     return null;
@@ -72,7 +67,7 @@ export default function Docs() {
       onRefresh={refreshTripData}
       contentContainerStyle={styles.scrollContent}
     >
-      {/* Trip Journal Header */}
+      {/* Documents */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: moderateScale(20) }}>
         <Text style={styles.sectionTitle}>Travel Documents</Text>
         <TouchableOpacity style={{ flexDirection: 'row', gap: 5 }}onPress={() => openModal()}>
@@ -90,35 +85,31 @@ export default function Docs() {
         <Text style={styles.uploadText}>Tap to upload PDF or Image</Text>
       </TouchableOpacity>      
       {/* --- Upload Modal --- */}
-      <Modal animationType="none" transparent={true} visible={modalVisible}>
-        <Animated.View style={ { opacity: fadeAnim, flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end', }}>
-          <TouchableOpacity style={{ flex: 1 }} onPress={() => closeModal()} />
+      <AnimatedBottomSheet
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+      >
+        <Text style={styles.sheetTitle}>Add Document</Text>
         
-          <Animated.View style={[ styles.bottomSheet, { transform: [{ translateY: slideAnim }] }]}>
-            <Text style={styles.sheetTitle}>Add Document</Text>
-            
-            <TouchableOpacity style={styles.sheetButton} onPress={() => MediaUtils.takePhoto()}>
-              <MaterialIcons name="photo-camera" size={24} color={Colors.primary} />
-              <Text style={styles.sheetButtonText}>Take Photo</Text>
-            </TouchableOpacity>
+        <TouchableOpacity style={styles.sheetButton} onPress={() => MediaUtils.takePhoto()}>
+          <MaterialIcons name="photo-camera" size={24} color={Colors.primary} />
+          <Text style={styles.sheetButtonText}>Take Photo</Text>
+        </TouchableOpacity>
 
-            <TouchableOpacity style={styles.sheetButton} onPress={() => MediaUtils.pickImage()}>
-              <MaterialIcons name="photo-library" size={24} color={Colors.primary} />
-              <Text style={styles.sheetButtonText}>Choose from Gallery</Text>
-            </TouchableOpacity>
+        <TouchableOpacity style={styles.sheetButton} onPress={() => MediaUtils.pickImage()}>
+          <MaterialIcons name="photo-library" size={24} color={Colors.primary} />
+          <Text style={styles.sheetButtonText}>Choose from Gallery</Text>
+        </TouchableOpacity>
 
-            <TouchableOpacity style={styles.sheetButton} onPress={() => pickDocument()}>
-              <MaterialIcons name="folder" size={24} color={Colors.primary} />
-              <Text style={styles.sheetButtonText}>Browse Files (PDF)</Text>
-            </TouchableOpacity>
+        <TouchableOpacity style={styles.sheetButton} onPress={() => pickDocument()}>
+          <MaterialIcons name="folder" size={24} color={Colors.primary} />
+          <Text style={styles.sheetButtonText}>Browse Files (PDF)</Text>
+        </TouchableOpacity>
 
-            <TouchableOpacity onPress={closeModal} style={styles.cancelButton}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </Animated.View>
-
-        </Animated.View>
-      </Modal>
+        <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelButton}>
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
+      </AnimatedBottomSheet>
 
     </TripInfoScrollView>
   );
