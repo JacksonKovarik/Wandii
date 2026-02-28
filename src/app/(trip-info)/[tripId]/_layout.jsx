@@ -56,8 +56,8 @@ const MOCK_TRIP_DATA = {
             ]
         },
         staysData: [
-            { id: '1', name: 'Ryokan Yamazaki', address: '11-1 Hirano Miyamotocho, Kita Ward, Kyoto', checkIn: '10/20 2:00 PM', checkOut: '10/24 12:00 PM' },
-            { id: '2', name: 'Park Hyatt Tokyo', address: '3-7-1-2 Nishi-Shinjuku, Shinjuku-Ku, Tokyo', checkIn: '10/24 3:00 PM', checkOut: '10/28 11:00 AM' },
+            { id: '1', name: 'Ryokan Yamazaki', address: '11-1 Hirano Miyamotocho, Kita Ward, Kyoto', checkIn: new Date('2024-10-20T14:00:00.000Z'), checkOut: new Date('2024-10-24T12:00:00.000Z') },
+            { id: '2', name: 'Park Hyatt Tokyo', address: '3-7-1-2 Nishi-Shinjuku, Shinjuku-Ku, Tokyo', checkIn: new Date('2024-10-24T15:00:00.000Z'), checkOut: new Date('2024-10-28T11:00:00.000Z') },
         ],
         documents: [
             { id: '1', title: "Passport_Scan.pdf", date: "2023-06-01", size: "2.4 MB" },

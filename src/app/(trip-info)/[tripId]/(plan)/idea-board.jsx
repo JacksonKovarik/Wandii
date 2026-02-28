@@ -205,7 +205,7 @@ export default function IdeaBoard() {
         <View style={styles.inputSection}>
           <Text style={styles.sectionLabel}>CATEGORY</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillContainer}>
-            {['Food', 'Activity', 'Nightlife', 'Lodging'].map((cat) => {
+            {['Food', 'Activity', 'Nightlife', 'Lodging', 'Other'].map((cat) => {
               const isSelected = newIdea.category === cat;
               return (
                 <TouchableOpacity 
