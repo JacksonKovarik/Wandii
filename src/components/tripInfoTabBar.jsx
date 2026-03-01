@@ -15,7 +15,7 @@ export default function TripInfoTabBar({ tripId }) {
         { name: 'Plan', path: '(plan)/idea-board', checkSegments: ['idea-board', 'timeline', 'map', 'stays'] },
         { name: 'Wallet', path: 'wallet', checkSegments: ['wallet'] },
         { name: 'Docs', path: 'docs', checkSegments: ['docs'] },
-        { name: 'Memories', path: 'memories', checkSegments: ['memories'] },
+        { name: 'Memories', path: 'memories', checkSegments: ['memories', 'album'] },
     ];
 
     return (
@@ -58,9 +58,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOpacity: 0.01,
+        shadowRadius: 2,
         elevation: 3,
+
+        zIndex: 10
     },
     tabButton: {
         height: '100%',

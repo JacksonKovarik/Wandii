@@ -1,7 +1,11 @@
 import { getIsLoggedIn } from "@/src/utils/auth";
 import { Stack } from "expo-router";
+import { Platform, UIManager } from "react-native";
 import { MenuProvider } from "react-native-popup-menu";
 
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 const isLoggedIn = getIsLoggedIn(); // Replace with actual authentication logic
 
 export default function RootLayout() {

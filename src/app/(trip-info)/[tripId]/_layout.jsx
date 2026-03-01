@@ -201,12 +201,10 @@ export default function TripInfoLayout() {
     // --- ACTION HANDLERS: Timeline ---
     const addEventToBucket = (date, event) => {
         setTripData(prev => {
-            // 1. Change the idea's status so it leaves the tray
             const updatedIdeaBoard = prev.ideaBoard.map(idea => 
                 idea.id === event.id ? { ...idea, status: 'scheduled' } : idea
             );
 
-            // 2. Add it to the timeline data
             const newEvent = { ...event, id: Date.now().toString(), type: 'event', time: 'TBD' };
             
             return {
@@ -235,6 +233,91 @@ export default function TripInfoLayout() {
         }));
     }
 
+    // --- ACTION HANDLERS: Wallet (NEW) ---
+    const addTransaction = (payload) => {
+        setTripData(prev => {
+            // 1. Create the new transaction object
+            const newTransaction = {
+                id: Date.now().toString(),
+                title: payload.title,
+                icon: payload.icon || 'receipt', // Maps from payload.categoryId in the future
+                payer: 'You', 
+                split: payload.isSplitEqually ? 'Split equally' : 'Custom split',
+                amount: payload.amount
+            };
+
+            // 2. Calculate the new overall budget
+            const newBudgetData = {
+                ...prev.budgetData,
+                totalSpent: prev.budgetData.totalSpent + payload.amount
+            };
+
+            // 3. Calculate new individual balances based on who was split with
+            const newGroupBalances = prev.groupBalances.map(member => {
+                // Find if the member was selected in the form
+                const memberSplit = payload.splits.find(s => String(s.memberId) === String(member.id));
+                
+                if (memberSplit) {
+                    let amountOwed = 0;
+                    if (payload.isSplitEqually) {
+                        amountOwed = payload.amount / payload.splits.length;
+                    } else {
+                        amountOwed = memberSplit.amount;
+                    }
+                    
+                    // Increment the balance (They owe you +$amountOwed)
+                    return {
+                        ...member,
+                        balance: member.balance + amountOwed
+                    };
+                }
+                return member; // If not part of split, balance stays the same
+            });
+
+            // Return the entirely updated trip state to trigger re-renders
+            return {
+                ...prev,
+                transactions: [newTransaction, ...prev.transactions],
+                budgetData: newBudgetData,
+                groupBalances: newGroupBalances
+            };
+        });
+    };
+
+    const addSettlement = (payload) => {
+        setTripData(prev => {
+            // 1. Adjust the balances
+            const newGroupBalances = prev.groupBalances.map(member => {
+                if (String(member.id) === String(payload.toMemberId)) {
+                    // 👇 THE FIX: If they owe us (+), subtract payment. If we owe them (-), add payment.
+                    const newBalance = member.balance > 0 
+                        ? member.balance - payload.amount 
+                        : member.balance + payload.amount;
+                        
+                    return { ...member, balance: newBalance };
+                }
+                return member;
+            });
+
+            // 2. Add an explicit "Settlement" to the ledger
+            const targetMember = prev.groupBalances.find(m => String(m.id) === String(payload.toMemberId));
+            const newTransaction = {
+                id: Date.now().toString(),
+                title: `Paid ${targetMember?.name || 'Member'}`,
+                icon: 'check-circle-outline',
+                payer: 'You',
+                split: 'Settlement',
+                amount: payload.amount
+            };
+
+            return {
+                ...prev,
+                groupBalances: newGroupBalances,
+                transactions: [newTransaction, ...prev.transactions]
+            };
+        });
+    };
+
     // --- CONTEXT PROVIDER SETUP ---
     const contextValue = {
         ...tripData,         // Spreads primitive data (name, destination, dates, etc.)
@@ -246,6 +329,8 @@ export default function TripInfoLayout() {
         addEventToBucket,    // Timeline func
         updateDayEvents,     // Timeline func
         deleteStay,          // Stay func
+        addTransaction,      // Wallet func (NEW)
+        addSettlement,       // Wallet func (NEW)
     };
 
     // --- RENDER ---
@@ -265,6 +350,7 @@ export default function TripInfoLayout() {
                     <Tabs.Screen name="wallet" options={{ title: "Wallet" }} />
                     <Tabs.Screen name="docs" options={{ title: "Docs" }} />
                     <Tabs.Screen name="memories" options={{ title: "Memories" }} />
+                    <Tabs.Screen name="album" options={{ headerShown: false }} />
                 </Tabs>
             </View>
         </TripContext.Provider>
