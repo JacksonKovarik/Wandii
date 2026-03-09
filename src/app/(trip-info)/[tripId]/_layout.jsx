@@ -6,7 +6,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Tabs, useLocalSearchParams } from "expo-router";
+import { router, Tabs, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
@@ -103,7 +103,7 @@ const CustomHeader = ({ trip }) => (
             <HeaderButton icon="arrow-back" onPress={() => console.log('back')}/>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(12) }}>
                 <HeaderButton icon="search" onPress={() => console.log('search')} />
-                <HeaderButton icon="settings" onPress={() => console.log('settings')} />
+                <HeaderButton icon="settings" onPress={() => router.navigate(`/(trip-info)/${trip.id}/settings`)} />
             </View>
         </View>
         
