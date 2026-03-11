@@ -8,14 +8,15 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from 'expo-blur';
 import React from 'react';
 
+import TripInfoScrollView from "@/src/components/tripInfoScrollView";
 import { useTrip } from "@/src/utils/TripContext";
 
 export default function Overview() {
   const tripData = useTrip();
-  const { takeoffDays, weather, readinessPercent, notifications, group } = tripData;
+  const { takeoffDays, weather, readinessPercent, notifications, group, refreshTripData } = tripData;
 
   return (
-    <ScrollView style={styles.container}>
+    <TripInfoScrollView onRefresh={refreshTripData} style={styles.container} contentContainerStyle={styles.scrollContent}>
       {/* Header Card */}
       <View style={styles.headerCard}>
         <View style={styles.headerRow}>
@@ -112,7 +113,7 @@ export default function Overview() {
 
         </ScrollView>
       </View>
-    </ScrollView>
+    </TripInfoScrollView>
   );
 }
 
@@ -120,6 +121,9 @@ export default function Overview() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.background,
+  },
+  scrollContent: {
     padding: '5%',
   },
   headerCard: {

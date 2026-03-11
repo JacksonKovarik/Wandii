@@ -1,26 +1,33 @@
-import { Stack } from "expo-router";
 import { getIsLoggedIn } from "@/src/utils/auth";
+import { Stack } from "expo-router";
+import { Platform, UIManager } from "react-native";
+import { MenuProvider } from "react-native-popup-menu";
 
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 const isLoggedIn = getIsLoggedIn(); // Replace with actual authentication logic
 
 export default function RootLayout() {
   return (
-    <Stack>
+    <MenuProvider>
+      <Stack>
 
-      {/* Make the root index route the welcome screen */}
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      
-      <Stack.Protected guard={isLoggedIn}>
-        <Stack.Screen name="(tabs)"  options={{ headerShown: false }}/>
-        <Stack.Screen name="(add-trips)" options={{ headerShown: false, presentation: "modal", title: "Modal" }}/>
-        <Stack.Screen name="(trip-info)/[tripId]" options={{ headerShown: false }}/>
-      </Stack.Protected>
+        {/* Make the root index route the welcome screen */}
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        
+        <Stack.Protected guard={isLoggedIn}>
+          <Stack.Screen name="(tabs)"  options={{ headerShown: false }}/>
+          <Stack.Screen name="(add-trips)" options={{ headerShown: false, presentation: "modal", title: "Modal" }}/>
+          <Stack.Screen name="(trip-info)/[tripId]" options={{ headerShown: false }}/>
+        </Stack.Protected>
 
-      <Stack.Protected guard={!isLoggedIn}>
-        <Stack.Screen name="sign-in" options={{headerShown: false}}/>
-        <Stack.Screen name="sign-up" options={{headerShown: false}}/>
-      </Stack.Protected>
-      
-    </Stack>
+        <Stack.Protected guard={!isLoggedIn}>
+          <Stack.Screen name="sign-in" options={{headerShown: false}}/>
+          <Stack.Screen name="sign-up" options={{headerShown: false}}/>
+        </Stack.Protected>
+        
+      </Stack>
+    </MenuProvider>
   );
 }

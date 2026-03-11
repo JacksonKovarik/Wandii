@@ -3,6 +3,13 @@
  * Utility functions for date manipulation and formatting.
  */
 const DateUtils = {
+    timestampToDate(timestamp) {
+        if (!timestamp) return null;
+        // The new Date() constructor can directly parse numeric timestamps (in milliseconds)
+        // and ISO 8601 formatted strings, which is what we are now using in our mock data.
+        // The previous multiplication by 1000 was for Unix timestamps (in seconds).
+        return new Date(timestamp);
+    },
 
     /**
      * Formats a Date object to 'YYYY-MM-DD' string format.
@@ -82,6 +89,14 @@ const DateUtils = {
         if (!start || ! end) return "Select Dates";
         return `${this.formatDate(start)} - ${this.formatDate(end)}`;
     },
+
+    formatDayAndTime(date) {
+        if (!date) return null;
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return `${mm}/${dd} ${time}`;
+    }
 };
 
 export default DateUtils;
