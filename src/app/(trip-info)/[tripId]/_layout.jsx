@@ -12,10 +12,11 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "rea
 import { moderateScale } from "react-native-size-matters";
 
 // --- Global Trip Mock Data ---
+// --- Global Trip Mock Data ---
 const MOCK_TRIP_DATA = {
     'trip-123': {
         id: 'trip-123',
-        name: 'Japan 2026', // Added Trip Name for the header!
+        name: 'Japan 2026', 
         takeoffDays: 12,
         destination: 'Kyoto, Japan',
         startDate: '2024-10-12',
@@ -32,13 +33,6 @@ const MOCK_TRIP_DATA = {
             { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', profilePic: null, active: true },
             { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', profilePic: null, active: true },
         ],
-        discoverItems: [
-            { id: '1', title: 'Omoide Yokocho', description: 'Narrow alley packed with yakitori joints. Great for evening.', image: require('../../../../assets/images/Kyoto.jpg') },
-            { id: '2', title: 'Shibuya Crossing', description: "The world's busiest intersection, an iconic Tokyo sight.", image: require('../../../../assets/images/Kyoto.jpg') },
-            { id: '3', title: 'Ghibli Museum', description: 'A whimsical museum showcasing the work of Studio Ghibli.', image: require('../../../../assets/images/Kyoto.jpg') },
-        ],
-
-        // Wallet Data
         budgetData: { totalSpent: 1240.50, totalBudget: 3200.00 },
         groupBalances: [
             { id: 1, name: 'Hunter', balance: 45.00, avatar: 'https://i.pravatar.cc/150?u=hunter' },
@@ -49,7 +43,6 @@ const MOCK_TRIP_DATA = {
             { id: 1, title: 'Sushi Dinner', payer: 'You', split: 'Split equally', amount: 128.50, icon: 'food-fork-drink' },
             { id: 2, title: 'Uber to Hotel', payer: 'Hunter', split: 'Split equally', amount: 24.50, icon: 'car' },
         ],
-
         timelineData: {
             '2023-10-12': [
                 { id: '1', time: '9:00 AM', title: 'Meiji Shrine', category: 'Culture', type: 'event' },
@@ -77,17 +70,15 @@ const MOCK_TRIP_DATA = {
                 checkOut: '10/28 11:00 AM',
             },
         ],
-
         documents: [
             { id: '1', title: "Passport_Scan.pdf", date: "2023-06-01", size: "2.4 MB" },
             { id: '2', title: "Visa_Japan.pdf", date: "2023-06-02", size: "1.8 MB" },
             { id: '3', title: "Flight_Confirmation.pdf", date: "2023-06-03", size: "0.9 MB" },
         ],
-
         ideaBoard: [
-            { id: '1', title: 'Omoide Yokocho', description: 'Narrow alley packed with yakitori joints. Great for evening.', image: require('@/assets/images/Kyoto.jpg') },
-            { id: '2', title: 'Shibuya Crossing', description: 'The world\'s busiest intersection, an iconic Tokyo sight.', image: require('@/assets/images/Kyoto.jpg') },
-            { id: '3', title: 'Ghibli Museum', description: 'A whimsical museum showcasing the work of Studio Ghibli.', image: require('@/assets/images/Kyoto.jpg') },
+            { id: '1', title: 'Omoide Yokocho', description: 'Narrow alley packed with yakitori joints. Great for evening.', image: require('../../../../assets/images/Kyoto.jpg') },
+            { id: '2', title: 'Shibuya Crossing', description: 'The world\'s busiest intersection, an iconic Tokyo sight.', image: require('../../../../assets/images/Kyoto.jpg') },
+            { id: '3', title: 'Ghibli Museum', description: 'A whimsical museum showcasing the work of Studio Ghibli.', image: require('../../../../assets/images/Kyoto.jpg') },
         ],
         memories: [
             {
@@ -109,6 +100,93 @@ const MOCK_TRIP_DATA = {
                 images: [4, 5],
             },
         ],
+    },
+    'trip-456': {
+        id: 'trip-456',
+        name: 'Miami Bachelor Party', 
+        takeoffDays: 4,
+        destination: 'Miami, Florida',
+        startDate: '2026-05-08',
+        endDate: '2026-05-11',
+        image: require('../../../../assets/images/Miami.jpg'), // MAKE SURE THIS IMAGE EXISTS! Or swap with Kyoto
+        weather: { temp: 85, location: 'Miami, FL', icon: 'wb-sunny' },
+        readinessPercent: 90,
+        notifications: [
+            { id: 1, title: "Yacht Deposit Due", description: "Need $200 from each person by tomorrow.", icon: "warning", color: Colors.danger, lightColor: Colors.dangerLight },
+        ],
+        group: [
+            { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', profilePic: null, active: true },
+            { id: 4, name: "David L.", initials: "DL", profileColor: '#FF4500', profilePic: null, active: true },
+            { id: 5, name: "Chris T.", initials: "CT", profileColor: '#8A2BE2', profilePic: null, active: false },
+        ],
+        budgetData: { totalSpent: 2150.00, totalBudget: 4000.00 },
+        groupBalances: [
+            { id: 4, name: 'David', balance: -200.00, avatar: 'https://i.pravatar.cc/150?u=david' },
+            { id: 5, name: 'Chris', balance: 200.00, avatar: 'https://i.pravatar.cc/150?u=chris' },
+        ],
+        transactions: [
+            { id: 1, title: 'Airbnb Deposit', payer: 'You', split: 'Split equally', amount: 1200.00, icon: 'home' },
+            { id: 2, title: 'Groceries & Drinks', payer: 'David', split: 'Split equally', amount: 350.00, icon: 'cart' },
+        ],
+        timelineData: {
+            '2026-05-08': [
+                { id: '1', time: '2:00 PM', title: 'Check into Villa', category: 'Lodging', type: 'event' },
+                { id: '2', time: '8:30 PM', title: 'Dinner at Carbone', category: 'Dinner Reservation', type: 'event' },
+            ],
+            '2026-05-09': [
+                { id: '3', time: '11:00 AM', title: 'Private Boat Charter', category: 'Excursion', type: 'event' },
+            ]
+        },
+        staysData: [
+            {
+                id: '1',
+                name: 'Star Island Villa',
+                address: '123 Star Island Dr, Miami Beach',
+                checkIn: '05/08 2:00 PM',
+                checkOut: '05/11 11:00 AM',
+            },
+        ],
+        documents: [
+            { id: '1', title: "Boat_Rental_Agreement.pdf", date: "2026-04-10", size: "1.2 MB" },
+        ],
+        ideaBoard: [
+            { id: '1', title: 'Jet Ski Rentals', description: 'Rent jet skis for 2 hours in Biscayne Bay.', image: require('../../../../assets/images/Miami.jpg') },
+            { id: '2', title: 'LIV Nightclub', description: 'Bottle service for Saturday night.', image: require('../../../../assets/images/Miami.jpg') },
+        ],
+        memories: [],
+    },
+    'trip-789': {
+        id: 'trip-789',
+        name: 'Euro Trip', 
+        takeoffDays: 45,
+        destination: 'Paris & Rome',
+        startDate: '2026-07-01',
+        endDate: '2026-07-15',
+        image: require('../../../../assets/images/paris.png'), // MAKE SURE THIS IMAGE EXISTS! Or swap with Kyoto
+        weather: { temp: 68, location: 'Paris, FR', icon: 'cloud' },
+        readinessPercent: 20,
+        notifications: [],
+        group: [
+            { id: 1, name: "Alice B.", initials: "AB", profileColor: '#1E90FF', profilePic: null, active: true },
+            { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', profilePic: null, active: true },
+        ],
+        budgetData: { totalSpent: 450.00, totalBudget: 8000.00 },
+        groupBalances: [],
+        transactions: [
+            { id: 1, title: 'Train Tickets', payer: 'Alice', split: 'Split equally', amount: 450.00, icon: 'train' },
+        ],
+        timelineData: {
+            '2026-07-01': [
+                { id: '1', time: '10:00 AM', title: 'Land at CDG Airport', category: 'Travel', type: 'event' },
+            ],
+        },
+        staysData: [],
+        documents: [],
+        ideaBoard: [
+            { id: '1', title: 'Louvre Museum Tour', description: 'Skip-the-line guided tour.', image: require('../../../../assets/images/paris.png') },
+            { id: '2', title: 'Colosseum Underground', description: 'Exclusive access to the dungeons.', image: require('../../../../assets/images/paris.png') },
+        ],
+        memories: [],
     }
 };
 

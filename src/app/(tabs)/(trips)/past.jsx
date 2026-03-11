@@ -9,22 +9,22 @@ import ParisImage from '@/assets/images/paris.png';
 
 export default function Past() {
   const trips = [
-  {
-    location: "Kyoto, Japan",
-    dates: "Apr 3 - Apr 12, 2026",
-    photos: 42,
-    journals: 5,
-    image: JapanImage,
-  },
+    {
+      location: "Kyoto, Japan",
+      dates: "Apr 3 - Apr 12, 2026",
+      photos: 42,
+      journals: 5,
+      image: JapanImage,
+    },
 
-  {
-    location: "Paris, France",
-    dates: "Mar 10 - Mar 18, 2025",
-    photos: 87,
-    journals: 3,
-    image: ParisImage,
-  },
-];
+    {
+      location: "Paris, France",
+      dates: "Mar 10 - Mar 18, 2025",
+      photos: 87,
+      journals: 3,
+      image: ParisImage,
+    },
+  ];
 
   return (
     <View style={styles.container}>

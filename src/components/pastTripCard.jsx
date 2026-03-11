@@ -74,8 +74,8 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: 'white',
     borderRadius: scale(16),
-    paddingTop: verticalScale(10),
-    paddingBottom: verticalScale(20),
+    paddingTop: verticalScale(16),
+    paddingBottom: verticalScale(16),
     paddingHorizontal: scale(20),
     marginBottom: verticalScale(25),
     shadowColor: '#000',
@@ -156,7 +156,6 @@ const styles = StyleSheet.create({
 
   buttonRow: {
     flexDirection: 'row',
-    marginTop: verticalScale(4),
   },
 
   reliveButton: {
