@@ -11,13 +11,12 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
-// ==========================================
-// 1. MOCK DATA & FETCHING
-// ==========================================
+// --- Global Trip Mock Data ---
+// --- Global Trip Mock Data ---
 const MOCK_TRIP_DATA = {
     'trip-123': {
         id: 'trip-123',
-        name: 'Japan 2026',
+        name: 'Japan 2026', 
         takeoffDays: 12,
         destination: 'Kyoto, Japan',
         startDate: '2024-10-12',
@@ -74,6 +73,93 @@ const MOCK_TRIP_DATA = {
             { id: 1, day: 1, title: 'Arrived in Kyoto!', description: 'The flight was long but we finally made it. Checked into the Ryokan and immediately found ramen.', date: 'Oct 12, 2024', time: '2:45 PM', images: [1, 2, 3] },
             { id: 2, day: 2, title: 'Bamboo Forest', description: 'Visited Arashiyama. The scenery was breathtaking and the weather was perfect.', date: 'Oct 13, 2024', time: '5:30 PM', images: [4, 5] },
         ],
+    },
+    'trip-456': {
+        id: 'trip-456',
+        name: 'Miami Bachelor Party', 
+        takeoffDays: 4,
+        destination: 'Miami, Florida',
+        startDate: '2026-05-08',
+        endDate: '2026-05-11',
+        image: require('../../../../assets/images/Miami.jpg'), // MAKE SURE THIS IMAGE EXISTS! Or swap with Kyoto
+        weather: { temp: 85, location: 'Miami, FL', icon: 'wb-sunny' },
+        readinessPercent: 90,
+        notifications: [
+            { id: 1, title: "Yacht Deposit Due", description: "Need $200 from each person by tomorrow.", icon: "warning", color: Colors.danger, lightColor: Colors.dangerLight },
+        ],
+        group: [
+            { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', profilePic: null, active: true },
+            { id: 4, name: "David L.", initials: "DL", profileColor: '#FF4500', profilePic: null, active: true },
+            { id: 5, name: "Chris T.", initials: "CT", profileColor: '#8A2BE2', profilePic: null, active: false },
+        ],
+        budgetData: { totalSpent: 2150.00, totalBudget: 4000.00 },
+        groupBalances: [
+            { id: 4, name: 'David', balance: -200.00, avatar: 'https://i.pravatar.cc/150?u=david' },
+            { id: 5, name: 'Chris', balance: 200.00, avatar: 'https://i.pravatar.cc/150?u=chris' },
+        ],
+        transactions: [
+            { id: 1, title: 'Airbnb Deposit', payer: 'You', split: 'Split equally', amount: 1200.00, icon: 'home' },
+            { id: 2, title: 'Groceries & Drinks', payer: 'David', split: 'Split equally', amount: 350.00, icon: 'cart' },
+        ],
+        timelineData: {
+            '2026-05-08': [
+                { id: '1', time: '2:00 PM', title: 'Check into Villa', category: 'Lodging', type: 'event' },
+                { id: '2', time: '8:30 PM', title: 'Dinner at Carbone', category: 'Dinner Reservation', type: 'event' },
+            ],
+            '2026-05-09': [
+                { id: '3', time: '11:00 AM', title: 'Private Boat Charter', category: 'Excursion', type: 'event' },
+            ]
+        },
+        staysData: [
+            {
+                id: '1',
+                name: 'Star Island Villa',
+                address: '123 Star Island Dr, Miami Beach',
+                checkIn: '05/08 2:00 PM',
+                checkOut: '05/11 11:00 AM',
+            },
+        ],
+        documents: [
+            { id: '1', title: "Boat_Rental_Agreement.pdf", date: "2026-04-10", size: "1.2 MB" },
+        ],
+        ideaBoard: [
+            { id: '1', title: 'Jet Ski Rentals', description: 'Rent jet skis for 2 hours in Biscayne Bay.', image: require('../../../../assets/images/Miami.jpg') },
+            { id: '2', title: 'LIV Nightclub', description: 'Bottle service for Saturday night.', image: require('../../../../assets/images/Miami.jpg') },
+        ],
+        memories: [],
+    },
+    'trip-789': {
+        id: 'trip-789',
+        name: 'Euro Trip', 
+        takeoffDays: 45,
+        destination: 'Paris & Rome',
+        startDate: '2026-07-01',
+        endDate: '2026-07-15',
+        image: require('../../../../assets/images/paris.png'), // MAKE SURE THIS IMAGE EXISTS! Or swap with Kyoto
+        weather: { temp: 68, location: 'Paris, FR', icon: 'cloud' },
+        readinessPercent: 20,
+        notifications: [],
+        group: [
+            { id: 1, name: "Alice B.", initials: "AB", profileColor: '#1E90FF', profilePic: null, active: true },
+            { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', profilePic: null, active: true },
+        ],
+        budgetData: { totalSpent: 450.00, totalBudget: 8000.00 },
+        groupBalances: [],
+        transactions: [
+            { id: 1, title: 'Train Tickets', payer: 'Alice', split: 'Split equally', amount: 450.00, icon: 'train' },
+        ],
+        timelineData: {
+            '2026-07-01': [
+                { id: '1', time: '10:00 AM', title: 'Land at CDG Airport', category: 'Travel', type: 'event' },
+            ],
+        },
+        staysData: [],
+        documents: [],
+        ideaBoard: [
+            { id: '1', title: 'Louvre Museum Tour', description: 'Skip-the-line guided tour.', image: require('../../../../assets/images/paris.png') },
+            { id: '2', title: 'Colosseum Underground', description: 'Exclusive access to the dungeons.', image: require('../../../../assets/images/paris.png') },
+        ],
+        memories: [],
     }
 };
 

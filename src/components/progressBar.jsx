@@ -1,21 +1,24 @@
-import { BlurView } from "expo-blur";
 import { StyleSheet, View } from "react-native";
 import { Colors } from "../constants/colors";
 
-
-const progressBar = (props) => {
+// 1. Capitalize the component name!
+const ProgressBar = (props) => {
     return (
-        <View style={{ width: props.width, height: props.height || 10, backgroundColor: props.backgroundColor || '#e0e0e0', borderRadius: 5, overflow: 'hidden' }}>
-            <BlurView
-                intensity={20}
-                style={{
-                    ...StyleSheet.absoluteFillObject,
-                    borderRadius: 5,
-                }}
-            />  
-            <View style={{ width: props.progress, height: props.height || 10, backgroundColor: props.progressColor || Colors.primary, borderRadius: 5 }}></View>
+        <View style={{ width: props.width, height: props.height || 10, borderRadius: 5, overflow: 'hidden' }}>
+            <View style={[
+                StyleSheet.absoluteFillObject, 
+                { backgroundColor: props.backgroundColor || 'rgba(224, 224, 224, 0.5)' }
+            ]} />
+
+            <View style={{ 
+                width: props.progress, 
+                height: props.height || 10, 
+                backgroundColor: props.progressColor || Colors.primary, 
+                borderRadius: 5 
+            }} />
+            
         </View>
     )
 };
 
-export default progressBar;
+export default ProgressBar;
