@@ -6,7 +6,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, Tabs, useLocalSearchParams } from "expo-router";
+import { Tabs, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
@@ -55,8 +55,8 @@ const MOCK_TRIP_DATA = {
             ]
         },
         staysData: [
-            { id: '1', name: 'Ryokan Yamazaki', address: '11-1 Hirano Miyamotocho, Kita Ward, Kyoto', checkIn: new Date('2024-10-20T14:00:00.000Z'), checkOut: new Date('2024-10-24T12:00:00.000Z') },
-            { id: '2', name: 'Park Hyatt Tokyo', address: '3-7-1-2 Nishi-Shinjuku, Shinjuku-Ku, Tokyo', checkIn: new Date('2024-10-24T15:00:00.000Z'), checkOut: new Date('2024-10-28T11:00:00.000Z') },
+            { id: '1', name: 'Ryokan Yamazaki', address: '11-1 Hirano Miyamotocho, Kita Ward, Kyoto', checkIn: new Date('2024-10-20T14:00:00.000Z'), checkOut: new Date('2024-10-24T12:00:00.000Z'), coordinate: { latitude: 35.0270, longitude: 135.7066 }, },
+            { id: '2', name: 'Park Hyatt Tokyo', address: '3-7-1-2 Nishi-Shinjuku, Shinjuku-Ku, Tokyo', checkIn: new Date('2024-10-24T15:00:00.000Z'), checkOut: new Date('2024-10-28T11:00:00.000Z'), coordinate: { latitude: 35.0060, longitude: 135.8066 }, },
         ],
         documents: [
             { id: '1', title: "Passport_Scan.pdf", date: "2023-06-01", size: "2.4 MB" },
@@ -180,13 +180,26 @@ const HeaderButton = ({ icon, onPress }) => (
     </TouchableOpacity>
 );
 
-const CustomHeader = ({ trip }) => (
+const CustomHeader = ({ trip }) => {
+    const router = useRouter()
+    const navigation = useNavigation();
+    const goBack = () => {
+        // 1. We don't need getParent() because CustomHeader is already at the Stack level!
+        if (navigation.canGoBack()) {
+            // Normal usage: Pop the trip off the stack safely
+            navigation.goBack();
+        } else {
+            // Notification usage: No history exists! 
+            router.replace('/'); 
+        }
+    };
+    return (
     <View style={styles.headerContainer}>
         <Image source={trip.image} style={styles.gradient} contentFit='cover' cachePolicy='memory-disk' />
         <LinearGradient style={styles.gradient} colors={['rgba(0,0,0,0)', 'rgba(0,0,0,.2)', 'rgba(0,0,0,.6)', 'rgba(0,0,0,0.8)']} locations={[0, 0.49, 0.78, 1]} />
 
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: '5%', paddingTop: moderateScale(65) }}>
-            <HeaderButton icon="arrow-back" onPress={() => console.log('back')}/>
+            <HeaderButton icon="arrow-back" onPress={() => goBack()}/>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(12) }}>
                 <HeaderButton icon="search" onPress={() => console.log('search')} />
                 <HeaderButton icon="settings" onPress={() => router.navigate(`/(trip-info)/${trip.id}/settings`)} />
@@ -205,7 +218,8 @@ const CustomHeader = ({ trip }) => (
         </View>
         <TripInfoTabBar tripId={ trip.id }/>
     </View>
-);
+    );
+};
 
 // ==========================================
 // 3. MAIN LAYOUT COMPONENT
