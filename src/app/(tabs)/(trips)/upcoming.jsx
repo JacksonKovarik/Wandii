@@ -5,8 +5,8 @@ import DateUtils from "@/src/utils/DateUtils";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import React from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from "react-native-popup-menu";
 import { moderateScale, verticalScale } from "react-native-size-matters";
 
@@ -55,7 +55,7 @@ const MOCK_TRIP_DATA = [
   }
 ];
 
-const UpcomingTripCard = ({ trip }) => {
+const UpcomingTripCard = ({ trip, onDelete }) => {
   const router = useRouter(); // <-- Initialize the router
 
   // Come up with functionality for this
@@ -80,14 +80,17 @@ const UpcomingTripCard = ({ trip }) => {
         <View style={styles.divider} />
         <GroupDisplay members={trip.group} />
 
-        <View style={{ position: 'absolute', top: 12, right: 10 }}>
+        <View style={{ position: 'absolute', top: 5, right: 3 }}>
           <Menu>
-            <MenuTrigger customStyles={{ triggerPadding: 0 }}>
+            <MenuTrigger style={{ padding: 10 }}>
               <MaterialIcons name="more-vert" size={moderateScale(20)} color={'grey'} />
             </MenuTrigger>
 
             <MenuOptions customStyles={{ optionsContainer: styles.menuOptionsContainer }}>
-              <MenuOption onSelect={() => onDelete(stay.id)} customStyles={{ optionWrapper: { padding: 10, flexDirection: 'row', gap: 6, padding: 6, alignItems: 'center' } }}>
+              <MenuOption 
+                onSelect={() => onDelete(trip.id)} // Correctly call onDelete with the trip's ID
+                customStyles={{ optionWrapper: { padding: 10, flexDirection: 'row', gap: 6, padding: 6, alignItems: 'center' } }}
+              >
                 <MaterialIcons name="delete-outline" size={20} color={'red'} />
                 <Text style={{ fontSize: moderateScale(14), color: 'red', fontWeight: '600'}}>Delete</Text>
               </MenuOption>
@@ -100,11 +103,26 @@ const UpcomingTripCard = ({ trip }) => {
 };
 
 export default function Upcoming() {
+  const [trips, setTrips] = useState(MOCK_TRIP_DATA);
+
+  const handleDeleteTrip = (tripId) => {
+    Alert.alert(
+      "Delete Trip",
+      "Are you sure you want to delete this upcoming trip?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive", 
+          onPress: () => setTrips(currentTrips => currentTrips.filter(trip => trip.id !== tripId)) 
+        }
+      ]
+    );
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-
-      { MOCK_TRIP_DATA.map(trip => <UpcomingTripCard key={trip.id} trip={trip} />)}
-
+      { trips.map(trip => <UpcomingTripCard key={trip.id} trip={trip} onDelete={handleDeleteTrip} />)}
     </ScrollView>
   );
 }
