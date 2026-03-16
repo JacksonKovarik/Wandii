@@ -2,11 +2,12 @@ import { GroupDisplay } from "@/src/components/GroupDisplay";
 import ProgressBar from "@/src/components/progressBar";
 import { Colors } from "@/src/constants/colors";
 import DateUtils from "@/src/utils/DateUtils";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import React from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Menu, MenuOption, MenuOptions, MenuTrigger } from "react-native-popup-menu";
 import { moderateScale, verticalScale } from "react-native-size-matters";
 
 const MOCK_TRIP_DATA = [
@@ -54,7 +55,7 @@ const MOCK_TRIP_DATA = [
   }
 ];
 
-const UpcomingTripCard = ({ trip }) => {
+const UpcomingTripCard = ({ trip, onDelete }) => {
   const router = useRouter(); // <-- Initialize the router
 
   // Come up with functionality for this
@@ -62,7 +63,6 @@ const UpcomingTripCard = ({ trip }) => {
   return (
     <TouchableOpacity 
       style={styles.card}
-      // Add the onPress event here!
       onPress={() => router.push(`/(trip-info)/${trip.id}/overview`)} 
     >
       <Image source={trip.image} contentFit='cover' cachePolicy='memory-disk' style={styles.cardImage} />
@@ -79,27 +79,50 @@ const UpcomingTripCard = ({ trip }) => {
         <ProgressBar width="100%" height={moderateScale(8)} progress={`${isNaN(trip.readinessPercent) ? 0 : `${trip.readinessPercent}%`}`} backgroundColor="#F3F3F3" />
         <View style={styles.divider} />
         <GroupDisplay members={trip.group} />
+
+        <View style={{ position: 'absolute', top: 5, right: 3 }}>
+          <Menu>
+            <MenuTrigger style={{ padding: 10 }}>
+              <MaterialIcons name="more-vert" size={moderateScale(20)} color={'grey'} />
+            </MenuTrigger>
+
+            <MenuOptions customStyles={{ optionsContainer: styles.menuOptionsContainer }}>
+              <MenuOption 
+                onSelect={() => onDelete(trip.id)} // Correctly call onDelete with the trip's ID
+                customStyles={{ optionWrapper: { padding: 10, flexDirection: 'row', gap: 6, padding: 6, alignItems: 'center' } }}
+              >
+                <MaterialIcons name="delete-outline" size={20} color={'red'} />
+                <Text style={{ fontSize: moderateScale(14), color: 'red', fontWeight: '600'}}>Delete</Text>
+              </MenuOption>
+            </MenuOptions>
+          </Menu>
+        </View>
       </View>
     </TouchableOpacity>
   )
 };
 
 export default function Upcoming() {
+  const [trips, setTrips] = useState(MOCK_TRIP_DATA);
+
+  const handleDeleteTrip = (tripId) => {
+    Alert.alert(
+      "Delete Trip",
+      "Are you sure you want to delete this upcoming trip?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive", 
+          onPress: () => setTrips(currentTrips => currentTrips.filter(trip => trip.id !== tripId)) 
+        }
+      ]
+    );
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-
-      { MOCK_TRIP_DATA.map(trip => <UpcomingTripCard key={trip.id} trip={trip} />)}
-
-
-      {/* <Link href={"/(add-trips)/tripPlanFirst"} push asChild>
-        <TouchableOpacity style={styles.emptyBox} >
-          <Text style={styles.emptyText}>Plan a New Adventure</Text>
-          <MaterialIcons name="add" size={moderateScale(30)} color={Colors.textSecondary} />
-        </TouchableOpacity>
-      </Link> */}
-
-      {/* <Link href="/(trip-info)/1/overview">Go To Trip Info</Link> */}
-
+      { trips.map(trip => <UpcomingTripCard key={trip.id} trip={trip} onDelete={handleDeleteTrip} />)}
     </ScrollView>
   );
 }
@@ -171,4 +194,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginBottom: 20,
   },
+
+  menuOptionsContainer: { borderRadius: 10, padding: 5, width: 120, marginTop: 20 },
 });

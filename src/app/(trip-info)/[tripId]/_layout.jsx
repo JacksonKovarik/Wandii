@@ -7,11 +7,11 @@ import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Tabs, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
-// --- Global Trip Mock Data ---
 // --- Global Trip Mock Data ---
 const MOCK_TRIP_DATA = {
     'trip-123': {
@@ -422,6 +422,7 @@ export default function TripInfoLayout() {
     // --- RENDER ---
     return (
         <TripContext.Provider value={contextValue}>
+            <StatusBar style="light" /> 
             <View style={{ flex: 1 }}>
                 <CustomHeader trip={tripData} />
                 <Tabs 
