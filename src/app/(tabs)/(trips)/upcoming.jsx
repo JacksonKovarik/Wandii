@@ -3,6 +3,7 @@ import ProgressBar from "@/src/components/progressBar";
 import { Colors } from "@/src/constants/colors";
 import DateUtils from "@/src/utils/DateUtils";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -15,7 +16,7 @@ const MOCK_TRIP_DATA = [
     id: 'trip-123',
     name: 'Japan 2026', // Added Trip Name for the header!
     takeoffDays: 12,
-    destination: 'Kyoto, Japan',
+    destinations: 'Kyoto, Japan',
     startDate: '2024-10-12',
     endDate: '2024-10-24',
     image: require('../../../../assets/images/Kyoto.jpg'),
@@ -29,7 +30,7 @@ const MOCK_TRIP_DATA = [
   {
     id: 'trip-456',
     name: 'Miami Bachelor Party',
-    destination: 'Miami, Florida',
+    destinations: 'Miami, Florida',
     startDate: '2026-05-08',
     endDate: '2026-05-11',
     image: require('../../../../assets/images/Miami.jpg'), 
@@ -43,7 +44,7 @@ const MOCK_TRIP_DATA = [
   {
     id: 'trip-789',
     name: 'Euro Trip',
-    destination: 'Paris & Rome',
+    destinations: 'Paris & Rome',
     startDate: '2026-07-01',
     endDate: '2026-07-15',
     image: require('../../../../assets/images/paris.png'), 
@@ -66,8 +67,15 @@ const UpcomingTripCard = ({ trip, onDelete }) => {
       onPress={() => router.push(`/(trip-info)/${trip.id}/overview`)} 
     >
       <Image source={trip.image} contentFit='cover' cachePolicy='memory-disk' style={styles.cardImage} />
+      <View style={[styles.subtitleRow, { position: 'absolute', top: 10, right: 10}]}>
+          <BlurView intensity={20} tint="default" style={{ position: 'absolute', top: 0, right: 0, left: 0, bottom: 0, borderRadius: 20, backgroundColor: 'rgba(255, 255, 255, 0.38)', overflow: 'hidden' }}/>
+            
+          <MaterialCommunityIcons name="map-marker-outline" size={moderateScale(14)} color={'white'} />
+          <Text style={styles.cardSubtitle}>{trip.destinations}</Text>
+        </View> 
       <View style={styles.cardContent}>
-        <Text style={styles.cardTitle}>{trip.destination}</Text>
+        <Text style={styles.cardTitle}>{trip.name}</Text>
+       
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(6), marginTop: 10}}>
           <MaterialCommunityIcons name="calendar-today" size={moderateScale(14)} color={Colors.textSecondary} />
           <Text style={ styles.dateRange }>{ DateUtils.formatRange(DateUtils.parseYYYYMMDDToDate(trip.startDate), DateUtils.parseYYYYMMDDToDate(trip.endDate)) }</Text>
@@ -159,6 +167,25 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     color: "black",
+  },
+  subtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(0, 0, 0, 0.43)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.45)',
+    borderRadius: 20,
+    paddingHorizontal: moderateScale(5),
+    paddingVertical: moderateScale(4),
+    gap: moderateScale(4),
+    marginTop: 3, 
+    marginBottom: -2,
+  },
+  cardSubtitle: {
+    fontSize: moderateScale(12),
+    color: 'white', 
+    fontWeight: '600',
   },
   progressText: {
     fontSize: 12,
