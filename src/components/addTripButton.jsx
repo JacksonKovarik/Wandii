@@ -2,21 +2,30 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { TouchableOpacity } from "react-native";
 
-export default function AddTripButton() {
+export default function AddTripButton({
+    bgColor = "#F3F4F6",
+    iconColor = "#FF8820",
+    size = 50,
+    centered = false,
+
+}) {
     return (
         <Link href={"/(add-trips)/tripPlanFirst"} push asChild>
             <TouchableOpacity 
                 style={{ 
-                    height: 50, 
-                    width: 50, 
+                    height: size, 
+                    width: size, 
                     marginLeft: 'auto', 
                     justifyContent: 'center', 
                     alignItems: 'center', 
-                    backgroundColor: '#F3F4F6', 
-                    borderRadius: 50 / 2 
+                    backgroundColor: bgColor, 
+                    borderRadius: size / 2 
                 }}
             >
-                <MaterialIcons name="add" size={30} color="#FF8820" />
+                <MaterialIcons 
+                name="add" 
+                size={size * 0.6} 
+                color={iconColor} />
             </TouchableOpacity>
         </Link>
     );

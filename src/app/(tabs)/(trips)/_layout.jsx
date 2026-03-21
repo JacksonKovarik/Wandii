@@ -9,7 +9,7 @@ const customHeader = () => (
         <View style={styles.headerContent}>
             <View style={styles.titleRow}>
                 <Text style={styles.title}>My Trips</Text>
-                <AddTripButton />
+                <AddTripButton iconColor = "#FF8820"/>
             </View>
             <View style={styles.tabBarContainer}>
                 <ReusableTabBar 
