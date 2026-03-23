@@ -1,52 +1,80 @@
 import { Colors } from "@/src/constants/colors";
-import { MediaUtils } from "@/src/utils/MediaUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useState } from "react";
-import { Dimensions, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useCallback, useState } from "react";
+import { ActivityIndicator, Dimensions, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
+// 1. Import Supabase
+import { supabase } from "@/src/lib/supabase";
 
 const { width: screenWidth } = Dimensions.get('window');
-// Calculate exactly 1/3 of the screen, minus a tiny gap
 const COLUMN_COUNT = 3;
 const GAP = 2;
 const imageSize = (screenWidth - (GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
+
+const LIMIT = 21; // Perfect multiple of 3 columns
 
 export default function AlbumScreen() {
   const router = useRouter();
   const { tripId } = useTrip();
   const [isModalVisible, setIsModalVisible] = useState(true);
 
-  // In reality, this will be fetched from your database containing the S3 URLs
-  const [photos, setPhotos] = useState([
-    { id: '1', uri: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=800&auto=format&fit=crop' },
-    { id: '2', uri: 'https://images.unsplash.com/photo-1528164344705-47542687000d?q=80&w=800&auto=format&fit=crop' },
-    { id: '3', uri: 'https://images.unsplash.com/photo-1545569341-9eb8b3097314?q=80&w=800&auto=format&fit=crop' },
-    { id: '4', uri: 'https://images.unsplash.com/photo-1542051812-f47096fb016d?q=80&w=800&auto=format&fit=crop' },
-    { id: '5', uri: 'https://images.unsplash.com/photo-1480796927426-f609979314bd?q=80&w=800&auto=format&fit=crop' },
-    // ... add as many as you want to test scrolling!
-  ]);
+  // --- State for DB data & Pagination ---
+  const [photos, setPhotos] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
-  const handleUploadPhoto = async () => {
-    const uri = await MediaUtils.pickImage();
-    if (uri) {
-      // 1. (Future) Ask backend for S3 Presigned URL
-      // 2. (Future) fetch(presignedUrl, { method: 'PUT', body: imageFile })
-      // 3. (Future) Save S3 URL to your Database
-      
-      // For now, optimistic UI update:
-      const newPhoto = { id: Date.now().toString(), uri: uri };
-      setPhotos(prev => [newPhoto, ...prev]);
+  // --- Fetch Photos (With Pagination) ---
+  const fetchPhotos = async (isLoadMore = false) => {
+    // Prevent fetching if we are already loading more, or if we hit the end
+    if (!tripId || isLoadingMore || (!hasMore && isLoadMore)) return;
+
+    if (isLoadMore) setIsLoadingMore(true);
+    else setIsLoading(true);
+
+    // Calculate how many photos to skip based on what we already have
+    const currentOffset = isLoadMore ? photos.length : 0;
+
+    try {
+      const { data, error } = await supabase.functions.invoke('get-trip-album', {
+        body: { tripId, limit: LIMIT, offset: currentOffset } 
+      });
+
+      if (error) {
+        console.error("Error fetching album:", error);
+      } else if (data) {
+        // If Supabase returns fewer photos than our limit, we reached the end of the DB!
+        if (data.length < LIMIT) {
+          setHasMore(false);
+        }
+
+        // Append new photos if scrolling, otherwise replace
+        if (isLoadMore) {
+          setPhotos(prev => [...prev, ...data]);
+        } else {
+          setPhotos(data);
+        }
+      }
+    } catch (err) {
+      console.error("Unexpected error fetching album:", err);
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
     }
   };
 
+  const handleUploadPhoto = () => {
+    console.log("Upload Photo button pressed");
+    // TODO: Connect this to MediaUtils.pickImage() and your Supabase upload logic!
+  };
+
   const handleClose = () => {
-    // 1. Tell the modal to slide down
     setIsModalVisible(false); 
-    
-    // 2. Wait 300ms for the animation to finish, then safely route away
     setTimeout(() => {
+      // Go back to the memories tab
       router.navigate(`/(trip-info)/${tripId}/memories`);
     }, 300);
   };
@@ -54,107 +82,83 @@ export default function AlbumScreen() {
   useFocusEffect(
     useCallback(() => {
       setIsModalVisible(true);
-    }, [])
+      setPhotos([]); 
+      setHasMore(true);
+      fetchPhotos(false, true);
+    }, [tripId])
   );
 
   return (
     <Modal
       visible={isModalVisible}
       animationType="slide"
-      presentationStyle="pageSheet" // Gives the native iOS swipe-down card feel!
-      onRequestClose={() => handleClose()} // Handles the Android hardware back button
+      presentationStyle="pageSheet"
+      onRequestClose={handleClose}
     >
       <View style={styles.container}>
+        {/* Header */}
         <View style={styles.customHeader}>
-          
-          {/* Left: Close Button (Changed from Back Arrow) */}
-          <TouchableOpacity 
-            style={styles.headerIconBtn} 
-            // router.back() instantly unmounts the route, sliding the modal down
-            onPress={() => handleClose()} 
-          >
+          <TouchableOpacity style={styles.headerIconBtn} onPress={handleClose}>
             <MaterialIcons name="close" size={24} color={Colors.darkBlue} />
           </TouchableOpacity>
-
-          {/* Center: Title */}
           <Text style={styles.headerTitle}>Shared Album</Text>
-
-          {/* Right: Add Photo Button */}
           <TouchableOpacity style={styles.headerIconBtn} onPress={handleUploadPhoto}>
             <MaterialIcons name="add-a-photo" size={22} color={Colors.primary} />
           </TouchableOpacity>
-
         </View>
 
-        {/* The 3-Column Grid */}
-        <FlatList
-          data={photos}
-          keyExtractor={item => item.id}
-          numColumns={COLUMN_COUNT}
-          showsVerticalScrollIndicator={false}
-          columnWrapperStyle={styles.row}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <TouchableOpacity 
-              activeOpacity={0.8} 
-              onPress={() => console.log(`Open Full Screen Lightbox for photo: ${item.id}`)}
-            >
-              <Image 
-                source={{ uri: item.uri }} 
-                style={styles.gridImage} 
-                contentFit="cover" 
-                transition={200} 
-              />
-            </TouchableOpacity>
-          )}
-        />
+        {/* Loading State or Grid */}
+        {isLoading && !isLoadingMore ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+          </View>
+        ) : photos.length === 0 ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ color: Colors.gray }}>No photos added yet.</Text>
+          </View>
+        ) : (
+          <FlatList 
+            data={photos}
+            keyExtractor={(item, index) => item.photo_id?.toString() || index.toString()}
+            numColumns={COLUMN_COUNT}
+            columnWrapperStyle={styles.row}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            
+            // --- Infinite Scroll Triggers ---
+            onEndReached={() => fetchPhotos(true)}
+            onEndReachedThreshold={0.5} // Triggers when halfway through the last page
+            ListFooterComponent={
+              isLoadingMore ? <ActivityIndicator size="small" color={Colors.primary} style={{ margin: 20 }} /> : null
+            }
+
+            renderItem={({ item }) => (
+              <TouchableOpacity 
+                activeOpacity={0.8} 
+                onPress={() => console.log(`Open Full Screen Lightbox for photo: ${item.photo_id || item.id}`)}
+              >
+                <Image 
+                  source={{ uri: item.photo_url || item.uri }} // Safely handles either DB column name
+                  style={styles.gridImage} 
+                  contentFit="cover" 
+                  transition={200} 
+                  cachePolicy="disk" // --- EXPLICIT CACHING ADDED HERE ---
+                />
+              </TouchableOpacity>
+            )}
+          />
+        )}
       </View>
     </Modal>
   );
 }
 
-
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    // Using your off-white background color adds contrast against the pure white header
-    backgroundColor: Colors.background, 
-  },
-  listContent: {
-    paddingBottom: 40, 
-  },
-  row: {
-    gap: GAP,
-    marginBottom: GAP,
-  },
-  gridImage: {
-    width: imageSize,
-    height: imageSize,
-    backgroundColor: '#E2E8F0', // Slightly darker placeholder so it doesn't blend into white
-  },
-  
-  // --- Custom Header Styles ---
-  customHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    paddingBottom: 12, // Tighter padding
-    paddingTop: 12,
-    // Removed the shadow entirely for a flatter, cleaner integration with the tabs above it
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.darkBlue,
-  },
-  headerIconBtn: {
-    width: 40, 
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // Removed the background colors completely!
-  },
+  container: { flex: 1, backgroundColor: Colors.background },
+  listContent: { paddingBottom: 40 },
+  row: { gap: GAP, marginBottom: GAP },
+  gridImage: { width: imageSize, height: imageSize, backgroundColor: '#E2E8F0' },
+  customHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingBottom: 12, paddingTop: 12 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.darkBlue },
+  headerIconBtn: { padding: 4 }
 });

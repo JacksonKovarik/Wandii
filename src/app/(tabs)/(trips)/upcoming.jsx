@@ -6,67 +6,75 @@ import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from "react-native-popup-menu";
 import { moderateScale, verticalScale } from "react-native-size-matters";
 
-const MOCK_TRIP_DATA = [
-  {
-    id: 'trip-123',
-    name: 'Japan 2026', // Added Trip Name for the header!
-    takeoffDays: 12,
-    destinations: 'Kyoto, Japan',
-    startDate: '2024-10-12',
-    endDate: '2024-10-24',
-    image: require('../../../../assets/images/Kyoto.jpg'),
-    readinessPercent: 60,
-    group: [
-        { id: 1, name: "Alice B.", initials: "AB", profileColor: '#1E90FF', profilePic: null, active: false },
-        { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', profilePic: null, active: true },
-        { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', profilePic: null, active: true },
-    ],
-  },
-  {
-    id: 'trip-456',
-    name: 'Miami Bachelor Party',
-    destinations: 'Miami, Florida',
-    startDate: '2026-05-08',
-    endDate: '2026-05-11',
-    image: require('../../../../assets/images/Miami.jpg'), 
-    readinessPercent: 90,
-    group: [
-        { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', active: true },
-        { id: 4, name: "David L.", initials: "DL", profileColor: '#FF4500', active: true },
-        { id: 5, name: "Chris T.", initials: "CT", profileColor: '#8A2BE2', active: false },
-    ],
-  },
-  {
-    id: 'trip-789',
-    name: 'Euro Trip',
-    destinations: 'Paris & Rome',
-    startDate: '2026-07-01',
-    endDate: '2026-07-15',
-    image: require('../../../../assets/images/paris.png'), 
-    readinessPercent: 20,
-    group: [
-        { id: 1, name: "Alice B.", initials: "AB", profileColor: '#1E90FF', active: true },
-        { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', active: true },
-    ],
-  }
-];
+// IMPORT YOUR SUPABASE CLIENT HERE (Adjust path as needed)
+import { supabase } from "@/src/lib/supabase";
+
+
+// const MOCK_TRIP_DATA = [
+//   {
+//     id: 'trip-123',
+//     name: 'Japan 2026', // Added Trip Name for the header!
+//     takeoffDays: 12,
+//     destinations: 'Kyoto, Japan',
+//     startDate: '2024-10-12',
+//     endDate: '2024-10-24',
+//     image: require('../../../../assets/images/Kyoto.jpg'),
+//     readinessPercent: 60,
+//     group: [
+//         { id: 1, name: "Alice B.", initials: "AB", profileColor: '#1E90FF', profilePic: null, active: false },
+//         { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', profilePic: null, active: true },
+//         { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', profilePic: null, active: true },
+//     ],
+//   },
+//   {
+//     id: 'trip-456',
+//     name: 'Miami Bachelor Party',
+//     destinations: 'Miami, Florida',
+//     startDate: '2026-05-08',
+//     endDate: '2026-05-11',
+//     image: require('../../../../assets/images/Miami.jpg'), 
+//     readinessPercent: 90,
+//     group: [
+//         { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', active: true },
+//         { id: 4, name: "David L.", initials: "DL", profileColor: '#FF4500', active: true },
+//         { id: 5, name: "Chris T.", initials: "CT", profileColor: '#8A2BE2', active: false },
+//     ],
+//   },
+//   {
+//     id: 'trip-789',
+//     name: 'Euro Trip',
+//     destinations: 'Paris & Rome',
+//     startDate: '2026-07-01',
+//     endDate: '2026-07-15',
+//     image: require('../../../../assets/images/paris.png'), 
+//     readinessPercent: 20,
+//     group: [
+//         { id: 1, name: "Alice B.", initials: "AB", profileColor: '#1E90FF', active: true },
+//         { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', active: true },
+//     ],
+//   }
+// ];
 
 const UpcomingTripCard = ({ trip, onDelete }) => {
-  const router = useRouter(); // <-- Initialize the router
+  const router = useRouter(); 
 
-  // Come up with functionality for this
-  const tripStatus = 'Finalizing Itinerary'
+  // Hardcoded for now until we build tasks!
+  const tripStatus = 'Finalizing Itinerary';
+  
+  // Format image source safely. If it's a URL string from DB, wrap in { uri: ... }
+  const imageSource = typeof trip.image === 'string' ? { uri: trip.image } : trip.image;
+
   return (
     <TouchableOpacity 
       style={styles.card}
       onPress={() => router.push(`/(trip-info)/${trip.id}/overview`)} 
     >
-      <Image source={trip.image} contentFit='cover' cachePolicy='memory-disk' style={styles.cardImage} />
+      <Image source={imageSource} contentFit='cover' cachePolicy='memory-disk' style={styles.cardImage} />
       <View style={[styles.subtitleRow, { position: 'absolute', top: 10, right: 10}]}>
           <BlurView intensity={20} tint="default" style={{ position: 'absolute', top: 0, right: 0, left: 0, bottom: 0, borderRadius: 20, backgroundColor: 'rgba(255, 255, 255, 0.38)', overflow: 'hidden' }}/>
             
@@ -86,7 +94,9 @@ const UpcomingTripCard = ({ trip, onDelete }) => {
         </View>
         <ProgressBar width="100%" height={moderateScale(8)} progress={`${isNaN(trip.readinessPercent) ? 0 : `${trip.readinessPercent}%`}`} backgroundColor="#F3F3F3" />
         <View style={styles.divider} />
-        <GroupDisplay members={trip.group} />
+        
+        {/* Pass the group array straight from the DB into your component */}
+        <GroupDisplay members={trip.group || []} />
 
         <View style={{ position: 'absolute', top: 5, right: 3 }}>
           <Menu>
@@ -96,7 +106,7 @@ const UpcomingTripCard = ({ trip, onDelete }) => {
 
             <MenuOptions customStyles={{ optionsContainer: styles.menuOptionsContainer }}>
               <MenuOption 
-                onSelect={() => onDelete(trip.id)} // Correctly call onDelete with the trip's ID
+                onSelect={() => onDelete(trip.id)} 
                 customStyles={{ optionWrapper: { padding: 10, flexDirection: 'row', gap: 6, padding: 6, alignItems: 'center' } }}
               >
                 <MaterialIcons name="delete-outline" size={20} color={'red'} />
@@ -111,7 +121,37 @@ const UpcomingTripCard = ({ trip, onDelete }) => {
 };
 
 export default function Upcoming() {
-  const [trips, setTrips] = useState(MOCK_TRIP_DATA);
+  const [trips, setTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // The UUID we injected into the DB for your test user
+  const TEMP_USER_ID = '5b6c11f8-d8d5-45c3-815b-54870bcbb0ad';
+
+  useEffect(() => {
+    fetchUpcomingTrips();
+  }, []);
+
+  const fetchUpcomingTrips = async () => {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase.functions.invoke('get-upcoming-trips', {
+        body: { userId: TEMP_USER_ID }
+      });
+
+      if (error) {
+        console.error("Error fetching upcoming trips:", error);
+        Alert.alert("Error", "Could not fetch your trips.");
+        return;
+      }
+
+      setTrips(data || []);
+    } catch (err) {
+      console.error("Unexpected error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDeleteTrip = (tripId) => {
     Alert.alert(
@@ -122,15 +162,33 @@ export default function Upcoming() {
         { 
           text: "Delete", 
           style: "destructive", 
-          onPress: () => setTrips(currentTrips => currentTrips.filter(trip => trip.id !== tripId)) 
+          onPress: () => {
+            // Optimistically remove it from UI. You'll hook this to a delete endpoint later!
+            setTrips(currentTrips => currentTrips.filter(trip => trip.id !== tripId)) 
+          }
         }
       ]
     );
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.container, { flex: 1, justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      { trips.map(trip => <UpcomingTripCard key={trip.id} trip={trip} onDelete={handleDeleteTrip} />)}
+      {trips.length > 0 ? (
+        trips.map(trip => <UpcomingTripCard key={trip.id} trip={trip} onDelete={handleDeleteTrip} />)
+      ) : (
+        <View style={styles.emptyBox}>
+          <Text style={styles.emptyText}>No upcoming trips yet!</Text>
+          <MaterialCommunityIcons name="airplane-takeoff" size={40} color={Colors.textSecondary} />
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -141,7 +199,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
   },
-
   card: {
     width: "100%",
     backgroundColor: "white",
@@ -157,8 +214,6 @@ const styles = StyleSheet.create({
   cardImage: {
     width: "100%",
     height: 130,
-    // borderRadius: moderateScale(16),
-    // overflow: "hidden",
   },
   cardContent: {
     padding: 16,
@@ -191,13 +246,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-
-
   dateRange: {
     color: Colors.textSecondaryDark,
     fontSize: moderateScale(12),
   },
-
   emptyBox: {
     width: "100%",
     borderWidth: 2,
@@ -207,20 +259,18 @@ const styles = StyleSheet.create({
     paddingVertical: verticalScale(30), 
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 20,
   },
-
   divider: {
     width: "100%",
     height: .7,
     backgroundColor: '#CFCFCF',
     marginVertical: 20,
   },
-
   emptyText: {
     fontSize: moderateScale(18),       
     color: Colors.textSecondary,
     marginBottom: 20,
   },
-
   menuOptionsContainer: { borderRadius: 10, padding: 5, width: 120, marginTop: 20 },
 });
