@@ -13,6 +13,11 @@ import { moderateScale } from "react-native-size-matters";
 // IMPORT SUPABASE
 import { supabase } from "@/src/lib/supabase";
 
+
+// ADD Journal Entry editing for a users entries NOT others
+
+
+
 const { width: screenWidth } = Dimensions.get('window');
 const cardWidth = screenWidth * 0.85;
 const cardSpacing = (screenWidth - cardWidth) / 2;

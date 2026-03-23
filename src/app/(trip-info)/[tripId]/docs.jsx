@@ -10,6 +10,10 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
+
+// ADD automatic images/icons for different file uploads
+
+
 const DocumentCard = ({ title, size, date }) => {
   const lastDotIndex = title.lastIndexOf('.');
   const name = lastDotIndex !== -1 ? title.substring(0, lastDotIndex) : title;
