@@ -1,3 +1,4 @@
+import { supabase } from '@/src/lib/supabase';
 import { Camera } from 'expo-camera';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
@@ -101,5 +102,58 @@ export const MediaUtils = {
     }
     
     return null;
+  },
+
+  // --------------------------------------------------
+  // 4. Upload an Image to Supabase Storage & Database
+  // --------------------------------------------------
+  uploadImageToSupabase: async (uri, tripId, userId, entryId = null) => {
+    try {
+      const fileExt = uri.split('.').pop() || 'jpg';
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `${tripId}/${fileName}`;
+      
+      // 1. Fetch the local file directly into raw binary (Zero Base64!)
+      const response = await fetch(uri);
+      const arrayBuffer = await response.arrayBuffer();
+
+      // 2. Upload the raw bytes directly to Supabase
+      const { error: uploadError } = await supabase.storage
+        .from('trip-media')
+        .upload(filePath, arrayBuffer, {
+          contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 3. Get the public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('trip-media')
+        .getPublicUrl(filePath);
+
+      // 4. Create the database payload
+      const dbPayload = {
+        trip_id: tripId,
+        uploader_id: userId,
+        photo_url: publicUrlData.publicUrl,
+      };
+      
+      // Attach to journal entry if applicable
+      if (entryId) dbPayload.entry_id = entryId;
+
+      // 5. Insert into the Photos table
+      const { data: dbData, error: dbError } = await supabase
+        .from('Photos')
+        .insert(dbPayload)
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+      return dbData;
+
+    } catch (err) {
+      console.error("MediaUtils Upload Error:", err);
+      throw err; 
+    }
   }
 };

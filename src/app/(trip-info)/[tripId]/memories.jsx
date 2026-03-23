@@ -4,7 +4,6 @@ import { Colors } from "@/src/constants/colors";
 import { MediaUtils } from "@/src/utils/MediaUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
-import { File } from 'expo-file-system'; // 1. IMPORTING THE NEW API
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -116,7 +115,7 @@ export default function Memories() {
       if (albumResponse.error) console.error("Album Fetch Error:", albumResponse.error);
       else setAlbumPhotos(albumResponse.data || []);
 
-      if (countResponse.count !== null) setTotalPhotoCount(countResponse.count);
+      if (countResponse && countResponse.count !== null) setTotalPhotoCount(countResponse.count);
 
     } catch (err) {
       console.error("Unexpected error fetching memories/album:", err);
@@ -133,59 +132,24 @@ export default function Memories() {
     await fetchMemoriesData();
   };
 
-  // --- ☁️ UPLOAD HELPER (New Expo SDK 54 API) ---
-  const uploadImageToSupabase = async (uri) => {
-    const fileExt = uri.split('.').pop() || 'jpg';
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `${tripId}/${fileName}`; 
-
-    // 2. USE THE NATIVE FILE CLASS
-    const file = new File(uri);
-    const arrayBuffer = await file.arrayBuffer();
-
-    // 3. UPLOAD RAW BYTES
-    const { error } = await supabase.storage
-      .from('trip-media') 
-      .upload(filePath, arrayBuffer, {
-        contentType: file.type || `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`
-      });
-      
-    if (error) throw error;
-
-    const { data: publicUrlData } = supabase.storage
-      .from('trip-media')
-      .getPublicUrl(filePath);
-      
-    return publicUrlData.publicUrl;
-  };
-
   // --- 📷 STANDALONE SHARED ALBUM UPLOAD ---
   const handleUploadSharedPhoto = async () => {
-    const uri = await MediaUtils.pickImage();
-    if (!uri) return;
-
     try {
+      const uri = await MediaUtils.pickImage();
+      if (!uri) return;
+
       setIsLoading(true); 
-      const publicUrl = await uploadImageToSupabase(uri);
-
-      const { data: dbData, error: dbError } = await supabase
-        .from('Photos')
-        .insert({
-          trip_id: tripId,
-          uploader_id: CURRENT_USER_ID,
-          photo_url: publicUrl,
-          uploaded_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (dbError) throw dbError;
+      
+      // Let MediaUtils handle compression, uploading, and database insertion!
+      const newPhotoRecord = await MediaUtils.uploadImageToSupabase(uri, tripId, CURRENT_USER_ID);
 
       // Update UI instantly
       setAlbumPhotos(prevPhotos => [
-        { id: dbData.photo_id, uri: dbData.photo_url, mock: false }, 
+        { id: newPhotoRecord.photo_id || newPhotoRecord.id, uri: newPhotoRecord.photo_url, mock: false }, 
         ...prevPhotos
       ]);
+      setTotalPhotoCount(prev => prev + 1);
+
     } catch (err) {
       console.error("Shared Photo Upload Error:", err);
       alert("Failed to upload photo. Please try again.");
@@ -205,6 +169,7 @@ export default function Memories() {
     setIsUploading(true);
 
     try {
+      // 1. Create the Journal Entry
       const { data: newJournal, error: journalError } = await supabase
         .from('Journals') 
         .insert({ 
@@ -218,26 +183,23 @@ export default function Memories() {
 
       if (journalError) throw journalError;
 
+      // 2. Upload any attached photos using MediaUtils
       if (entryImages.length > 0) {
         const uploadPromises = entryImages.map(async (uri) => {
-          const publicUrl = await uploadImageToSupabase(uri);
-          
-          return supabase.from('Photos').insert({
-            photo_url: publicUrl, 
-            uploader_id: CURRENT_USER_ID, 
-            trip_id: tripId, 
-            entry_id: newJournal.entry_id
-          });
+          // Notice we pass newJournal.entry_id as the 4th parameter!
+          return MediaUtils.uploadImageToSupabase(uri, tripId, CURRENT_USER_ID, newJournal.entry_id);
         });
 
         await Promise.all(uploadPromises); 
       }
 
+      // 3. Reset UI state
       setEntryTitle("");
       setEntryDescription("");
       setEntryImages([]);
       setIsModalVisible(false);
       
+      // 4. Refresh to show new entry
       fetchMemoriesData(); 
 
     } catch (error) {

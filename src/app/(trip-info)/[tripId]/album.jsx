@@ -66,9 +66,26 @@ export default function AlbumScreen() {
     }
   };
 
-  const handleUploadPhoto = () => {
-    console.log("Upload Photo button pressed");
-    // TODO: Connect this to MediaUtils.pickImage() and your Supabase upload logic!
+  const handleUploadPhoto = async () => {
+    try {
+      // 1. Pick and compress the image
+      const uri = await MediaUtils.pickImage();
+      if (!uri) return;
+
+      setIsLoading(true); 
+
+      // 2. Let MediaUtils handle the heavy lifting!
+      const CURRENT_USER_ID = '5b6c11f8-d8d5-45c3-815b-54870bcbb0ad'; // Dummy ID
+      const newPhotoRecord = await MediaUtils.uploadImageToSupabase(uri, tripId, CURRENT_USER_ID);
+
+      // 3. Update the UI instantly
+      setPhotos(prevPhotos => [newPhotoRecord, ...prevPhotos]);
+
+    } catch (err) {
+      alert("Failed to upload photo. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleClose = () => {
