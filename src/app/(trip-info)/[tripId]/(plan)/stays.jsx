@@ -2,14 +2,17 @@ import AnimatedBottomSheet from "@/src/components/AnimatedBottomSheet";
 import ReusableTabBar from "@/src/components/reusableTabBar";
 import TripInfoScrollView from "@/src/components/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
+import { supabase } from '@/src/lib/supabase';
 import DateUtils from "@/src/utils/DateUtils";
 import { openAddressInMaps } from "@/src/utils/LinkingUtils";
+import { getCoordinatesForAddress } from "@/src/utils/LocationUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import * as Clipboard from 'expo-clipboard';
-import { useState } from "react";
-import { Alert, ImageBackground, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
 import { moderateScale } from "react-native-size-matters";
@@ -23,10 +26,22 @@ const StayCard = ({ stay, onEdit, onDelete }) => {
   return (
     <View style={styles.cardShadow}>
       <View style={styles.cardContainer}>
-        <ImageBackground source={ require("@/assets/images/Kyoto.jpg") } style={styles.cardImage} />
+        {/* <ImageBackground source={{ uri: stay.image }} style={styles.cardImage} /> */}
+
+        <LinearGradient
+          // A beautiful, subtle modern blue/slate gradient
+          colors={['#0f172a', '#3b82f6']} 
+          // colors={['#FF512F', '#F09819']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.cardImage, { justifyContent: 'center', alignItems: 'center' }]}
+        >
+           <MaterialIcons name="hotel" size={moderateScale(50)} color="#ffffff" style={{ opacity: 0.25 }} />
+        </LinearGradient>
 
         <View style={styles.cardContent}>
-          <Text style={styles.stayName}>{stay.name || stay.title}</Text>
+          {/* Mapped to stay.title from DB */}
+          <Text style={styles.stayName}>{stay.title}</Text>
         
           <View style={styles.addressRow}>
             <MaterialIcons name="location-pin" size={moderateScale(20)} color={Colors.primary} />
@@ -41,11 +56,13 @@ const StayCard = ({ stay, onEdit, onDelete }) => {
           <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center', marginTop: 15 }}>
             <View style={{ flex: 1, gap: 5 }}>
               <Text style={styles.dateLabel}>CHECK IN</Text>
-              <Text style={styles.dateValue}>{stay.checkIn ? DateUtils.formatDayAndTime(DateUtils.timestampToDate(stay.checkIn)) : 'TBD'}</Text>
+              {/* Mapped to stay.check_in from DB */}
+              <Text style={styles.dateValue}>{stay.check_in ? DateUtils.formatDayAndTime(DateUtils.timestampToDate(stay.check_in)) : 'TBD'}</Text>
             </View>
             <View style={{ flex: 1, gap: 5 }}>
               <Text style={styles.dateLabel}>CHECK OUT</Text>
-              <Text style={styles.dateValue}>{stay.checkOut ? DateUtils.formatDayAndTime(DateUtils.timestampToDate(stay.checkOut)) : 'TBD'}</Text>
+              {/* Mapped to stay.check_out from DB */}
+              <Text style={styles.dateValue}>{stay.check_out ? DateUtils.formatDayAndTime(DateUtils.timestampToDate(stay.check_out)) : 'TBD'}</Text>
             </View>
           </View>
 
@@ -68,12 +85,12 @@ const StayCard = ({ stay, onEdit, onDelete }) => {
             </MenuTrigger>
 
             <MenuOptions customStyles={{ optionsContainer: styles.menuOptionsContainer }}>
-              {/* NEW: Pass the specific stay object back to the parent */}
               <MenuOption onSelect={() => onEdit(stay)} customStyles={{ optionWrapper: { padding: 10 } }}>
                 <Text style={{ fontSize: moderateScale(14), color: Colors.darkBlue }}>Edit</Text>
               </MenuOption>
               <View style={{ height: 1, backgroundColor: Colors.lightGray, marginHorizontal: 5 }} />
-              <MenuOption onSelect={() => onDelete(stay.id)} customStyles={{ optionWrapper: { padding: 10 } }}>
+              {/* Pass accommodation_id to delete */}
+              <MenuOption onSelect={() => onDelete(stay.accommodation_id)} customStyles={{ optionWrapper: { padding: 10 } }}>
                 <Text style={{ fontSize: moderateScale(14), color: 'red' }}>Delete</Text>
               </MenuOption>
             </MenuOptions>
@@ -86,10 +103,13 @@ const StayCard = ({ stay, onEdit, onDelete }) => {
 
 export default function Stays() {
   const tripData = useTrip();
-  const { staysData = [], deleteStay, refreshTripData, tripId } = tripData;
+  const { tripId, destination } = tripData;
 
-  // --- DB-READY FORM STATE ---
-  // Adding an `id` property allows us to track if we are Editing or Creating
+  // --- LOCAL DATA STATE ---
+  const [staysData, setStaysData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // --- FORM STATE ---
   const defaultStayState = { id: null, title: '', address: '', checkIn: null, checkOut: null };
   const [isModalVisible, setModalVisible] = useState(false);
   const [stayForm, setStayForm] = useState(defaultStayState);
@@ -97,13 +117,55 @@ export default function Stays() {
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
   const [datePickerTarget, setDatePickerTarget] = useState(null);
 
+  // --- DATABASE ACTIONS ---
+
+  // 1. Fetch Stays
+  const fetchStays = async () => {
+    if (!tripId) return;
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('Accommodations')
+        .select('*')
+        .eq('trip_id', tripId)
+        .order('check_in', { ascending: true }); // Chronological order!
+
+      if (error) throw error;
+      setStaysData(data || []);
+    } catch (err) {
+      console.error("Error fetching stays:", err);
+      Alert.alert("Error", "Could not load accommodations.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Run on mount
+  useEffect(() => {
+    fetchStays();
+  }, [tripId]);
+
+  // 2. Delete Stay
   const handleDeletePress = (stayId) => {
     Alert.alert(
       "Delete Stay",
       "Are you sure you want to remove this accommodation?",
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => deleteStay(stayId) }
+        { text: "Delete", style: "destructive", onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('Accommodations')
+                .delete()
+                .eq('accommodation_id', stayId);
+              
+              if (error) throw error;
+              fetchStays(); // Refresh list after delete
+            } catch (err) {
+              console.error("Delete Error:", err);
+              Alert.alert("Error", "Could not delete stay.");
+            }
+        }}
       ]
     );
   };
@@ -113,40 +175,62 @@ export default function Stays() {
     setModalVisible(true);
   };
 
-  // NEW: Handle opening modal to EDIT an existing stay
   const handleOpenEdit = (stay) => {
     setStayForm({
-      id: stay.id,
-      title: stay.name || stay.title, // Handle data mismatches gracefully
+      id: stay.accommodation_id, // Map DB ID
+      title: stay.title,
       address: stay.address,
-      checkIn: stay.checkIn ? new Date(stay.checkIn) : null,
-      checkOut: stay.checkOut ? new Date(stay.checkOut) : null,
+      checkIn: stay.check_in ? new Date(stay.check_in) : null, // Map DB snake_case to UI camelCase
+      checkOut: stay.check_out ? new Date(stay.check_out) : null,
     });
     setModalVisible(true);
   };
 
+  // 3. Save / Update Stay
   const handleSaveStay = async () => {
-    const dbPayload = {
-      title: stayForm.title,
-      address: stayForm.address,
-      checkIn: stayForm.checkIn ? stayForm.checkIn.toISOString() : null,
-      checkOut: stayForm.checkOut ? stayForm.checkOut.toISOString() : null,
-    };
+    try {
+      let coords;
+      if (stayForm.address) {
+        coords = await getCoordinatesForAddress(stayForm.address, destination);      
+      }
 
-    if (stayForm.id) {
-      // It has an ID, so it already exists. We UPDATE.
-      // TODO: await updateStay(stayForm.id, dbPayload);
-      console.log("Updating Stay in DB: ", stayForm.id, dbPayload);
-    } else {
-      // No ID, so it's a new entry. We INSERT.
-      // TODO: await addStay(dbPayload);
-      console.log("Adding New Stay to DB: ", dbPayload);
+      const dbPayload = {
+        trip_id: tripId,
+        title: stayForm.title,
+        address: stayForm.address,
+        check_in: stayForm.checkIn ? stayForm.checkIn.toISOString() : null,
+        check_out: stayForm.checkOut ? stayForm.checkOut.toISOString() : null,
+        latitude: coords?.latitude || null,  // Use optional chaining
+        longitude: coords?.longitude || null,      };
+
+      if (stayForm.id) {
+        // UPDATE
+        const { error } = await supabase
+          .from('Accommodations')
+          .update(dbPayload)
+          .eq('accommodation_id', stayForm.id);
+        
+        if (error) throw error;
+      } else {
+        // INSERT
+        const { error } = await supabase
+          .from('Accommodations')
+          .insert(dbPayload);
+          
+        if (error) throw error;
+      }
+      
+      setModalVisible(false);
+      setStayForm(defaultStayState);
+      fetchStays(); // Refresh UI
+
+    } catch (err) {
+      console.error("Save Error:", err);
+      Alert.alert("Error", "Could not save accommodation details.");
     }
-    
-    setModalVisible(false);
-    setStayForm(defaultStayState); // Reset form
   };
 
+  // --- DATE PICKER LOGIC ---
   const showDatePicker = (target) => {
     setDatePickerTarget(target);
     setDatePickerVisible(true);
@@ -163,7 +247,8 @@ export default function Stays() {
   };
 
   return (
-    <TripInfoScrollView style={styles.container} onRefresh={refreshTripData}>
+    // Replaced generic refreshTripData with our explicit fetchStays function
+    <TripInfoScrollView style={styles.container} onRefresh={fetchStays}>
       <View style={{ padding: 10 }}>
         <View style={{ width: '100%', alignItems: 'center' }}>
           <ReusableTabBar 
@@ -181,21 +266,26 @@ export default function Stays() {
       <View style={styles.scrollContent}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: moderateScale(20) }}>
           <Text style={styles.sectionTitle}>Accommodations</Text>
-          {/* NEW: Wire up the Add button */}
           <TouchableOpacity style={{ flexDirection: 'row', gap: 5 }} onPress={handleOpenAdd}>
             <MaterialIcons name="add" size={moderateScale(18)} color={Colors.primary} />
             <Text style={styles.newEntryButton}>Add Stay</Text>
           </TouchableOpacity>
         </View>
 
-        {staysData.map(stay => (
-          <StayCard 
-             key={stay.id} 
-             stay={stay} 
-             onEdit={handleOpenEdit} 
-             onDelete={handleDeletePress} 
-          />
-        ))}
+        {isLoading ? (
+          <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+        ) : staysData.length === 0 ? (
+          <Text style={{ textAlign: 'center', color: Colors.gray, marginTop: 20 }}>No accommodations booked yet.</Text>
+        ) : (
+          staysData.map(stay => (
+            <StayCard 
+               key={stay.accommodation_id} 
+               stay={stay} 
+               onEdit={handleOpenEdit} 
+               onDelete={handleDeletePress} 
+            />
+          ))
+        )}
       </View>
 
       <AnimatedBottomSheet visible={isModalVisible} onClose={() => setModalVisible(false)}>
@@ -261,7 +351,6 @@ export default function Stays() {
             disabled={!stayForm.title || !stayForm.address}
             onPress={handleSaveStay}
           >
-            {/* NEW: Dynamic Button Text */}
             <Text style={styles.premiumSubmitText}>
               {stayForm.id ? 'Update Stay' : 'Save Stay'}
             </Text>
@@ -288,31 +377,26 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scrollContent: { padding: '5%' },
   
-  // Headers & Text
   sectionTitle: { fontSize: moderateScale(16), fontWeight: '700', color: Colors.darkBlue },
   newEntryButton: { fontSize: moderateScale(14), color: Colors.primary, fontWeight: '600' },
   
-  // Cards
   cardShadow: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5, marginBottom: 25 },
   cardContainer: { backgroundColor: '#ffffff', borderRadius: 20, overflow: 'hidden', width: '100%' },
   cardImage: { height: 140 },
   cardContent: { paddingVertical: 20, paddingHorizontal: 15 },
   stayName: { fontSize: moderateScale(16), fontWeight: '600', color: Colors.darkBlue, marginBottom: 5 },
   
-  // Address & Details
   addressRow: { width: '100%', flexDirection: 'row', gap: 5, marginBottom: 10, backgroundColor: Colors.lightGray, padding: 10, borderRadius: 4, alignSelf: 'flex-start', alignItems: 'center', marginTop: 10 },
   addressText: { flex: 1, fontSize: moderateScale(11), color: Colors.gray, fontWeight: '500' },
   divider: { height: 2, backgroundColor: Colors.lightGray, width: '100%', marginTop: 10 },
   dateLabel: { fontSize: moderateScale(10), color: Colors.gray, fontWeight: '700' },
   dateValue: { fontSize: moderateScale(14), color: Colors.darkBlue, fontWeight: '700' },
   
-  // Buttons & Menus
   directionsButton: { width: '100%', flexDirection: 'row', paddingVertical: 10, backgroundColor: Colors.darkBlue, alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 10, alignSelf: 'center', marginTop: 20},
   directionsButtonText: { fontSize: moderateScale(14), color: '#ffffff', fontWeight: '600' },
   menuTriggerBlur: { padding: 5, backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 25, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   menuOptionsContainer: { borderRadius: 10, padding: 5, width: 120, marginTop: 40 },
 
-  // --- PREMIUM BOTTOM SHEET FORM STYLES ---
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   sheetTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
   closeButton: { backgroundColor: '#f1f5f9', padding: 6, borderRadius: 16 },
