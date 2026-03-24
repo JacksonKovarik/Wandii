@@ -40,7 +40,8 @@ serve(async (req) => {
         title: exp.description || 'Untitled Expense',
         payer: payerName,
         split: `Split with ${exp.Expense_Splits?.length || 0} others`,
-        amount: Number(exp.total_amount)
+        amount: Number(exp.total_amount),
+        date: exp.expense_date
       };
     });
 

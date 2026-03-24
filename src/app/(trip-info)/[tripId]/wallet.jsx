@@ -3,10 +3,11 @@ import ProgressBar from "@/src/components/progressBar";
 import TripInfoScrollView from "@/src/components/tripInfoScrollView";
 import { Colors } from '@/src/constants/colors';
 import { supabase } from '@/src/lib/supabase';
+import DateUtils from "@/src/utils/DateUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { Checkbox } from 'expo-checkbox';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,13 +20,6 @@ import {
   View
 } from 'react-native';
 import { moderateScale } from 'react-native-size-matters';
-
-
-
-// ADD EXPENSE does not work properly, expenses do not get added to the db
-// DELETE EXPENSE does not work properly
-
-
 
 
 // ==========================================
@@ -167,20 +161,6 @@ export default function WalletScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchWalletData();
-  }, [tripId, userId]);
-
-  useEffect(() => {
-    if (isModalVisible && !expenseForm.id && Object.keys(expenseForm.splits).length === 0) {
-      const initialSplits = {};
-      walletState.otherMembers.forEach(m => {
-        initialSplits[m.id] = { selected: true, amount: '' };
-      });
-      setExpenseForm(prev => ({ ...prev, splits: initialSplits }));
-    }
-  }, [isModalVisible]);
-
   // --- ACTIONS ---
   
   const handleOpenAdd = () => {
@@ -188,56 +168,94 @@ export default function WalletScreen() {
     setModalVisible(true);
   };
 
-  const handleOpenEdit = (transaction) => {
-    Alert.alert("Edit Mode", "Backend hookup ready to map transaction to form state.");
-  };
-
   const handleDeleteExpense = (transactionId) => {
     Alert.alert("Delete Expense", "Are you sure? This will recalculate everyone's balances.", [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: async () => {
-        console.log("Deleted transaction:", transactionId);
-        fetchWalletData(); 
-      }}
+      { 
+        text: "Delete", 
+        style: "destructive", 
+        onPress: async () => {
+          try {
+            // 1. Delete the child splits first (safest method)
+            const { error: splitError } = await supabase
+              .from('Expense_Splits')
+              .delete()
+              .eq('expense_id', transactionId);
+              
+            if (splitError) throw splitError;
+
+            // 2. Delete the parent expense
+            const { error: expenseError } = await supabase
+              .from('Expenses')
+              .delete()
+              .eq('expense_id', transactionId); // Adjust 'expense_id' if your primary key is named differently
+
+            if (expenseError) throw expenseError;
+
+            // 3. Refresh the UI
+            fetchWalletData(); 
+          } catch (err) {
+            console.error("Error deleting expense:", err);
+            Alert.alert("Error", "Could not delete the expense.");
+          }
+        }
+      }
     ]);
   };
 
   const handleTransactionLongPress = (transaction) => {
     Alert.alert("Manage Expense", transaction.title, [
       { text: "Cancel", style: "cancel" },
-      { text: "Edit", onPress: () => handleOpenEdit(transaction) },
       { text: "Delete", style: "destructive", onPress: () => handleDeleteExpense(transaction.id) }
     ]);
   };
 
   const handleSaveExpense = async () => {
-    const selectedSplits = Object.entries(expenseForm.splits)
-      .filter(([_, data]) => data.selected)
-      .map(([memberId, data]) => ({
-        memberId: memberId,
-        amount: expenseForm.isSplitEqually ? null : parseFloat(data.amount)
+    try {
+      const selectedCategory = CATEGORIES.find(c => c.id === expenseForm.categoryId);
+      const totalAmount = parseFloat((expenseForm.amount));
+      
+      // 1. Insert the main Expense
+      const { data: newExpense, error: insertError } = await supabase
+        .from('Expenses')
+        .insert({
+          trip_id: tripId,
+          paid_by: userId,
+          total_amount: totalAmount.toFixed(2),
+          category: selectedCategory ? selectedCategory.name : 'Other',
+          description: expenseForm.title,
+        })
+        .select()
+        .single();
+        
+      if (insertError) throw insertError;
+
+      // 2. Calculate the math and prep the splits
+      const selectedMembers = Object.entries(expenseForm.splits).filter(([_, data]) => data.selected);
+      const equalSplitAmount = totalAmount / selectedMembers.length;
+
+      const splitsToInsert = selectedMembers.map(([memberId, data]) => ({
+        expense_id: newExpense.expense_id, // Grab the ID from the newly created expense
+        user_id: memberId,
+        amount_owed: expenseForm.isSplitEqually ? equalSplitAmount : parseFloat(data.amount)
       }));
 
-    const selectedCategory = CATEGORIES.find(c => c.id === expenseForm.categoryId);
+      // 3. Insert the splits into the database
+      const { error: splitsError } = await supabase
+        .from('Expense_Splits')
+        .insert(splitsToInsert);
+        
+      if (splitsError) throw splitsError;
 
-    const dbPayload = {
-      title: expenseForm.title,
-      amount: parseFloat(expenseForm.amount),
-      categoryId: expenseForm.categoryId,
-      icon: selectedCategory ? selectedCategory.icon : 'receipt',
-      isSplitEqually: expenseForm.isSplitEqually,
-      splits: selectedSplits
-    };
+      // 4. Clean up the UI and refresh the wallet!
+      setModalVisible(false);
+      setExpenseForm(defaultFormState);
+      fetchWalletData();
 
-    if (expenseForm.id) {
-      console.log("UPDATE DB Payload: ", dbPayload);
-    } else {
-      await addTransaction(dbPayload); 
+    } catch (err) {
+      console.error("Error saving expense:", err);
+      Alert.alert("Error", "Could not save the expense. Please try again.");
     }
-
-    setModalVisible(false);
-    setExpenseForm(defaultFormState);
-    fetchWalletData();
   };
   
   const handlePay = (member) => {
@@ -316,6 +334,7 @@ export default function WalletScreen() {
     return true;
   };
 
+
   // --- DERIVED DATA ---
   const { otherMembers, transactions, budgetData, myBalance } = walletState;
   
@@ -326,6 +345,52 @@ export default function WalletScreen() {
   const isNetPositive = myBalance >= 0;
   const formattedNetBalance = `${isNetPositive ? '+' : '-'}$${Math.abs(myBalance).toFixed(2)}`;
   
+
+  useEffect(() => {
+    fetchWalletData();
+  }, [tripId, userId]);
+
+  useEffect(() => {
+    if (isModalVisible && !expenseForm.id && Object.keys(expenseForm.splits).length === 0) {
+      const initialSplits = {};
+      walletState.otherMembers.forEach(m => {
+        initialSplits[m.id] = { selected: true, amount: '' };
+      });
+      setExpenseForm(prev => ({ ...prev, splits: initialSplits }));
+    }
+  }, [isModalVisible]);
+
+  const groupedTransactions = useMemo(() => {
+    if (!transactions || transactions.length === 0) return [];
+
+    const grouped = transactions.reduce((acc, transaction) => {
+      // Convert the database timestamp into a readable date string (e.g., "Mar 24, 2026")
+      // Note: Make sure 'transaction.date' matches whatever your date field is actually called!
+      // console.log(transaction.date)
+      const dateObj = DateUtils.timestampToDate(transaction.date); 
+      const dateString = dateObj.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+
+      if (!acc[dateString]) {
+        acc[dateString] = [];
+      }
+      acc[dateString].push(transaction);
+      return acc;
+    }, {});
+
+    // Convert that object into an array of sections sorted from newest to oldest
+    return Object.keys(grouped)
+      .sort((a, b) => new Date(b) - new Date(a)) // Sort headers descending
+      .map(date => ({
+        title: date,
+        data: grouped[date]
+      }));
+  }, [transactions]);
+
+
   // Performance optimization: Filter this array once per render
   const activeMembers = otherMembers.filter(m => Math.abs(m.balance) > 0.01);
 
@@ -337,6 +402,7 @@ export default function WalletScreen() {
       </View>
     );
   }
+
 
   return (
     <TripInfoScrollView onRefresh={fetchWalletData} style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -420,42 +486,66 @@ export default function WalletScreen() {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Activity</Text>
         </View>
-        
-        {transactions.length === 0 ? (
-          <Text style={styles.emptyText}>No expenses yet. Treat yourselves!</Text>
-        ) : (
-          transactions.map((t) => (
-            <TouchableOpacity 
-              key={t.id} 
-              style={styles.transactionRow} 
-              onPress={() => setExpandedTxId(expandedTxId === t.id ? null : t.id)}
-              onLongPress={() => handleTransactionLongPress(t)}
-              delayLongPress={200}
-            >
-              <View style={styles.transLeft}>
-                <View style={styles.iconBox}>
-                  <MaterialCommunityIcons 
-                    name={CATEGORIES.find(c => c.name.toLowerCase() === (t.icon || '').toLowerCase())?.icon || 'receipt'} 
-                    size={20} 
-                    color={Colors.primary} 
-                  />
-                </View>
-                
-                <View style={styles.transTextContainer}>
-                  <Text 
-                    style={styles.transTitle} 
-                    numberOfLines={expandedTxId === t.id ? undefined : 1} 
-                    ellipsizeMode="tail"
+
+        {groupedTransactions.length > 0 ? (
+          groupedTransactions.map((section) => (
+            <View key={section.title} style={{ marginBottom: 20 }}>
+              
+              {/* The Date Header */}
+              <Text style={{ 
+                fontSize: 14, 
+                fontWeight: '600', 
+                color: '#666', 
+                marginLeft: 4, 
+                marginBottom: 8,
+                textTransform: 'uppercase'
+              }}>
+                {section.title}
+              </Text>
+
+              {/* The Transaction Cards for that specific date */}
+              {section.data.map((transaction) => (
+                <View key={transaction.id}>
+                  <TouchableOpacity 
+                    key={transaction.id} 
+                    style={styles.transactionRow} 
+                    onPress={() => setExpandedTxId(expandedTxId === transaction.id ? null : transaction.id)}
+                    onLongPress={() => handleTransactionLongPress(transaction)}
+                    delayLongPress={200}
                   >
-                    {t.title}
-                  </Text>
-                  <Text style={styles.transMeta}>Paid by <Text style={{fontWeight: '700'}}>{t.payer}</Text> • {t.split}</Text>
+                    <View style={styles.transLeft}>
+                      <View style={styles.iconBox}>
+                        <MaterialCommunityIcons 
+                          name={CATEGORIES.find(c => c.name.toLowerCase() === (transaction.icon || '').toLowerCase())?.icon || 'receipt'} 
+                          size={20} 
+                          color={Colors.primary} 
+                        />
+                      </View>
+                      
+                      <View style={styles.transTextContainer}>
+                        <Text 
+                          style={styles.transTitle} 
+                          numberOfLines={expandedTxId === transaction.id ? undefined : 1} 
+                          ellipsizeMode="tail"
+                        >
+                          {transaction.title}
+                        </Text>
+                        <Text style={styles.transMeta}>Paid by <Text style={{fontWeight: '700'}}>{transaction.payer}</Text> • {transaction.split}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.transAmount}>${transaction.amount.toFixed(2)}</Text>
+                  </TouchableOpacity>
                 </View>
-              </View>
-              <Text style={styles.transAmount}>${t.amount.toFixed(2)}</Text>
-            </TouchableOpacity>
+              ))}
+              
+            </View>
           ))
+        ) : (
+          <Text style={{ textAlign: 'center', marginTop: 20, color: '#999' }}>
+            No recent activity.
+          </Text>
         )}
+        
       </View>
       
       {/* BOTTOM SHEET */}

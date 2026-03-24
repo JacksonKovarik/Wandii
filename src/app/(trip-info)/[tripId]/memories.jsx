@@ -14,7 +14,11 @@ import { moderateScale } from "react-native-size-matters";
 import { supabase } from "@/src/lib/supabase";
 
 
+//////////////////////////////////////////////////////////////////
+
 // ADD Journal Entry editing for a users entries NOT others
+
+//////////////////////////////////////////////////////////////////
 
 
 

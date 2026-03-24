@@ -11,7 +11,11 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "rea
 import { moderateScale } from "react-native-size-matters";
 
 
+//////////////////////////////////////////////////////////////////
+
 // ADD automatic images/icons for different file uploads
+
+//////////////////////////////////////////////////////////////////
 
 
 const DocumentCard = ({ title, size, date }) => {
