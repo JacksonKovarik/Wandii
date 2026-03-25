@@ -3,7 +3,7 @@ import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 
-const PastTripCard = ({ trip, onRelivePress }) => {
+const PastTripCard = ({ trip }) => {
   return (
     <View style={styles.card}>
 
@@ -46,7 +46,7 @@ const PastTripCard = ({ trip, onRelivePress }) => {
       </View>
 
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.reliveButton} onPress={onRelivePress}>
+        <TouchableOpacity style={styles.reliveButton}>
           <Text style={styles.reliveText}>Relive Trip</Text>
         </TouchableOpacity>
 
@@ -74,8 +74,8 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: 'white',
     borderRadius: scale(16),
-    paddingTop: verticalScale(16),
-    paddingBottom: verticalScale(16),
+    paddingTop: verticalScale(10),
+    paddingBottom: verticalScale(20),
     paddingHorizontal: scale(20),
     marginBottom: verticalScale(25),
     shadowColor: '#000',
@@ -156,6 +156,7 @@ const styles = StyleSheet.create({
 
   buttonRow: {
     flexDirection: 'row',
+    marginTop: verticalScale(4),
   },
 
   reliveButton: {

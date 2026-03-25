@@ -1,271 +1,145 @@
-import ProgressBar from "@/src/components/progressBar";
-import { Colors } from "@/src/constants/colors";
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { moderateScale } from "react-native-size-matters";
+import { useAuth } from "@/src/context/AuthContext";
+import { supabase } from "@/src/lib/supabase";
+import { useLocalSearchParams } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import InAppNotification from "@/src/components/inAppNotification";
-import { MaterialIcons } from "@expo/vector-icons";
-import { BlurView } from 'expo-blur';
-import React from 'react';
-
-import TripInfoScrollView from "@/src/components/tripInfoScrollView";
-import { useTrip } from "@/src/utils/TripContext";
-
-export default function Overview() {
-  const tripData = useTrip();
-  const { takeoffDays, weather, readinessPercent, notifications, group, refreshTripData } = tripData;
-
-  return (
-    <TripInfoScrollView onRefresh={refreshTripData} style={styles.container} contentContainerStyle={styles.scrollContent}>
-      {/* Header Card */}
-      <View style={styles.headerCard}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.subtitle}>Takeoff In</Text>
-            <Text style={styles.largeText}>
-              {takeoffDays}<Text style={styles.smallText}> days</Text>
-            </Text>
-          </View>
-
-          <View style={styles.weatherCard}>
-            <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
-            <View style={styles.weatherContent}>
-              <MaterialIcons name={weather.icon} size={moderateScale(24)} color="#FFD700" />
-              <Text style={styles.temperature}>{weather.temp}°</Text>
-            </View>
-            <Text style={styles.location}>{weather.location}</Text>
-          </View>
-        </View>
-
-        <View style={styles.progressHeader}>
-          <Text style={styles.progressLabel}>Trip Readiness</Text>
-          <Text style={styles.progressPercent}>{readinessPercent}% Ready</Text>
-        </View>
-        <ProgressBar width="100%" height={moderateScale(8)} progress={`${readinessPercent}%`} backgroundColor="rgba(255,255,255,0.3)" />
-      </View>
-
-      {/* Action Required */}
-      <View style={styles.actionSection}>
-        <Text style={styles.sectionTitle}>Action Required</Text>
-        {notifications.map((notification) => (
-          <InAppNotification key={notification.id} {...notification} />
-        ))}
-      </View>
-
-      {/* The Group */}
-      <View style={styles.groupSection}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={styles.sectionTitle}>The Group</Text>
-          <TouchableOpacity onPress={() => console.log('Manage group pressed')}>
-            <Text style={styles.manageButton}>Manage</Text>
-          </TouchableOpacity>
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} bounces={false} contentContainerStyle={styles.groupContainer}>
-
-          {[...group].sort((a, b) => b.active - a.active).map((member) => (
-            <TouchableOpacity 
-              key={member.id} 
-              style={styles.memberItem}
-              onPress={() => {console.log(`Member ${member.name} pressed`);}}
-            >
-              <View style={[styles.avatar, { borderColor: member.active ? Colors.success : Colors.textSecondaryLight }]}>
-                
-                {member.profilePic ? (
-                  <Image
-                    source={{ uri: member.profilePic }}
-                    style={{ width: moderateScale(50), height: moderateScale(50), borderRadius: moderateScale(25) }}
-                  />
-                ) : (
-                  <View
-                    style={[
-                      styles.avatarContent,
-                      { backgroundColor: member.active ? member.profileColor : Colors.textSecondaryLight },
-                    ]}
-                  >
-                    <Text style={styles.initials}>{member.initials}</Text>
-                  </View>
-                )}
-
-              </View>
-              <View
-                style={[
-                  styles.statusIndicator,
-                  { backgroundColor: member.active ? Colors.success : Colors.textSecondaryLight },
-                ]}
-              />
-              <Text style={[styles.memberName, { fontWeight: member.active ? 'bold' : 'normal' }]}>
-                {member.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-
-          <TouchableOpacity 
-            style={styles.memberItem}
-            onPress={() => {console.log('Add member pressed');}}
-          >
-            <View style={[styles.avatar, { borderColor: Colors.textSecondaryLight, borderStyle: 'dashed' }]}>
-              <View style={ styles.avatarContent } >
-                <MaterialIcons name="add" size={moderateScale(24)} color={Colors.textSecondaryLight} />
-              </View>
-            </View>
-            <Text style={styles.memberName}>Invite</Text>
-          </TouchableOpacity>
-
-        </ScrollView>
-      </View>
-    </TripInfoScrollView>
-  );
+function formatDate(value) {
+  if (!value) return "";
+  return new Date(`${value}T12:00:00`).toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
+export default function Overview() {
+  const { user } = useAuth();
+  const params = useLocalSearchParams();
+  const tripId = useMemo(() => {
+    const raw = params.tripId;
+    return Array.isArray(raw) ? raw[0] : raw;
+  }, [params.tripId]);
+
+  const [trip, setTrip] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadTrip() {
+      if (!user || !tripId) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from("trips")
+        .select("id, title, destination, start_date, end_date, budget_estimate, vibe")
+        .eq("id", tripId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) {
+        console.warn(error.message);
+        setTrip(null);
+      } else {
+        setTrip(data);
+      }
+
+      setLoading(false);
+    }
+
+    loadTrip();
+  }, [user?.id, tripId]);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#FF8820" />
+      </View>
+    );
+  }
+
+  if (!trip) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.title}>Trip not found</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.tripTitle}>{trip.title}</Text>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>Destination</Text>
+        <Text style={styles.value}>{trip.destination || "No destination yet"}</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>Dates</Text>
+        <Text style={styles.value}>
+          {formatDate(trip.start_date)} - {formatDate(trip.end_date)}
+        </Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>Vibe</Text>
+        <Text style={styles.value}>{trip.vibe || "Relaxing"}</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>Budget</Text>
+        <Text style={styles.value}>
+          {trip.budget_estimate != null ? `$${Math.round(Number(trip.budget_estimate))}` : "$0"}
+        </Text>
+      </View>
+    </ScrollView>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: "white",
   },
-  scrollContent: {
-    padding: '5%',
+  content: {
+    padding: 20,
+    paddingBottom: 40,
   },
-  headerCard: {
-    // minHeight: '32%',
-    marginBottom: moderateScale(20),
-    backgroundColor: '#000D24',
-    borderRadius: 15,
-    paddingHorizontal: moderateScale(20),
-    paddingVertical: moderateScale(18),
-    shadowColor: '#0B1221',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  headerLeft: {
+  centered: {
     flex: 1,
+    backgroundColor: "white",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  subtitle: {
-    fontSize: moderateScale(14),
-    fontWeight: 'bold',
-    color: Colors.textSecondaryLight,
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
   },
-  largeText: {
-    fontSize: moderateScale(32),
-    fontWeight: 'bold',
-    marginTop: moderateScale(5),
-    color: '#ffffff',
+  tripTitle: {
+    fontSize: 28,
+    fontWeight: "700",
+    marginBottom: 20,
   },
-  smallText: {
-    fontSize: moderateScale(14),
-    color: Colors.textSecondaryLight,
+  card: {
+    backgroundColor: "#F5F6F8",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
   },
-  weatherCard: {
-    backgroundColor: 'rgba(255,255,255,0.20)',
-    borderRadius: 10,
-    overflow: 'hidden',
-    paddingHorizontal: moderateScale(10),
-    paddingVertical: moderateScale(10),
-    justifyContent: 'space-around',
-    gap: moderateScale(5),
-    borderWidth: moderateScale(0.5),
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+  label: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#8A8A8A",
+    textTransform: "uppercase",
+    marginBottom: 8,
   },
-  weatherContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: moderateScale(5),
+  value: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111",
   },
-  temperature: {
-    fontSize: moderateScale(18),
-    fontWeight: 'bold',
-    color: '#ffffff',
-  },
-  location: {
-    fontSize: moderateScale(12),
-    fontWeight: 'bold',
-    color: Colors.textSecondaryLight,
-    alignSelf: 'center',
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: moderateScale(15),
-    marginBottom: moderateScale(10),
-  },
-  progressLabel: {
-    fontSize: moderateScale(12),
-    color: Colors.textSecondaryLight,
-    fontWeight: 'bold',
-  },
-  progressPercent: {
-    fontSize: moderateScale(12),
-    color: Colors.success,
-    fontWeight: 'bold',
-  },
-  sectionTitle: {
-    fontSize: moderateScale(16),
-    fontWeight: 'bold',
-    color: Colors.textSecondaryDark,
-  },
-  actionSection: {
-    gap: moderateScale(10),
-  },
-  groupContainer: {
-    flexDirection: 'row',
-    gap: moderateScale(15),
-    marginTop: moderateScale(10),
-    marginBottom: moderateScale(50),
-  },
-  memberItem: {
-    alignItems: 'center',
-  },
-  avatar: {
-    width: moderateScale(48),
-    height: moderateScale(48),
-    borderRadius: moderateScale(24),
-    overflow: 'hidden',
-    borderWidth: moderateScale(2),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarContent: {
-    width: moderateScale(40),
-    height: moderateScale(40),
-    borderRadius: moderateScale(25),
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  initials: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: moderateScale(18),
-  },
-  statusIndicator: {
-    position: 'absolute',
-    bottom: moderateScale(24),
-    right: moderateScale(2),
-    width: moderateScale(12),
-    height: moderateScale(12),
-    borderRadius: moderateScale(7),
-    borderWidth: moderateScale(1.5),
-    borderColor: Colors.background,
-    zIndex: 10,
-  },
-  memberName: {
-    marginTop: moderateScale(5),
-    fontSize: moderateScale(12),
-    color: Colors.textSecondaryDark,
-  },
-  groupSection: {
-    marginTop: moderateScale(20),
-  },
-  manageButton: {
-    fontSize: moderateScale(13),
-    color: Colors.success,
-    fontWeight: 'bold',
-  },
-  
 });

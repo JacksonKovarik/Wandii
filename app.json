@@ -9,8 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.Wandii"
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
@@ -20,11 +19,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ],
-      "package": "com.anonymous.Wandii"
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
@@ -43,26 +38,15 @@
             "backgroundColor": "#000000"
           }
         }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "The app accesses your photos to add a profile picture."
-        }
-      ],
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera",
-          "cameraType": "back",
-          "disableFlip": false
-        }
-      ],
-      "@react-native-community/datetimepicker"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "SUPABASE_URL": "https://gcvhmnmkfdsdxjduzqld.supabase.co",
+      "SUPABASE_ANON_KEY": "sb_publishable_e1yRl9M7ciusAP3vWfovPg_Jwpm5Ve_"
     }
   }
 }

@@ -11,11 +11,12 @@ export default function Map() {
             <View style={{ width: '100%', alignItems: 'center' }}>
             <ReusableTabBar 
                 tabs={[
-                    { label: "Idea Board", name: "idea-board", route: `/(trip-info)/${tripId}/(plan)/idea-board` },
-                    { label: "Timeline", name: "timeline", route: `/(trip-info)/${tripId}/(plan)/timeline` },
-                    { label: "Map", name: "map", route: `/(trip-info)/${tripId}/(plan)/map` },
-                    { label: "Stays", name: "stays", route: `/(trip-info)/${tripId}/(plan)/stays` },
+                { label: "Idea Board", name: "idea-board", route: `/(trip-info)/${tripId}/(plan)/idea-board` },
+                { label: "Timeline", name: "timeline", route: `/(trip-info)/${tripId}/(plan)/timeline` },
+                { label: "Map", name: "map", route: `/(trip-info)/${tripId}/(plan)/map` }
                 ]}
+                extraBgStyle={{ backgroundColor: '#E0E0E0', width: '75%'}}
+                extraTextStyle={{ fontSize: 14 }}
             />
             </View>
         </View>

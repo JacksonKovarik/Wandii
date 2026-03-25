@@ -1,6 +1,5 @@
 import { useRouter, useSegments } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { moderateScale } from "react-native-size-matters";
 import { Colors } from "../constants/colors";
 
 export default function TripInfoTabBar({ tripId }) {
@@ -12,10 +11,10 @@ export default function TripInfoTabBar({ tripId }) {
 
     const tabs = [
         { name: 'Overview', path: 'overview', checkSegments: ['overview'] },
-        { name: 'Plan', path: '(plan)/idea-board', checkSegments: ['idea-board', 'timeline', 'map', 'stays'] },
+        { name: 'Plan', path: '(plan)/idea-board', checkSegments: ['idea-board', 'timeline', 'map'] },
         { name: 'Wallet', path: 'wallet', checkSegments: ['wallet'] },
         { name: 'Docs', path: 'docs', checkSegments: ['docs'] },
-        { name: 'Memories', path: 'memories', checkSegments: ['memories', 'album'] },
+        { name: 'Chat', path: 'chat', checkSegments: ['chat'] },
     ];
 
     return (
@@ -56,13 +55,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         flexDirection: 'row',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.01,
-        shadowRadius: 2,
-        elevation: 3,
-
-        zIndex: 10
     },
     tabButton: {
         height: '100%',
@@ -73,7 +65,7 @@ const styles = StyleSheet.create({
     },
     tabText: {
         marginTop: 'auto',
-        fontSize: moderateScale(16),
+        fontSize: 17,
         fontWeight: 'bold',
     },
     tabUnderline: {

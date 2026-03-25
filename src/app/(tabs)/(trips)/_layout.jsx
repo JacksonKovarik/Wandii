@@ -17,7 +17,6 @@ const customHeader = () => (
                         { label: "Upcoming", name: "upcoming", route: `/(tabs)/(trips)/upcoming` },
                         { label: "Past", name: "past", route: `/(tabs)/(trips)/past` },
                     ]}
-                    extraTabStyles={{ flex: 1 }}
                 />
             </View>
         </View>

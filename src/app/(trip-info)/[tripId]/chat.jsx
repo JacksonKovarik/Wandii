@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
 
-export default function Docs() {
+export default function Chat() {
   return (
     <View
       style={{
@@ -9,7 +9,7 @@ export default function Docs() {
         alignItems: "center",
       }}
     >
-      <Text>Docs Screen</Text>
+      <Text>Chat Screen</Text>
     </View>
   );
 }
