@@ -1,0 +1,9 @@
+Patched image picker crash on add-trip screen.
+
+What changed:
+- Replaced deprecated/undefined expo-image-picker mediaTypes constant usage.
+- Updated picker call to use mediaTypes: ["images"] for Expo SDK 55.
+- Added try/catch around image selection so picker errors show an alert instead of crashing.
+
+File changed:
+- src/app/(add-trips)/tripPlanThird.jsx

@@ -1,0 +1,5 @@
+Patched on 2026-03-25:
+- Trips API now targets public.Trips instead of public.trips
+- Added schema-tolerant trip adapter in src/lib/trips.js
+- Updated trip create/list/detail/delete flows to use the adapter
+- Replaced deprecated expo-image-picker MediaTypeOptions usage
