@@ -27,35 +27,43 @@ export default function AlbumScreen() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
-  // --- Fetch Photos (With Pagination) ---
+  // --- Fetch Photos Directly via Supabase Client (With Pagination) ---
   const fetchPhotos = async (isLoadMore = false) => {
-    // Prevent fetching if we are already loading more, or if we hit the end
     if (!tripId || isLoadingMore || (!hasMore && isLoadMore)) return;
 
     if (isLoadMore) setIsLoadingMore(true);
     else setIsLoading(true);
 
-    // Calculate how many photos to skip based on what we already have
     const currentOffset = isLoadMore ? photos.length : 0;
 
     try {
-      const { data, error } = await supabase.functions.invoke('get-trip-album', {
-        body: { tripId, limit: LIMIT, offset: currentOffset } 
-      });
+      // 1. DIRECT SUPABASE QUERY (Replaces the get-trip-album Edge Function)
+      const { data: albumPhotos, error } = await supabase
+        .from('Photos')
+        .select('photo_id, photo_url, uploaded_at')
+        .eq('trip_id', tripId)
+        .order('uploaded_at', { ascending: false })
+        .range(currentOffset, currentOffset + LIMIT - 1);
 
-      if (error) {
-        console.error("Error fetching album:", error);
-      } else if (data) {
-        // If Supabase returns fewer photos than our limit, we reached the end of the DB!
-        if (data.length < LIMIT) {
-          setHasMore(false);
+      if (error) throw error;
+
+      if (albumPhotos) {
+        if (albumPhotos.length < LIMIT) {
+          setHasMore(false); // Reached the end of the DB
         }
+
+        // 2. FORMAT DATA (Exactly how the Deno function did)
+        const formattedAlbum = albumPhotos.map((photo) => ({
+          id: photo.photo_id,
+          uri: photo.photo_url,
+          mock: false 
+        }));
 
         // Append new photos if scrolling, otherwise replace
         if (isLoadMore) {
-          setPhotos(prev => [...prev, ...data]);
+          setPhotos(prev => [...prev, ...formattedAlbum]);
         } else {
-          setPhotos(data);
+          setPhotos(formattedAlbum);
         }
       }
     } catch (err) {

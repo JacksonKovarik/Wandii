@@ -105,26 +105,84 @@ export default function Memories() {
   
   const CURRENT_USER_ID = '5b6c11f8-d8d5-45c3-815b-54870bcbb0ad';
 
-  // --- FETCH DATA LOGIC ---
+  // --- FETCH DATA LOGIC (Directly via Supabase Client) ---
   const fetchMemoriesData = async () => {
     if (!tripId) return;
 
     try {
       setIsLoading(true);
 
-      const [memoriesResponse, albumResponse, countResponse] = await Promise.all([
-        supabase.functions.invoke('get-trip-memories', { body: { tripId } }),
-        supabase.functions.invoke('get-trip-album', { body: { tripId, limit: 5 } }),
-        supabase.from('Photos').select('*', { count: 'exact', head: true }).eq('trip_id', tripId)
+      // 1. Fetch Journals directly (Replaces get-trip-memories)
+      const journalsPromise = supabase
+        .from('Journals')
+        .select(`
+          entry_id,
+          title,
+          description,
+          entry_timestamp,
+          Photos ( photo_url )
+        `)
+        .eq('trip_id', tripId)
+        .order('entry_timestamp', { ascending: false });
+
+      // 2. Fetch Album preview directly (Replaces get-trip-album limit 5)
+      const albumPromise = supabase
+        .from('Photos')
+        .select('photo_id, photo_url, uploaded_at')
+        .eq('trip_id', tripId)
+        .order('uploaded_at', { ascending: false })
+        .limit(5);
+
+      // 3. Count total photos
+      const countPromise = supabase
+        .from('Photos')
+        .select('*', { count: 'exact', head: true })
+        .eq('trip_id', tripId);
+
+      // Run all queries simultaneously for maximum speed
+      const [journalsResponse, albumResponse, countResponse] = await Promise.all([
+        journalsPromise,
+        albumPromise,
+        countPromise
       ]);
 
-      if (memoriesResponse.error) console.error("Memories Fetch Error:", memoriesResponse.error);
-      else setMemories(memoriesResponse.data || []);
+      // --- FORMAT JOURNALS ---
+      if (journalsResponse.error) {
+        console.error("Memories Fetch Error:", journalsResponse.error);
+      } else if (journalsResponse.data) {
+        const formattedMemories = journalsResponse.data.map((journal) => {
+          const imageUrls = journal.Photos?.map((p) => p.photo_url).filter(Boolean) || [];
+          const formattedDate = journal.entry_timestamp 
+            ? new Date(journal.entry_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+            : null;
 
-      if (albumResponse.error) console.error("Album Fetch Error:", albumResponse.error);
-      else setAlbumPhotos(albumResponse.data || []);
+          return {
+            id: journal.entry_id,
+            title: journal.title,
+            description: journal.description,
+            date: formattedDate,
+            images: imageUrls
+          };
+        });
+        setMemories(formattedMemories);
+      }
 
-      if (countResponse && countResponse.count !== null) setTotalPhotoCount(countResponse.count);
+      // --- FORMAT ALBUM PREVIEW ---
+      if (albumResponse.error) {
+        console.error("Album Fetch Error:", albumResponse.error);
+      } else if (albumResponse.data) {
+        const formattedAlbum = albumResponse.data.map((photo) => ({
+          id: photo.photo_id,
+          uri: photo.photo_url,
+          mock: false 
+        }));
+        setAlbumPhotos(formattedAlbum);
+      }
+
+      // --- SET COUNT ---
+      if (countResponse && countResponse.count !== null) {
+        setTotalPhotoCount(countResponse.count);
+      }
 
     } catch (err) {
       console.error("Unexpected error fetching memories/album:", err);
