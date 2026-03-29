@@ -12,7 +12,8 @@ import { BlurView } from "expo-blur";
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+// FIX: Added KeyboardAvoidingView and Platform to imports
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
 import { moderateScale } from "react-native-size-matters";
@@ -20,6 +21,26 @@ import { moderateScale } from "react-native-size-matters";
 const copyToClipboard = async ({ textToCopy }) => {
   await Clipboard.setStringAsync(textToCopy);
   alert('Text copied to clipboard!');
+};
+
+// FIX: Helper to strip timezone shifts and save exact literal local time to Supabase
+const toLocalISOString = (date) => {
+    if (!date) return null;
+    const tzOffset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - tzOffset).toISOString().slice(0, -1); 
+};
+
+// FIX: Bulletproof date formatting to prevent Hermes engine crashes on Android
+const formatSelectedDate = (date) => {
+  if (!date) return '';
+  const d = new Date(date);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  let hours = d.getHours();
+  let minutes = d.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  const mins = minutes < 10 ? `0${minutes}` : minutes;
+  return `${months[d.getMonth()]} ${d.getDate()}, ${hours}:${mins} ${ampm}`;
 };
 
 const StayCard = ({ stay, onEdit, onDelete }) => {
@@ -198,10 +219,12 @@ export default function Stays() {
         trip_id: tripId,
         title: stayForm.title,
         address: stayForm.address,
-        check_in: stayForm.checkIn ? stayForm.checkIn.toISOString() : null,
-        check_out: stayForm.checkOut ? stayForm.checkOut.toISOString() : null,
-        latitude: coords?.latitude || null,  // Use optional chaining
-        longitude: coords?.longitude || null,      };
+        // FIX: Replaced .toISOString() with toLocalISOString() to prevent timezone shifting
+        check_in: toLocalISOString(stayForm.checkIn),
+        check_out: toLocalISOString(stayForm.checkOut),
+        latitude: coords?.latitude || null,  
+        longitude: coords?.longitude || null,      
+      };
 
       if (stayForm.id) {
         // UPDATE
@@ -246,116 +269,118 @@ export default function Stays() {
     hideDatePicker();
   };
 
+  // FIX: Wrapped everything in a root View and placed AnimatedBottomSheet outside the ScrollView
   return (
-    // Replaced generic refreshTripData with our explicit fetchStays function
-    <TripInfoScrollView style={styles.container} onRefresh={fetchStays}>
-      <View style={{ padding: 10 }}>
-        <View style={{ width: '100%', alignItems: 'center' }}>
-          <ReusableTabBar 
-            tabs={[
-                { label: "Idea Board", name: "idea-board", route: `/(trip-info)/${tripId}/(plan)/idea-board` },
-                { label: "Timeline", name: "timeline", route: `/(trip-info)/${tripId}/(plan)/timeline` },
-                { label: "Map", name: "map", route: `/(trip-info)/${tripId}/(plan)/map` },
-                { label: "Stays", name: "stays", route: `/(trip-info)/${tripId}/(plan)/stays` },
-            ]}
-            extraBgStyle={{ backgroundColor: '#E0E0E0'}}
-          />
-        </View>
-      </View>
-
-      <View style={styles.scrollContent}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: moderateScale(20) }}>
-          <Text style={styles.sectionTitle}>Accommodations</Text>
-          <TouchableOpacity style={{ flexDirection: 'row', gap: 5 }} onPress={handleOpenAdd}>
-            <MaterialIcons name="add" size={moderateScale(18)} color={Colors.primary} />
-            <Text style={styles.newEntryButton}>Add Stay</Text>
-          </TouchableOpacity>
-        </View>
-
-        {isLoading ? (
-          <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
-        ) : staysData.length === 0 ? (
-          <Text style={{ textAlign: 'center', color: Colors.gray, marginTop: 20 }}>No accommodations booked yet.</Text>
-        ) : (
-          staysData.map(stay => (
-            <StayCard 
-               key={stay.accommodation_id} 
-               stay={stay} 
-               onEdit={handleOpenEdit} 
-               onDelete={handleDeletePress} 
+    <View style={styles.container}>
+      <TripInfoScrollView style={{ flex: 1 }} onRefresh={fetchStays}>
+        <View style={{ padding: 10 }}>
+          <View style={{ width: '100%', alignItems: 'center' }}>
+            <ReusableTabBar 
+              tabs={[
+                  { label: "Idea Board", name: "idea-board", route: `/(trip-info)/${tripId}/(plan)/idea-board` },
+                  { label: "Timeline", name: "timeline", route: `/(trip-info)/${tripId}/(plan)/timeline` },
+                  { label: "Map", name: "map", route: `/(trip-info)/${tripId}/(plan)/map` },
+                  { label: "Stays", name: "stays", route: `/(trip-info)/${tripId}/(plan)/stays` },
+              ]}
+              extraBgStyle={{ backgroundColor: '#E0E0E0'}}
             />
-          ))
-        )}
-      </View>
+          </View>
+        </View>
 
+        <View style={styles.scrollContent}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: moderateScale(20) }}>
+            <Text style={styles.sectionTitle}>Accommodations</Text>
+            <TouchableOpacity style={{ flexDirection: 'row', gap: 5 }} onPress={handleOpenAdd}>
+              <MaterialIcons name="add" size={moderateScale(18)} color={Colors.primary} />
+              <Text style={styles.newEntryButton}>Add Stay</Text>
+            </TouchableOpacity>
+          </View>
+
+          {isLoading ? (
+            <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+          ) : staysData.length === 0 ? (
+            <Text style={{ textAlign: 'center', color: Colors.gray, marginTop: 20 }}>No accommodations booked yet.</Text>
+          ) : (
+            staysData.map(stay => (
+              <StayCard 
+                 key={stay.accommodation_id} 
+                 stay={stay} 
+                 onEdit={handleOpenEdit} 
+                 onDelete={handleDeletePress} 
+              />
+            ))
+          )}
+        </View>
+      </TripInfoScrollView>
+
+      {/* FIX: Moved Bottom Sheet as a sibling to the ScrollView to prevent gesture capture issues */}
       <AnimatedBottomSheet visible={isModalVisible} onClose={() => setModalVisible(false)}>
-        <View style={styles.sheetHeader}>
-          <Text style={styles.sheetTitle}>
-             {stayForm.id ? 'Edit Accommodation' : 'Add Accommodation'}
-          </Text>
-          <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
-            <MaterialIcons name="close" size={22} color="#0f172a" />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-          <TextInput 
-            style={styles.premiumTitleInput} 
-            placeholder="Name of Hotel, Airbnb..." 
-            placeholderTextColor="#94a3b8"
-            value={stayForm.title}
-            onChangeText={(text) => setStayForm({...stayForm, title: text})}
-          />
-
-          <View style={styles.inputSection}>
-            <Text style={styles.sectionLabel}>ADDRESS</Text>
-            <TextInput 
-              style={styles.standardInput} 
-              placeholder="123 Main St, City, Country" 
-              placeholderTextColor="#94a3b8"
-              value={stayForm.address}
-              onChangeText={(text) => setStayForm({...stayForm, address: text})}
-            />
-          </View>
-
-          <View style={styles.rowSection}>
-            <View style={{ flex: 1, paddingRight: 8 }}>
-              <Text style={styles.sectionLabel}>CHECK IN</Text>
-              <TouchableOpacity style={styles.dateSelector} onPress={() => showDatePicker('checkIn')}>
-                <MaterialIcons name="calendar-today" size={16} color={stayForm.checkIn ? Colors.darkBlue : '#94a3b8'} />
-                <Text style={stayForm.checkIn ? styles.dateSelectorText : styles.dateSelectorPlaceholder}>
-                  {stayForm.checkIn 
-                    ? stayForm.checkIn.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}) 
-                    : 'Select date & time'
-                  }
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ flex: 1, paddingLeft: 8 }}>
-              <Text style={styles.sectionLabel}>CHECK OUT</Text>
-              <TouchableOpacity style={styles.dateSelector} onPress={() => showDatePicker('checkOut')}>
-                <MaterialIcons name="calendar-today" size={16} color={stayForm.checkOut ? Colors.darkBlue : '#94a3b8'} />
-                <Text style={stayForm.checkOut ? styles.dateSelectorText : styles.dateSelectorPlaceholder}>
-                  {stayForm.checkOut 
-                    ? stayForm.checkOut.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}) 
-                    : 'Select date & time'
-                  }
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <TouchableOpacity 
-            style={[styles.premiumSubmitButton, (!stayForm.title || !stayForm.address) && styles.premiumSubmitDisabled]} 
-            disabled={!stayForm.title || !stayForm.address}
-            onPress={handleSaveStay}
-          >
-            <Text style={styles.premiumSubmitText}>
-              {stayForm.id ? 'Update Stay' : 'Save Stay'}
+        {/* FIX: Added KeyboardAvoidingView to ensure inputs don't get covered by the keyboard */}
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>
+              {stayForm.id ? 'Edit Accommodation' : 'Add Accommodation'}
             </Text>
-          </TouchableOpacity>
-        </ScrollView>
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
+              <MaterialIcons name="close" size={22} color="#0f172a" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+            <TextInput 
+              style={styles.premiumTitleInput} 
+              placeholder="Name of Hotel, Airbnb..." 
+              placeholderTextColor="#94a3b8"
+              value={stayForm.title}
+              onChangeText={(text) => setStayForm({...stayForm, title: text})}
+            />
+
+            <View style={styles.inputSection}>
+              <Text style={styles.sectionLabel}>ADDRESS</Text>
+              <TextInput 
+                style={styles.standardInput} 
+                placeholder="123 Main St, City, Country" 
+                placeholderTextColor="#94a3b8"
+                value={stayForm.address}
+                onChangeText={(text) => setStayForm({...stayForm, address: text})}
+              />
+            </View>
+
+            <View style={styles.rowSection}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={styles.sectionLabel}>CHECK IN</Text>
+                <TouchableOpacity style={styles.dateSelector} onPress={() => showDatePicker('checkIn')}>
+                  <MaterialIcons name="calendar-today" size={16} color={stayForm.checkIn ? Colors.darkBlue : '#94a3b8'} />
+                  {/* FIX: Used formatSelectedDate helper for Android Hermes compatibility */}
+                  <Text style={stayForm.checkIn ? styles.dateSelectorText : styles.dateSelectorPlaceholder}>
+                    {stayForm.checkIn ? formatSelectedDate(stayForm.checkIn) : 'Select date & time'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ flex: 1, paddingLeft: 8 }}>
+                <Text style={styles.sectionLabel}>CHECK OUT</Text>
+                <TouchableOpacity style={styles.dateSelector} onPress={() => showDatePicker('checkOut')}>
+                  <MaterialIcons name="calendar-today" size={16} color={stayForm.checkOut ? Colors.darkBlue : '#94a3b8'} />
+                  {/* FIX: Used formatSelectedDate helper for Android Hermes compatibility */}
+                  <Text style={stayForm.checkOut ? styles.dateSelectorText : styles.dateSelectorPlaceholder}>
+                    {stayForm.checkOut ? formatSelectedDate(stayForm.checkOut) : 'Select date & time'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.premiumSubmitButton, (!stayForm.title || !stayForm.address) && styles.premiumSubmitDisabled]} 
+              disabled={!stayForm.title || !stayForm.address}
+              onPress={handleSaveStay}
+            >
+              <Text style={styles.premiumSubmitText}>
+                {stayForm.id ? 'Update Stay' : 'Save Stay'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
 
         <DateTimePickerModal
           isVisible={isDatePickerVisible}
@@ -366,7 +391,7 @@ export default function Stays() {
           themeVariant="dark" 
         />
       </AnimatedBottomSheet>
-    </TripInfoScrollView>
+    </View>
   );
 }
 

@@ -42,6 +42,7 @@ export default function AlbumScreen() {
         .from('Photos')
         .select('photo_id, photo_url, uploaded_at')
         .eq('trip_id', tripId)
+        .or('type.neq.idea_board,type.is.null')
         .order('uploaded_at', { ascending: false })
         .range(currentOffset, currentOffset + LIMIT - 1);
 

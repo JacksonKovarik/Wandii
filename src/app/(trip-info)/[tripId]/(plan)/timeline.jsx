@@ -1,7 +1,7 @@
 import AnimatedBottomSheet from "@/src/components/AnimatedBottomSheet";
 import ReusableTabBar from "@/src/components/reusableTabBar";
 import { Colors } from "@/src/constants/colors";
-import { getCategoryFallback } from "@/src/constants/eventCategoryStyles"; // <-- NEW IMPORT
+import { getCategoryFallback } from "@/src/constants/eventCategoryStyles";
 import DateUtils from "@/src/utils/DateUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -10,7 +10,6 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import ReorderableList, { reorderItems, useIsActive, useReorderableDrag } from 'react-native-reorderable-list';
 import { moderateScale } from "react-native-size-matters";
@@ -31,8 +30,9 @@ const AnytimeEventCard = ({ item, onSetTime, onRemove }) => {
                     <View style={styles.cardHeaderRow}>
                         <View style={styles.cardMainInfo}>
                             <View style={[styles.cardImageContainer, styles.anytimeCardImageContainer]}>
-                                {item.image ? (
-                                    <Image source={item.image} style={styles.fullImage} contentFit="cover" />
+                                {/* FIX: Changed item.image to item.image_url */}
+                                {item.image_url ? (
+                                    <Image source={item.image_url} style={styles.fullImage} contentFit="cover" />
                                 ) : (
                                     <LinearGradient colors={fallback.colors} style={styles.fallbackGradient}>
                                         <MaterialIcons name={fallback.icon} size={24} color="rgba(255,255,255,0.9)" />
@@ -49,7 +49,6 @@ const AnytimeEventCard = ({ item, onSetTime, onRemove }) => {
                             <TouchableOpacity style={styles.setTimeButton} onPress={() => onSetTime(item.id)}>
                                 <Text style={styles.setTimeText}>Set Time</Text>
                             </TouchableOpacity>
-                            {/* NEW: Remove Event Button */}
                             <TouchableOpacity style={styles.removeButton} onPress={() => onRemove(item)}>
                                 <MaterialIcons name="close" size={16} color="#64748b" />
                             </TouchableOpacity>
@@ -62,31 +61,20 @@ const AnytimeEventCard = ({ item, onSetTime, onRemove }) => {
 };
 
 const ScheduledEventCard = ({ item, isLast, onSetTime, onRemove, onDelete }) => {
-    // --- State for delayed press effect ---
     const [isVisuallyPressed, setVisuallyPressed] = useState(false);
     const pressInTimer = useRef(null);
-    const PRESS_DELAY = 200; // 100ms delay before showing visual feedback
+    const PRESS_DELAY = 200; 
 
     const handleLongPress = () => {
         Alert.alert(
             "Manage Event",
             `What would you like to do with "${item.title}"?`,
             [
-                { 
-                    text: "Cancel", 
-                    style: "cancel" 
-                },
-                { 
-                    text: "Unassign (Back to Bank)", 
-                    onPress: () => onRemove(item) 
-                },
-                { 
-                    text: "Delete Permanently", 
-                    style: "destructive", // Makes the text red on iOS!
-                    onPress: () => onDelete(item) 
-                }
+                { text: "Cancel", style: "cancel" },
+                { text: "Unassign (Back to Bank)", onPress: () => onRemove(item) },
+                { text: "Delete Permanently", style: "destructive", onPress: () => onDelete(item) }
             ],
-            { cancelable: true } // Allows tapping outside to close on Android
+            { cancelable: true } 
         );
     };
 
@@ -98,7 +86,6 @@ const ScheduledEventCard = ({ item, isLast, onSetTime, onRemove, onDelete }) => 
     };
 
     const handlePressOut = () => {
-        // Clear timer if the press is shorter than the delay
         clearTimeout(pressInTimer.current);
         setVisuallyPressed(false);
     };
@@ -113,12 +100,11 @@ const ScheduledEventCard = ({ item, isLast, onSetTime, onRemove, onDelete }) => 
             <View style={styles.contentContainer}>
                 <Pressable 
                     onLongPress={handleLongPress}
-                    delayLongPress={250} // Wait 250ms before triggering
+                    delayLongPress={250} 
                     onPressIn={handlePressIn}
                     onPressOut={handlePressOut}
                     style={[
                         styles.contentContainer, 
-                        // Apply visual feedback based on our delayed state
                         isVisuallyPressed && { opacity: 0.8, transform: [{ scale: 1.03 }] }
                     ]}
                 >
@@ -134,7 +120,8 @@ const ScheduledEventCard = ({ item, isLast, onSetTime, onRemove, onDelete }) => 
                             
                             <View style={{ alignItems: 'flex-end', justifyContent: 'space-between' }}>
                                 <View style={styles.cardImageContainer}>
-                                    {item.image && <Image source={item.image} style={styles.fullImage} contentFit="cover" />}
+                                    {/* FIX: Changed item.image to item.image_url */}
+                                    {item.image_url && <Image source={item.image_url} style={styles.fullImage} contentFit="cover" />}
                                 </View>
                             </View>
                         </View>
@@ -147,19 +134,21 @@ const ScheduledEventCard = ({ item, isLast, onSetTime, onRemove, onDelete }) => 
 
 export default function Timeline() {
     const tripData = useTrip();
-    const { timelineData = {}, addEventToBucket, updateDayEvents, unassignedIdeas = [] } = tripData;
-
+    const { timelineData = {}, addEventToBucket, updateDayEvents, unassignedIdeas = [], updateEventTime, unassignEvent, deleteEvent } = tripData;
     const [selectedDate, setSelectedDate] = useState(null);
     const [isTimePickerVisible, setTimePickerVisibility] = useState(false);
     const [selectedItemId, setSelectedItemId] = useState(null);
     const [isIdeaBankVisible, setIdeaBankVisible] = useState(false); 
 
     const activeDateStr = selectedDate ? DateUtils.formatDateToYYYYMMDD(selectedDate) : null;
+    const dateList = DateUtils.getDatesBetween(tripData.startDate, tripData.endDate);
 
+    // FIX: Corrected dependency from snake_case to camelCase
     useEffect(() => {
-        // TODO: Default to the trip's actual start date instead of hardcoded date
-        setInitialSelectedDate("2023-10-12");
-    }, []);
+        if (tripData?.startDate) {
+            setInitialSelectedDate(tripData.startDate);
+        }
+    }, [tripData?.startDate]);
 
     const setInitialSelectedDate = (dateStr) => {
         setSelectedDate(DateUtils.parseYYYYMMDDToDate(dateStr));
@@ -170,7 +159,7 @@ export default function Timeline() {
         setTimePickerVisibility(true);
     };
 
-    const handleConfirmTime = (date) => {
+   const handleConfirmTime = (date) => {
         if (!selectedItemId || !activeDateStr) return;
 
         let hours = date.getHours();
@@ -179,39 +168,28 @@ export default function Timeline() {
         hours = hours % 12 || 12; 
         const formattedTime = `${hours}:${minutes < 10 ? `0${minutes}` : minutes} ${ampm}`;
 
-        const updatedDayData = currentDayData.map(item => 
-            item.id === selectedItemId ? { ...item, time: formattedTime } : item
-        );
-
-        updateDayEvents(activeDateStr, updatedDayData);
+        updateEventTime(selectedItemId, activeDateStr, formattedTime); 
         setTimePickerVisibility(false);
         setSelectedItemId(null);
     };
 
     const handleRemoveEvent = (item) => {
         if (!activeDateStr) return;
-        // 1. Remove from current day's timeline
-        const updatedDayData = currentDayData.filter(e => e.id !== item.id);
-        updateDayEvents(activeDateStr, updatedDayData);
-        // 2. TODO: Call a Context function here to mark item as 'approved' so it returns to the Bank
-        // e.g., tripData.unassignEvent(item.id); 
+        unassignEvent(item.id, activeDateStr); 
     };
 
     const handleDeleteEvent = (item) => {
-        // NEW: Removes from timeline, and DOES NOT send back to bank
         if (!activeDateStr) return;
-        const updatedDayData = currentDayData.filter(e => e.id !== item.id);
-        updateDayEvents(activeDateStr, updatedDayData);
-        // TODO: Context function to permanently delete from database
+        deleteEvent(item.id, activeDateStr); 
     };
 
-  const parseTimeToMinutes = (timeStr) => {
-      const [time, period] = timeStr.split(' ');
-      let [hours, minutes] = time.split(':').map(Number);
-      if (period === 'PM' && hours !== 12) hours += 12;
-      if (period === 'AM' && hours === 12) hours = 0;
-      return hours * 60 + minutes;
-  };
+    const parseTimeToMinutes = (timeStr) => {
+        const [time, period] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+        return hours * 60 + minutes;
+    };
 
     const currentDayData = activeDateStr ? (timelineData[activeDateStr] || []) : [];
     const flexibleBucket = currentDayData.filter(e => !e.time || e.time === 'TBD' || e.time === 'All Day');
@@ -261,8 +239,7 @@ export default function Timeline() {
 
             <View style={styles.dateScrollerContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroller} contentContainerStyle={styles.dateScrollerContent}>
-                    {/* TODO: Dynamically render dates based on tripData.startDate and tripData.endDate */}
-                    {["2023-10-12", "2023-10-13", "2023-10-14", "2023-10-15", "2023-10-16"].map(d => (
+                    {dateList.map(d => (
                         <DateBadge key={d} date={d} />
                     ))}
                 </ScrollView>
@@ -285,7 +262,7 @@ export default function Timeline() {
                 </View>
                 <View style={[styles.headerContainer, { paddingBottom: 20 }]}>
                     <Text style={styles.headerDate}>
-                        {selectedDate?.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {selectedDate?.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}
                     </Text>
                     <Text style={styles.headerSubtitle}>{anchoredTimeline.length} Events Scheduled</Text>
                 </View>
@@ -304,24 +281,24 @@ export default function Timeline() {
         </View>
     );
 
+    // FIX: Removed GestureHandlerRootView to prevent nested gesture conflicts
     return (
-        <GestureHandlerRootView style={styles.screen}>
         <View style={styles.screen}>
             <ReorderableList
-            data={flexibleBucket}
-            onReorder={reorderBucket}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <AnytimeEventCard item={item} onSetTime={showTimePicker} onRemove={handleRemoveEvent} />}
-            ListHeaderComponent={ListHeader}
-            ListFooterComponent={ListFooter}
-            contentContainerStyle={{ paddingBottom: 150 }} 
+                data={flexibleBucket}
+                onReorder={reorderBucket}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => <AnytimeEventCard item={item} onSetTime={showTimePicker} onRemove={handleRemoveEvent} />}
+                ListHeaderComponent={ListHeader}
+                ListFooterComponent={ListFooter}
+                contentContainerStyle={{ paddingBottom: 150 }} 
             />
 
             {unassignedIdeas.length > 0 && (
-            <TouchableOpacity style={styles.floatingBankButton} onPress={() => setIdeaBankVisible(true)}>
-                <MaterialIcons name="inventory-2" size={20} color="white" />
-                <Text style={styles.floatingBankText}>{unassignedIdeas.length} Ready to Schedule</Text>
-            </TouchableOpacity>
+                <TouchableOpacity style={styles.floatingBankButton} onPress={() => setIdeaBankVisible(true)}>
+                    <MaterialIcons name="inventory-2" size={20} color="white" />
+                    <Text style={styles.floatingBankText}>{unassignedIdeas.length} Ready to Schedule</Text>
+                </TouchableOpacity>
             )}
 
             <AnimatedBottomSheet visible={isIdeaBankVisible} onClose={() => setIdeaBankVisible(false)}>
@@ -336,57 +313,61 @@ export default function Timeline() {
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }} contentContainerStyle={{ paddingBottom: 20 }}>
-                {unassignedIdeas.map(item => {
-                    const fallback = getCategoryFallback(item.category);
-                    const isCustom = item.description === 'Custom Idea'; 
+                    {unassignedIdeas.map(item => {
+                        const fallback = getCategoryFallback(item.category);
+                        const isCustom = item.description === 'Custom Idea'; 
 
-                    return (
-                    <View key={item.id} style={styles.bankItem}>
-                        <View style={styles.bankItemImage}>
-                            {item.image ? (
-                                <Image source={item.image} style={styles.fullImage} contentFit="cover" />
-                            ) : (
-                                <LinearGradient colors={fallback.colors} style={styles.fallbackGradient}>
-                                    <MaterialIcons name={fallback.icon} size={24} color="rgba(255,255,255,0.9)" />
-                                </LinearGradient>
-                            )}
-                        </View>
-                        
-                        <View style={styles.bankItemInfo}>
-                            <Text style={styles.bankItemTitle} numberOfLines={1}>{item.title}</Text>
-                            <Text style={styles.bankItemCategory}>
-                                {item.category} • {isCustom ? 'Added by You' : 'Group Approved'}
-                            </Text>
-                        </View>
+                        return (
+                            <View key={item.id} style={styles.bankItem}>
+                                <View style={styles.bankItemImage}>
+                                    {item.image_url ? (
+                                        <Image source={item.image_url} style={styles.fullImage} contentFit="cover" />
+                                    ) : (
+                                        <LinearGradient colors={fallback.colors} style={styles.fallbackGradient}>
+                                            <MaterialIcons name={fallback.icon} size={24} color="rgba(255,255,255,0.9)" />
+                                        </LinearGradient>
+                                    )}
+                                </View>
+                                
+                                <View style={styles.bankItemInfo}>
+                                    <Text style={styles.bankItemTitle} numberOfLines={1}>{item.title}</Text>
+                                    <Text style={styles.bankItemCategory}>
+                                        {item.category} • {isCustom ? 'Added by You' : 'Group Approved'}
+                                    </Text>
+                                </View>
 
-                        <TouchableOpacity 
-                            style={styles.bankAddButton}
-                            onPress={() => activeDateStr && addEventToBucket(activeDateStr, item)}
-                        >
-                            <MaterialIcons name="add" size={22} color="#ffffff" />
-                        </TouchableOpacity>
-                    </View>
-                    );
-                })}
+                                <TouchableOpacity 
+                                    style={styles.bankAddButton}
+                                    onPress={() => {
+                                        if (activeDateStr) {
+                                            // FIX: Added Haptic feedback for better UX
+                                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                                            addEventToBucket(activeDateStr, item);
+                                        }
+                                    }}
+                                >
+                                    <MaterialIcons name="add" size={22} color="#ffffff" />
+                                </TouchableOpacity>
+                            </View>
+                        );
+                    })}
                 </ScrollView>
             </AnimatedBottomSheet>
 
             <DateTimePickerModal
-            isVisible={isTimePickerVisible}
-            mode="time"
-            onConfirm={handleConfirmTime}
-            onCancel={() => setTimePickerVisibility(false)}
-            themeVariant="dark" 
+                isVisible={isTimePickerVisible}
+                mode="time"
+                onConfirm={handleConfirmTime}
+                onCancel={() => setTimePickerVisibility(false)}
+                themeVariant="dark" 
             />
         </View>
-        </GestureHandlerRootView>
     );
 }
 
 // ==========================================
 // STYLES
 // ==========================================
-
 const styles = StyleSheet.create({
     screen: { flex: 1 },
     tabBarOuterContainer: { padding: 10, marginBottom: 10 },

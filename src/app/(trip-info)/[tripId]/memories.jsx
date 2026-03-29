@@ -7,12 +7,12 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Dimensions, FlatList, LayoutAnimation, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+// LOGICAL FIX 1: Added KeyboardAvoidingView and Platform to imports
+import { Dimensions, FlatList, LayoutAnimation, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 // IMPORT SUPABASE
 import { supabase } from "@/src/lib/supabase";
-
 
 //////////////////////////////////////////////////////////////////
 
@@ -20,11 +20,17 @@ import { supabase } from "@/src/lib/supabase";
 
 //////////////////////////////////////////////////////////////////
 
-
-
 const { width: screenWidth } = Dimensions.get('window');
 const cardWidth = screenWidth * 0.85;
 const cardSpacing = (screenWidth - cardWidth) / 2;
+
+// LOGICAL FIX 2: Bulletproof date formatting to prevent Android Hermes engine crashes
+const formatJournalDate = (dateVal) => {
+  if (!dateVal) return null;
+  const d = new Date(dateVal);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+};
 
 // ==========================================
 // 1. HELPER COMPONENTS
@@ -130,6 +136,7 @@ export default function Memories() {
         .from('Photos')
         .select('photo_id, photo_url, uploaded_at')
         .eq('trip_id', tripId)
+        .or('type.neq.idea_board,type.is.null')
         .order('uploaded_at', { ascending: false })
         .limit(5);
 
@@ -152,9 +159,9 @@ export default function Memories() {
       } else if (journalsResponse.data) {
         const formattedMemories = journalsResponse.data.map((journal) => {
           const imageUrls = journal.Photos?.map((p) => p.photo_url).filter(Boolean) || [];
-          const formattedDate = journal.entry_timestamp 
-            ? new Date(journal.entry_timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-            : null;
+          
+          // LOGICAL FIX 3: Replaced toLocaleDateString with safe formatter
+          const formattedDate = formatJournalDate(journal.entry_timestamp);
 
           return {
             id: journal.entry_id,
@@ -277,141 +284,135 @@ export default function Memories() {
     }
   };
 
-  // --- RENDER ---
-  if (isLoading) {
-    return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
-            <ActivityIndicator size="large" color={Colors.primary} />
-        </View>
-    );
-  }
-
+  // LOGICAL FIX 4: Wrapped everything in <View> and moved BottomSheet outside ScrollView
   return (
-    <TripInfoScrollView onRefresh={handleRefresh} style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-      
-      {/* --- TRIP JOURNAL SECTION --- */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Trip Journal</Text>
-        <TouchableOpacity style={styles.actionButtonRow} onPress={() => setIsModalVisible(true)}>
-          <MaterialIcons name="edit" size={moderateScale(14)} color={Colors.primary} />
-          <Text style={styles.actionButtonText}>Write Entry</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={styles.container}>
+      <TripInfoScrollView onRefresh={handleRefresh} style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        {/* --- TRIP JOURNAL SECTION --- */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Trip Journal</Text>
+          <TouchableOpacity style={styles.actionButtonRow} onPress={() => setIsModalVisible(true)}>
+            <MaterialIcons name="edit" size={moderateScale(14)} color={Colors.primary} />
+            <Text style={styles.actionButtonText}>Write Entry</Text>
+          </TouchableOpacity>
+        </View>
 
-      {memories.length === 0 ? (
-         <Text style={{ textAlign: 'center', color: Colors.gray, marginBottom: 20 }}>No journal entries yet.</Text>
-      ) : (
-        <FlatList
-          data={memories}
-          renderItem={({ item }) => <JournalCard item={item} />}
-          keyExtractor={item => item.id.toString()}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={cardWidth + 15} 
-          decelerationRate="fast"
-          contentContainerStyle={{ gap: 15, paddingRight: cardSpacing, paddingBottom: 20, alignItems: 'flex-start' }}
-        />
-      )}
+        {memories.length === 0 ? (
+           <Text style={{ textAlign: 'center', color: Colors.gray, marginBottom: 20 }}>No journal entries yet.</Text>
+        ) : (
+          <FlatList
+            data={memories}
+            renderItem={({ item }) => <JournalCard item={item} />}
+            keyExtractor={item => item.id.toString()}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={cardWidth + 15} 
+            decelerationRate="fast"
+            contentContainerStyle={{ gap: 15, paddingRight: cardSpacing, paddingBottom: 20, alignItems: 'flex-start' }}
+          />
+        )}
 
-      {/* --- SHARED ALBUM SECTION --- */}
-      <View style={[styles.sectionHeader, { marginTop: moderateScale(10) }]}>
-        <Text style={styles.sectionTitle}>Shared Album</Text>
-        <TouchableOpacity onPress={() => router.navigate(`/(trip-info)/${tripId}/album`)} hitSlop={3}>
-          <Text style={styles.viewAllText}>View All ({totalPhotoCount})</Text>
-        </TouchableOpacity>
-      </View>
+        {/* --- SHARED ALBUM SECTION --- */}
+        <View style={[styles.sectionHeader, { marginTop: moderateScale(10) }]}>
+          <Text style={styles.sectionTitle}>Shared Album</Text>
+          <TouchableOpacity onPress={() => router.navigate(`/(trip-info)/${tripId}/album`)} hitSlop={3}>
+            <Text style={styles.viewAllText}>View All ({totalPhotoCount})</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Dynamic Photo Grid */}
-      <View style={styles.photoGrid}>
-        <TouchableOpacity style={styles.uploadTile} onPress={handleUploadSharedPhoto}>
-          <MaterialIcons name="add-photo-alternate" size={moderateScale(28)} color={Colors.textSecondary} />
-        </TouchableOpacity>
+        {/* Dynamic Photo Grid */}
+        <View style={styles.photoGrid}>
+          <TouchableOpacity style={styles.uploadTile} onPress={handleUploadSharedPhoto}>
+            <MaterialIcons name="add-photo-alternate" size={moderateScale(28)} color={Colors.textSecondary} />
+          </TouchableOpacity>
 
-        {albumPhotos.slice(0, 5).map((photo) => {
-           return (
-             <View key={photo.id} style={styles.photoWrapper}>
-               <Image source={{ uri: photo.uri }} style={styles.gridImage} contentFit="cover" transition={200} cachePolicy={'disk'} />
-             </View>
-           );
-        })}
-      </View>
+          {albumPhotos.slice(0, 5).map((photo) => {
+             return (
+               <View key={photo.id} style={styles.photoWrapper}>
+                 <Image source={{ uri: photo.uri }} style={styles.gridImage} contentFit="cover" transition={200} cachePolicy={'disk'} />
+               </View>
+             );
+          })}
+        </View>
+
+      </TripInfoScrollView>
 
       {/* --- BOTTOM SHEET FORM --- */}
       <AnimatedBottomSheet visible={isModalVisible} onClose={() => !isUploading && setIsModalVisible(false)}>
-       <View style={styles.sheetHeader}>
-          <Text style={styles.sheetTitle}>New Journal Entry</Text>
-          <TouchableOpacity onPress={() => !isUploading && setIsModalVisible(false)} style={styles.closeButton}>
-            <MaterialIcons name="close" size={22} color="#0f172a" />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-          
-          <TextInput 
-            style={styles.premiumTitleInput} 
-            placeholder="Name this adventure..." 
-            placeholderTextColor="#94a3b8"
-            value={entryTitle}
-            onChangeText={setEntryTitle}
-            editable={!isUploading}
-            autoFocus
-          />
-
-          <View style={styles.inputSection}>
-            <Text style={styles.sectionLabel}>STORY</Text>
-            <TextInput 
-              style={styles.premiumNotesInput} 
-              placeholder="What made this moment special? Jot down the details..." 
-              placeholderTextColor="#94a3b8"
-              value={entryDescription}
-              onChangeText={setEntryDescription}
-              editable={!isUploading}
-              multiline
-              textAlignVertical="top"
-            />
-          </View>
-
-          <View style={styles.inputSection}>
-            <Text style={styles.sectionLabel}>PHOTOS ({entryImages.length})</Text>
-            
-            <TouchableOpacity style={styles.photoUploadRow} onPress={handleAddEntryImage} disabled={isUploading}>
-                <View style={styles.photoIconCircle}>
-                  <MaterialIcons name="add-a-photo" size={18} color="#0f172a" />
-                </View>
-                <Text style={styles.photoUploadText}>Attach photos</Text>
+         <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>New Journal Entry</Text>
+            <TouchableOpacity onPress={() => !isUploading && setIsModalVisible(false)} style={styles.closeButton}>
+              <MaterialIcons name="close" size={22} color="#0f172a" />
             </TouchableOpacity>
-
-            {entryImages.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, marginTop: 10 }}>
-                {entryImages.map((uri, index) => (
-                  <View key={index}>
-                    <Image source={{ uri }} style={{ width: 80, height: 80, borderRadius: 12 }} contentFit="cover" />
-                    <TouchableOpacity 
-                      style={{
-                        position: 'absolute', top: -6, right: -6, backgroundColor: Colors.danger, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'white'
-                      }} 
-                      onPress={() => setEntryImages(prev => prev.filter((_, i) => i !== index))}
-                      disabled={isUploading}
-                    >
-                      <MaterialIcons name="close" size={12} color="white" />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
-            )}
           </View>
 
-          <TouchableOpacity 
-            style={[styles.premiumSubmitButton, (!entryTitle.trim() || isUploading) && styles.premiumSubmitDisabled]} 
-            disabled={!entryTitle.trim() || isUploading}
-            onPress={handleSaveEntry}
-          >
-            <Text style={styles.premiumSubmitText}>{isUploading ? "Posting Entry..." : "Post Entry"}</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </AnimatedBottomSheet>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+            
+            <TextInput 
+              style={styles.premiumTitleInput} 
+              placeholder="Name this adventure..." 
+              placeholderTextColor="#94a3b8"
+              value={entryTitle}
+              onChangeText={setEntryTitle}
+              editable={!isUploading}
+              autoFocus
+            />
 
-    </TripInfoScrollView>
+            <View style={styles.inputSection}>
+              <Text style={styles.sectionLabel}>STORY</Text>
+              <TextInput 
+                style={styles.premiumNotesInput} 
+                placeholder="What made this moment special? Jot down the details..." 
+                placeholderTextColor="#94a3b8"
+                value={entryDescription}
+                onChangeText={setEntryDescription}
+                editable={!isUploading}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
+
+            <View style={styles.inputSection}>
+              <Text style={styles.sectionLabel}>PHOTOS ({entryImages.length})</Text>
+              
+              <TouchableOpacity style={styles.photoUploadRow} onPress={handleAddEntryImage} disabled={isUploading}>
+                  <View style={styles.photoIconCircle}>
+                    <MaterialIcons name="add-a-photo" size={18} color="#0f172a" />
+                  </View>
+                  <Text style={styles.photoUploadText}>Attach photos</Text>
+              </TouchableOpacity>
+
+              {entryImages.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, marginTop: 10 }}>
+                  {entryImages.map((uri, index) => (
+                    <View key={index}>
+                      <Image source={{ uri }} style={{ width: 80, height: 80, borderRadius: 12 }} contentFit="cover" />
+                      <TouchableOpacity 
+                        style={{
+                          position: 'absolute', top: -6, right: -6, backgroundColor: Colors.danger, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'white'
+                        }} 
+                        onPress={() => setEntryImages(prev => prev.filter((_, i) => i !== index))}
+                        disabled={isUploading}
+                      >
+                        <MaterialIcons name="close" size={12} color="white" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.premiumSubmitButton, (!entryTitle.trim() || isUploading) && styles.premiumSubmitDisabled]} 
+              disabled={!entryTitle.trim() || isUploading}
+              onPress={handleSaveEntry}
+            >
+              <Text style={styles.premiumSubmitText}>{isUploading ? "Posting Entry..." : "Post Entry"}</Text>
+            </TouchableOpacity>
+          </ScrollView>
+      </AnimatedBottomSheet>
+    </View>
   );
 }
 

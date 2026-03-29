@@ -107,7 +107,7 @@ export const MediaUtils = {
   // --------------------------------------------------
   // 4. Upload an Image to Supabase Storage & Database
   // --------------------------------------------------
-  uploadImageToSupabase: async (uri, tripId, userId, entryId = null) => {
+  uploadImageToSupabase: async (uri, tripId, userId, entryId = null, type = 'memories') => {
     try {
       const fileExt = uri.split('.').pop() || 'jpg';
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -136,6 +136,8 @@ export const MediaUtils = {
         trip_id: tripId,
         uploader_id: userId,
         photo_url: publicUrlData.publicUrl,
+        uploaded_at: new Date().toISOString(),
+        type: type
       };
       
       // Attach to journal entry if applicable

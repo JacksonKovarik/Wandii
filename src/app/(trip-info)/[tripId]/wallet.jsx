@@ -36,11 +36,23 @@ const CATEGORIES = [
 
 const BalanceCard = ({ member, onRemind, onPay }) => {
   const isOwed = member.balance > 0; 
+  const names = member.name.trim().split(/\s+/);
+  const firstInitial = names[0].charAt(0);
+  const lastInitial = names[names.length - 1].charAt(0);
   
   return (
     <View style={styles.memberRow}>
       <View style={styles.memberInfo}>
-        <Image source={{ uri: member.avatar }} style={styles.avatar} />
+        {member.avatar ? (
+          <Image source={{ uri: member.avatar }} style={styles.avatar} />
+        ) : (
+          <View style={[styles.avatar, { backgroundColor: Colors.lightGray, alignItems: 'center', justifyContent: 'center'}]}>
+            <Text style={{ color: Colors.primary, fontSize: 13, fontWeight: '700'}}>
+              {(firstInitial + lastInitial).toUpperCase()}
+            </Text>
+          </View>
+        )}
+        
         <View>
           <Text style={styles.memberName}>{member.name}</Text>
           <Text style={[styles.balanceStatus, { color: isOwed ? Colors.success : Colors.danger }]}>
@@ -215,32 +227,53 @@ export default function WalletScreen() {
       const selectedCategory = CATEGORIES.find(c => c.id === expenseForm.categoryId);
       const totalAmount = parseFloat((expenseForm.amount));
       
-      // 1. Insert the main Expense
-      const { data: newExpense, error: insertError } = await supabase
-        .from('Expenses')
-        .insert({
-          trip_id: tripId,
-          paid_by: userId,
-          total_amount: totalAmount.toFixed(2),
-          category: selectedCategory ? selectedCategory.name : 'Other',
-          description: expenseForm.title,
-        })
-        .select()
-        .single();
-        
-      if (insertError) throw insertError;
+      let finalExpenseId = expenseForm.id;
+
+      if (finalExpenseId) {
+        // 1a. UPDATE EXISTING EXPENSE
+        const { error: updateError } = await supabase
+          .from('Expenses')
+          .update({
+            total_amount: totalAmount.toFixed(2),
+            category: selectedCategory ? selectedCategory.name : 'Other',
+            description: expenseForm.title,
+          })
+          .eq('expense_id', finalExpenseId);
+          
+        if (updateError) throw updateError;
+
+        // Easiest way to update splits: delete the old ones before we insert the new ones
+        await supabase.from('Expense_Splits').delete().eq('expense_id', finalExpenseId);
+
+      } else {
+        // 1b. INSERT NEW EXPENSE
+        const { data: newExpense, error: insertError } = await supabase
+          .from('Expenses')
+          .insert({
+            trip_id: tripId,
+            paid_by: userId,
+            total_amount: totalAmount.toFixed(2),
+            category: selectedCategory ? selectedCategory.name : 'Other',
+            description: expenseForm.title,
+          })
+          .select()
+          .single();
+          
+        if (insertError) throw insertError;
+        finalExpenseId = newExpense.expense_id; // Capture new ID for the splits
+      }
 
       // 2. Calculate the math and prep the splits
       const selectedMembers = Object.entries(expenseForm.splits).filter(([_, data]) => data.selected);
       const equalSplitAmount = totalAmount / selectedMembers.length;
 
       const splitsToInsert = selectedMembers.map(([memberId, data]) => ({
-        expense_id: newExpense.expense_id, // Grab the ID from the newly created expense
+        expense_id: finalExpenseId, 
         user_id: memberId,
         amount_owed: expenseForm.isSplitEqually ? equalSplitAmount : parseFloat(data.amount)
       }));
 
-      // 3. Insert the splits into the database
+      // 3. Insert the new splits into the database
       const { error: splitsError } = await supabase
         .from('Expense_Splits')
         .insert(splitsToInsert);
@@ -507,7 +540,6 @@ export default function WalletScreen() {
               {section.data.map((transaction) => (
                 <View key={transaction.id}>
                   <TouchableOpacity 
-                    key={transaction.id} 
                     style={styles.transactionRow} 
                     onPress={() => setExpandedTxId(expandedTxId === transaction.id ? null : transaction.id)}
                     onLongPress={() => handleTransactionLongPress(transaction)}

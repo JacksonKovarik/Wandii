@@ -12,13 +12,6 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
-//////////////////////////////////////////////////////////////////
-
-// ADD automatic images/icons for different file uploads
-
-//////////////////////////////////////////////////////////////////
-
-
 const DocumentCard = ({ title, size, date, url, fileType}) => {
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -56,12 +49,10 @@ const DocumentCard = ({ title, size, date, url, fileType}) => {
     try {
       setIsDownloading(true);
 
-      // 1. FIX THE DOUBLE EXTENSION
       const cleanName = name.replace(/[^a-zA-Z0-9]/g, '_');
       const lastUnderscore = cleanName.lastIndexOf('_');
 
-      // 2. BUST THE CACHE
-      const safeFileName = `${cleanName.substring(0, lastUnderscore)}.${fileType}`;
+      const safeFileName = `${cleanName.substring(0, lastUnderscore > 0 ? lastUnderscore : cleanName.length)}.${fileType}`;
       
       const destinationDir = new Directory(Paths.document, 'trip_downloads');
       if (!destinationDir.exists) {
@@ -70,7 +61,6 @@ const DocumentCard = ({ title, size, date, url, fileType}) => {
       
       const localFile = new File(destinationDir, safeFileName);
 
-      // 3. SMART CACHING
       if (localFile.exists) {
         console.log("Valid file found locally! Opening...");
         await Sharing.shareAsync(localFile.uri);
@@ -79,10 +69,9 @@ const DocumentCard = ({ title, size, date, url, fileType}) => {
       
       console.log("Downloading fresh file from Supabase...");
 
-      // 4. DOWNLOAD (Using the correct static method!)
-      await File.downloadFileAsync(url, localFile);
+      // FIX: Call downloadAsync directly on the file instance
+      await localFile.downloadAsync(url);
       
-      // 5. OPEN SHARE SHEET
       await Sharing.shareAsync(localFile.uri);
 
     } catch (error) {
@@ -93,19 +82,18 @@ const DocumentCard = ({ title, size, date, url, fileType}) => {
     }
   };
 
-
   const convertFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0 || bytes === 'Unknown Size') return 'Unknown Size';
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(1000));
     return `${(bytes / Math.pow(1000, i)).toFixed(2)} ${sizes[i]}`;
   };
   
-  size = convertFileSize(size);
+  // FIX: Create a new variable instead of mutating the React prop
+  const formattedSize = convertFileSize(size);
 
   return (
     <View style={styles.documentCard}>
-      {/* Dynamic Thumbnail */}
       <View style={[styles.documentIconPlaceholder, { backgroundColor: iconConfig.bg, justifyContent: 'center', alignItems: 'center' }]}>
         <MaterialIcons name={iconConfig.name} size={moderateScale(28)} color={iconConfig.color} />
       </View>
@@ -113,15 +101,14 @@ const DocumentCard = ({ title, size, date, url, fileType}) => {
       <View style={{ flex: 1 }}>
         <Text style={styles.documentTitle} numberOfLines={1}>{name}</Text>
         <View style={styles.documentMetaRow}>
-          <Text style={styles.documentMetaText}>{fileType.toUpperCase()}</Text>
+          <Text style={styles.documentMetaText}>{fileType?.toUpperCase()}</Text>
           <Text style={styles.documentMetaDot}>•</Text>
-          <Text style={styles.documentMetaText}>{size}</Text>
+          <Text style={styles.documentMetaText}>{formattedSize}</Text>
           <Text style={styles.documentMetaDot}>•</Text>
           <Text style={styles.documentMetaText}>{date}</Text>
         </View>
       </View>
 
-      {/* Smart Download Button */}
       <TouchableOpacity 
         onPress={handleDownload} 
         style={styles.downloadBtn}
@@ -138,31 +125,21 @@ const DocumentCard = ({ title, size, date, url, fileType}) => {
 };
 
 export default function Docs() {
-  // You will also need the current userId (often from an AuthContext or Supabase auth session).
   const { tripId, refreshTripData } = useTrip(); 
-  // const { userId } = useAuth(); // Example: Get this from wherever you store auth state
 
   const [documents, setDocuments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
 
-  // --- Fetch Data Directly via Supabase Client ---
   const fetchDocuments = async () => {
     if (!tripId) {
-      console.log("No Trip ID");
       setIsLoading(false);
       return;
     }
 
     try {
       setIsLoading(true);
-      
-      // Using your hardcoded dev user ID to match your other functions
-      const TEMP_USER_ID = '5b6c11f8-d8d5-45c3-815b-54870bcbb0ad'; 
-      
-      console.log(`Fetching documents for trip: ${tripId}`);
-
-      // 1. DIRECT SUPABASE QUERY (Replaces the Edge Function)
+      // FIX: Removed the uploader_id filter so everyone in the group can see the files!
       const { data: docs, error } = await supabase
         .from('documents')
         .select(`
@@ -175,7 +152,6 @@ export default function Docs() {
           Users ( first_name, last_name )
         `)
         .eq('trip_id', tripId)
-        .eq('uploader_id', TEMP_USER_ID)
         .order('upload_timestamp', { ascending: false });
 
       if (error) {
@@ -183,7 +159,6 @@ export default function Docs() {
         return; 
       }
 
-      // 2. FORMAT THE DATA (Exactly how your Edge function used to do it)
       if (docs) {
         const formattedDocs = docs.map((doc) => ({
           id: doc.doc_id,
@@ -197,31 +172,6 @@ export default function Docs() {
         
         setDocuments(formattedDocs);
       }
-
-      /*************************************
-       * If we change bucket to PRIVATE use this
-      *************************************/
-      // if (docs) {
-      //   const formattedDocs = await Promise.all(docs.map(async (doc) => {
-          
-      //     // Ask Supabase for a temporary 1-hour (3600 seconds) link to view the private file
-      //     const { data: signedUrlData } = await supabase.storage
-      //       .from('trip-documents')
-      //       .createSignedUrl(doc.file_url, 3600); 
-
-      //     return {
-      //       id: doc.doc_id,
-      //       title: doc.file_name,
-      //       url: signedUrlData?.signedUrl || null, // <--- Temporary secure link!
-      //       size: doc.file_size_bytes ? doc.file_size_bytes : 'Unknown Size',
-      //       date: new Date(doc.upload_timestamp).toLocaleDateString(),
-      //       fileType: doc.file_type // We'll need this for the thumbnails!
-      //     };
-      //   }));
-        
-      //   setDocuments(formattedDocs);
-      // }
-
     } catch (err) {
       console.error("Unexpected network/execution error:", err);
     } finally {
@@ -229,12 +179,10 @@ export default function Docs() {
     }
   };
 
-  // Trigger fetch on mount and when tripId/userId changes
   useEffect(() => {
     fetchDocuments();
   }, [tripId]);
 
-  // Wrapper for refreshing data (handles pull-to-refresh)
   const handleRefresh = async () => {
     if (refreshTripData) await refreshTripData();
     await fetchDocuments();
@@ -262,14 +210,10 @@ export default function Docs() {
       const fileName = file.name.replace(`.${fileExt}`, '');
       const filePath = `${tripId}/${fileName}-${Date.now()}.${fileExt}`;
 
-      // 1. THE SDK 54 WAY: Create a File instance from the local URI
       const localFile = new File(file.uri);
-
-      // 2. Extract the raw binary data natively (No Base64 library needed!)
       const arrayBuffer = await localFile.arrayBuffer();
 
-      // 3. Upload the raw ArrayBuffer directly to Supabase
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('trip-documents')
         .upload(filePath, arrayBuffer, { 
           contentType: file.mimeType || 'application/octet-stream' 
@@ -277,12 +221,10 @@ export default function Docs() {
 
       if (uploadError) throw uploadError;
 
-      // 4. Get the permanent public URL
       const { data: publicUrlData } = supabase.storage
         .from('trip-documents')
         .getPublicUrl(filePath);
 
-      // 5. Save to the database
       const { error: dbError } = await supabase
         .from('documents')
         .insert({
@@ -296,12 +238,63 @@ export default function Docs() {
 
       if (dbError) throw dbError;
 
-      // 6. Refresh UI
       await fetchDocuments();
 
     } catch (error) {
       console.error("Error uploading document:", error);
       alert("There was an issue uploading your document.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // FIX: Added handler to process and upload files selected from the device Camera or Gallery
+  const handleImageUpload = async (mediaFunction) => {
+    try {
+      const uri = await mediaFunction();
+      if (!uri) return; 
+
+      setModalVisible(false);
+      setIsLoading(true);
+
+      const TEMP_USER_ID = '5b6c11f8-d8d5-45c3-815b-54870bcbb0ad'; 
+      const fileExt = uri.split('.').pop() || 'jpg';
+      const fileName = `Photo_${Date.now()}`;
+      const filePath = `${tripId}/${fileName}.${fileExt}`;
+
+      const localFile = new File(uri);
+      const arrayBuffer = await localFile.arrayBuffer();
+
+      const { error: uploadError } = await supabase.storage
+        .from('trip-documents')
+        .upload(filePath, arrayBuffer, { 
+          contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}` 
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from('trip-documents')
+        .getPublicUrl(filePath);
+
+      const { error: dbError } = await supabase
+        .from('documents')
+        .insert({
+          trip_id: tripId,
+          uploader_id: TEMP_USER_ID,
+          file_name: `${fileName}.${fileExt}`,
+          file_url: publicUrlData.publicUrl,
+          file_size_bytes: 0, 
+          file_type: fileExt.toLowerCase(),
+        });
+
+      if (dbError) throw dbError;
+
+      await fetchDocuments();
+
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      alert("There was an issue uploading your image.");
     } finally {
       setIsLoading(false);
     }
@@ -321,7 +314,6 @@ export default function Docs() {
         </TouchableOpacity>
       </View>
 
-      {/* Loading State or Document List */}
       {isLoading ? (
         <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
       ) : documents.length === 0 ? (
@@ -335,7 +327,6 @@ export default function Docs() {
         ))
       )}
 
-      {/* --- Bottom Sheet --- */}
       <AnimatedBottomSheet
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
@@ -344,12 +335,13 @@ export default function Docs() {
           <Text style={styles.sheetTitle}>Add Document</Text>
           
           <View style={styles.sheetActionGroup}>
-            <TouchableOpacity style={styles.sheetMinimalRow} onPress={() => MediaUtils.takePhoto()}>
+            {/* FIX: Wired up the media functions so they actually process and upload to Supabase */}
+            <TouchableOpacity style={styles.sheetMinimalRow} onPress={() => handleImageUpload(MediaUtils.takePhoto)}>
               <MaterialIcons name="photo-camera" size={24} color={Colors.darkBlue} />
               <Text style={styles.sheetActionText}>Take Photo</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.sheetMinimalRow} onPress={() => MediaUtils.pickImage()}>
+            <TouchableOpacity style={styles.sheetMinimalRow} onPress={() => handleImageUpload(MediaUtils.pickImage)}>
               <MaterialIcons name="photo-library" size={24} color={Colors.darkBlue} />
               <Text style={styles.sheetActionText}>Choose from Gallery</Text>
             </TouchableOpacity>
@@ -368,6 +360,8 @@ export default function Docs() {
     </TripInfoScrollView>
   );
 }
+
+// ... styles block remains identical
 
 // ... [Keep your existing styles exactly as they were] ...
 const styles = StyleSheet.create({

@@ -54,7 +54,7 @@ serve(async (req) => {
         userRelationships[member.user_id] = {
           id: member.user_id,
           name: `${member.Users.first_name} ${member.Users.last_name}`.trim(),
-          avatar: member.Users.avatar_url || "https://i.pravatar.cc/150",
+          avatar: member.Users.avatar_url,
           balance: 0 // POSITIVE = They owe you. NEGATIVE = You owe them.
         };
       }
