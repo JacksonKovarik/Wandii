@@ -3,41 +3,40 @@ import { Link, useRouter } from "expo-router";
 import React, { useState } from "react";
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
-export default function SignIn() {
+export default function SignUp() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function onSignIn() {
+  async function onSignUp() {
     try {
+      if (password !== confirm) {
+        Alert.alert("Passwords do not match");
+        return;
+      }
+
       setBusy(true);
 
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
       });
 
       if (error) {
-        if (
-          error.code === "invalid_credentials" ||
-          error.message.toLowerCase().includes("invalid") ||
-          error.message.toLowerCase().includes("credentials") ||
-          error.message.toLowerCase().includes("password")
-        ) {
-          Alert.alert(
-            "Wrong credentials",
-            "The email or password is incorrect. Would you like to create an account?"
-          );
-          return;
-        }
-
-        throw error;
+        Alert.alert("Sign up failed", error.message);
+        return;
       }
 
-      router.replace("/(tabs)/home");
+      Alert.alert(
+        "Account created",
+        "Please check your email to confirm your account before signing in."
+      );
+
+      router.replace("/sign-in");
     } catch (e) {
-      Alert.alert("Sign in failed", e?.message ?? "Unknown error");
+      Alert.alert("Sign up failed", e?.message ?? "Unknown error");
     } finally {
       setBusy(false);
     }
@@ -45,7 +44,7 @@ export default function SignIn() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Sign In</Text>
+      <Text style={styles.title}>Create Account</Text>
 
       <TextInput
         style={styles.input}
@@ -64,17 +63,25 @@ export default function SignIn() {
         placeholder="Password"
       />
 
+      <TextInput
+        style={styles.input}
+        value={confirm}
+        onChangeText={setConfirm}
+        secureTextEntry
+        placeholder="Re-enter Password"
+      />
+
       <TouchableOpacity
         style={[styles.button, busy && { opacity: 0.6 }]}
-        onPress={onSignIn}
+        onPress={onSignUp}
         disabled={busy}
       >
-        <Text style={styles.buttonText}>{busy ? "Signing in..." : "Sign In"}</Text>
+        <Text style={styles.buttonText}>{busy ? "Creating..." : "Create Account"}</Text>
       </TouchableOpacity>
 
-      <Link href="/sign-up" asChild>
+      <Link href="/sign-in" asChild>
         <TouchableOpacity>
-          <Text style={styles.link}>Need an account? Create one</Text>
+          <Text style={styles.link}>Already have an account? Sign in</Text>
         </TouchableOpacity>
       </Link>
     </View>

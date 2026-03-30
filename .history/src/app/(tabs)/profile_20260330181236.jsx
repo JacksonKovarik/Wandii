@@ -10,7 +10,7 @@ export default function Profile() {
 
   const [photo, setPhoto] = useState(null);
 
-  // Temporary user data (replace with real auth data later)
+
   const user = {
     name: "Shelby Wood",
     username: "shelbywood",
@@ -56,7 +56,7 @@ export default function Profile() {
   // Logout
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.replace("/");
+    router.replace("/sign-in");
   };
 
   return (
