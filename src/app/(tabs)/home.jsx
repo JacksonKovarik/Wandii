@@ -1,5 +1,5 @@
-import { View } from "react-native";
 import PlanNewTripCard from "@/src/components/planNewTripCard";
+import { View } from "react-native";
 
 export default function Home() {
   return (

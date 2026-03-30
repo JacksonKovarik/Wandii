@@ -10,8 +10,8 @@ import { moderateScale, verticalScale } from "react-native-size-matters";
 
 import { useAuth } from "@/src/context/AuthContext";
 import { useTripDraft } from "@/src/context/TripDraftContext";
-import { createTrip } from "@/src/lib/trips";
 import { supabase } from "@/src/lib/supabase";
+import { createTrip } from "@/src/lib/trips";
 
 async function uploadCoverPhotoIfNeeded(userId, coverPhotoUri) {
   if (!coverPhotoUri) return null;

@@ -1,10 +1,10 @@
 import AddTripButton from "@/src/components/addTripButton";
 import { GroupDisplay } from "@/src/components/GroupDisplay";
 import ProgressBar from "@/src/components/progressBar";
-import { useAuth } from "@/src/context/AuthContext";
 import { Colors } from "@/src/constants/colors";
-import DateUtils from "@/src/utils/DateUtils";
+import { useAuth } from "@/src/context/AuthContext";
 import { deleteTrip, getUpcomingTrips } from "@/src/lib/trips";
+import DateUtils from "@/src/utils/DateUtils";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";

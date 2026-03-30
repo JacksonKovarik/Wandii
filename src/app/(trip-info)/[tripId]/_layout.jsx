@@ -1,6 +1,6 @@
 import TripInfoTabBar from "@/src/components/tripInfoTabBar";
-import { useAuth } from "@/src/context/AuthContext";
 import { Colors } from "@/src/constants/colors";
+import { useAuth } from "@/src/context/AuthContext";
 import { getTripById } from "@/src/lib/trips";
 import DateUtils from "@/src/utils/DateUtils";
 import { TripContext } from "@/src/utils/TripContext";
