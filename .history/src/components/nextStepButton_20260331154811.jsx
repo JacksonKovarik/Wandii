@@ -3,7 +3,6 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 
-// Start
 export default function NextStepButton({ href }) {
   return (
     <View style={ styles.bottomContainer }>
