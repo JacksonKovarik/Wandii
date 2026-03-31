@@ -1,5 +1,7 @@
 import TripInfoTabBar from "@/src/components/tripInfoTabBar";
 import { Colors } from "@/src/constants/colors";
+import { useAuth } from "@/src/context/AuthContext";
+import { getTripById } from "@/src/lib/trips";
 import DateUtils from "@/src/utils/DateUtils";
 import { TripContext } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -72,7 +74,6 @@ const fetchTripNotifications = async (tripId, userId) => {
         console.error("Error fetching notifications:", error);
         return [];
     }
-};
 
 const fetchTripData = async (tripId, userId) => {
     if (!tripId) return null; 
@@ -202,11 +203,23 @@ const fetchTripData = async (tripId, userId) => {
 // HELPER COMPONENTS
 // ==========================================
 const HeaderButton = ({ icon, onPress }) => (
-    <TouchableOpacity onPress={onPress}>
-        <BlurView intensity={10} tint="default" style={{ width: 34, height: 34, borderRadius: 20, backgroundColor: 'rgba(255, 255, 255, 0.35)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-            <MaterialIcons name={icon} size={moderateScale(22)} color="white" />
-        </BlurView>
-    </TouchableOpacity>
+  <TouchableOpacity onPress={onPress}>
+    <BlurView
+      intensity={10}
+      tint="default"
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: 20,
+        backgroundColor: "rgba(255, 255, 255, 0.35)",
+        justifyContent: "center",
+        alignItems: "center",
+        overflow: "hidden",
+      }}
+    >
+      <MaterialIcons name={icon} size={moderateScale(22)} color="white" />
+    </BlurView>
+  </TouchableOpacity>
 );
 
 const CustomHeader = ({ trip }) => {
@@ -480,6 +493,46 @@ export default function TripInfoLayout() {
             </View>
         </TripContext.Provider>
     );
+  }
+
+  const contextValue = {
+    ...tripData,
+    discoverFeed,
+    inProgressFeed,
+    unassignedIdeas,
+    refreshTripData,
+    handleVote,
+    addEventToBucket,
+    updateDayEvents,
+    deleteStay,
+    addTransaction,
+    addSettlement,
+  };
+
+  return (
+    <TripContext.Provider value={contextValue}>
+      <StatusBar style="light" />
+      <View style={{ flex: 1 }}>
+        <CustomHeader trip={tripData} />
+        <Tabs
+          screenOptions={{
+            tabBarStyle: { display: "none" },
+            headerShown: false,
+            unmountOnBlur: true,
+          }}
+        >
+          <Tabs.Screen name="overview" options={{ title: "Overview" }} />
+          <Tabs.Screen name="(plan)" options={{ title: "Plan" }} />
+          <Tabs.Screen name="wallet" options={{ title: "Wallet" }} />
+          <Tabs.Screen name="docs" options={{ title: "Docs" }} />
+          <Tabs.Screen name="chat" options={{ title: "Chat" }} />
+          <Tabs.Screen name="memories" options={{ title: "Memories" }} />
+          <Tabs.Screen name="album" options={{ headerShown: false }} />
+          <Tabs.Screen name="settings" options={{ headerShown: false }} />
+        </Tabs>
+      </View>
+    </TripContext.Provider>
+  );
 }
 
 const styles = StyleSheet.create({

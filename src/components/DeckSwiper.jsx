@@ -132,7 +132,7 @@ export default function DeckSwiper({ data, renderItem, onSwipeLeft, onSwipeRight
     useEffect(() => {
         translateX.value = 0;
         isAnimating.value = false;
-    }, [currentIndex]);
+    }, [currentIndex, isAnimating, translateX]);
 
     return (
         <View style={styles.container}>

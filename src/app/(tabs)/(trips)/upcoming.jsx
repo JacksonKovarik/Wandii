@@ -1,6 +1,9 @@
+import AddTripButton from "@/src/components/addTripButton";
 import { GroupDisplay } from "@/src/components/GroupDisplay";
 import ProgressBar from "@/src/components/progressBar";
 import { Colors } from "@/src/constants/colors";
+import { useAuth } from "@/src/context/AuthContext";
+import { deleteTrip, getUpcomingTrips } from "@/src/lib/trips";
 import DateUtils from "@/src/utils/DateUtils";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -82,93 +85,97 @@ const UpcomingTripCard = ({ trip, onDelete }) => {
           <Text style={styles.cardSubtitle}>{trip.destinations}</Text>
         </View> 
       <View style={styles.cardContent}>
-        <Text style={styles.cardTitle}>{trip.name}</Text>
-       
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(6), marginTop: 10}}>
+        <Text style={styles.cardTitle}>{trip.title}</Text>
+
+        <View style={styles.dateRow}>
           <MaterialCommunityIcons name="calendar-today" size={moderateScale(14)} color={Colors.textSecondary} />
-          <Text style={ styles.dateRange }>{ DateUtils.formatRange(DateUtils.parseYYYYMMDDToDate(trip.startDate), DateUtils.parseYYYYMMDDToDate(trip.endDate)) }</Text>
+          <Text style={styles.dateRange}>
+            {DateUtils.formatRange(
+              DateUtils.parseYYYYMMDDToDate(trip.start_date),
+              DateUtils.parseYYYYMMDDToDate(trip.end_date)
+            )}
+          </Text>
         </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, marginBottom: 5}}>
-          <Text style={[styles.progressText, { color: Colors.textSecondary }]} >Status</Text>
-          <Text style={[styles.progressText, { color: Colors.primary }]} >{tripStatus}</Text>
+
+        <View style={styles.progressHeader}>
+          <Text style={[styles.progressText, { color: Colors.textSecondary }]}>Status</Text>
+          <Text style={[styles.progressText, { color: Colors.primary }]}>
+            {takeoffDays === 0 ? "Trip is starting" : `Takeoff in ${takeoffDays} day${takeoffDays === 1 ? "" : "s"}`}
+          </Text>
         </View>
-        <ProgressBar width="100%" height={moderateScale(8)} progress={`${isNaN(trip.readinessPercent) ? 0 : `${trip.readinessPercent}%`}`} backgroundColor="#F3F3F3" />
+
+        <ProgressBar width="100%" height={moderateScale(8)} progress={`${percent}%`} backgroundColor="#F3F3F3" />
         <View style={styles.divider} />
         
         {/* Pass the group array straight from the DB into your component */}
         <GroupDisplay members={trip.group || []} />
 
-        <View style={{ position: 'absolute', top: 5, right: 3 }}>
+        <View style={styles.menuWrap}>
           <Menu>
             <MenuTrigger style={{ padding: 10 }}>
-              <MaterialIcons name="more-vert" size={moderateScale(20)} color={'grey'} />
+              <MaterialIcons name="more-vert" size={moderateScale(20)} color="grey" />
             </MenuTrigger>
-
             <MenuOptions customStyles={{ optionsContainer: styles.menuOptionsContainer }}>
               <MenuOption 
                 onSelect={() => onDelete(trip.id)} 
                 customStyles={{ optionWrapper: { padding: 10, flexDirection: 'row', gap: 6, padding: 6, alignItems: 'center' } }}
               >
-                <MaterialIcons name="delete-outline" size={20} color={'red'} />
-                <Text style={{ fontSize: moderateScale(14), color: 'red', fontWeight: '600'}}>Delete</Text>
+                <MaterialIcons name="delete-outline" size={20} color="red" />
+                <Text style={{ fontSize: moderateScale(14), color: "red", fontWeight: "600" }}>Delete</Text>
               </MenuOption>
             </MenuOptions>
           </Menu>
         </View>
       </View>
     </TouchableOpacity>
-  )
+  );
 };
 
 export default function Upcoming() {
+  const { user } = useAuth();
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // The UUID we injected into the DB for your test user
-  const TEMP_USER_ID = '5b6c11f8-d8d5-45c3-815b-54870bcbb0ad';
+  const currentUserName = user?.email?.split("@")[0] || "You";
+
+  const loadTrips = useCallback(async () => {
+    if (!user) {
+      setTrips([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await getUpcomingTrips(user.id);
+      setTrips(data ?? []);
+    } catch (error) {
+      console.warn(error?.message || "Could not load trips");
+      setTrips([]);
+    }
+    setLoading(false);
+  }, [user]);
 
   useEffect(() => {
-    fetchUpcomingTrips();
-  }, []);
-
-  const fetchUpcomingTrips = async () => {
-    try {
-      setLoading(true);
-      
-      const { data, error } = await supabase.functions.invoke('get-upcoming-trips', {
-        body: { userId: TEMP_USER_ID }
-      });
-
-      if (error) {
-        console.error("Error fetching upcoming trips:", error);
-        Alert.alert("Error", "Could not fetch your trips.");
-        return;
-      }
-
-      setTrips(data || []);
-    } catch (err) {
-      console.error("Unexpected error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    loadTrips();
+  }, [loadTrips]);
 
   const handleDeleteTrip = (tripId) => {
-    Alert.alert(
-      "Delete Trip",
-      "Are you sure you want to delete this upcoming trip?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive", 
-          onPress: () => {
-            // Optimistically remove it from UI. You'll hook this to a delete endpoint later!
-            setTrips(currentTrips => currentTrips.filter(trip => trip.id !== tripId)) 
+    Alert.alert("Delete Trip", "Are you sure you want to delete this upcoming trip?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          const { error } = await deleteTrip(user.id, tripId);
+          if (error) {
+            Alert.alert("Could not delete trip", error.message);
+            return;
           }
-        }
-      ]
-    );
+          loadTrips();
+        },
+      },
+    ]);
   };
 
   if (loading) {
@@ -194,10 +201,18 @@ export default function Upcoming() {
 }
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    paddingTop: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
   container: {
     paddingTop: 20,
     alignItems: "center",
     paddingHorizontal: 20,
+    paddingBottom: 24,
   },
   card: {
     width: "100%",
@@ -211,30 +226,21 @@ const styles = StyleSheet.create({
     elevation: 4,
     overflow: "hidden",
   },
-  cardImage: {
-    width: "100%",
-    height: 130,
-  },
-  cardContent: {
-    padding: 16,
-  },
-  cardTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "black",
-  },
+  cardImage: { width: "100%", height: 130 },
+  cardContent: { padding: 16 },
+  cardTitle: { fontSize: 24, fontWeight: "bold", color: "black" },
   subtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(0, 0, 0, 0.43)',
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(0, 0, 0, 0.43)",
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.45)',
+    borderColor: "rgba(255, 255, 255, 0.45)",
     borderRadius: 20,
     paddingHorizontal: moderateScale(5),
     paddingVertical: moderateScale(4),
     gap: moderateScale(4),
-    marginTop: 3, 
+    marginTop: 3,
     marginBottom: -2,
   },
   cardSubtitle: {
@@ -255,8 +261,8 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.textSecondary,
     borderStyle: "dashed",
-    borderRadius: moderateScale(16),   
-    paddingVertical: verticalScale(30), 
+    borderRadius: moderateScale(16),
+    paddingVertical: verticalScale(30),
     justifyContent: "center",
     alignItems: "center",
     marginTop: 20,
