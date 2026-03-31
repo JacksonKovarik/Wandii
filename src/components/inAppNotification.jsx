@@ -1,7 +1,23 @@
 import { MaterialIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 import { Colors } from "../constants/colors";
+
+const router = useRouter();
+
+// Helper to map our notification "types" to your UI colors
+const getNotificationStyle = (type) => {
+    switch (type) {
+        case 'urgent': // Wallet / Owe money
+        return { color: '#ef4444', lightColor: '#fee2e2' }; // Red theme
+        case 'action': // Ready to schedule
+        return { color: '#10b981', lightColor: '#d1fae5' }; // Green theme
+        case 'info':   // New ideas to discover
+        default:
+        return { color: '#3b82f6', lightColor: '#dbeafe' }; // Blue theme
+    }
+};
 
 const InAppNotification = (props) => {
     return (

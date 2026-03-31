@@ -6,14 +6,136 @@ import { moderateScale } from "react-native-size-matters";
 import InAppNotification from "@/src/components/inAppNotification";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from 'expo-blur';
-import React from 'react';
+import * as Location from 'expo-location';
+import React, { useEffect, useState } from 'react';
 
 import TripInfoScrollView from "@/src/components/tripInfoScrollView";
 import { useTrip } from "@/src/utils/TripContext";
+import { useRouter } from "expo-router";
+
+// --- Helper: Convert Open-Meteo WMO Codes to MaterialIcons & Colors ---
+const getWeatherDetails = (wmoCode) => {
+  if (wmoCode === 0) return { icon: 'wb-sunny', color: '#FFD700' }; // Clear sky (Gold)
+  if (wmoCode >= 1 && wmoCode <= 3) return { icon: 'cloud', color: '#B0BEC5' }; // Cloudy/Overcast (Blue-Grey)
+  if (wmoCode >= 45 && wmoCode <= 48) return { icon: 'foggy', color: '#9E9E9E' }; // Fog (Grey)
+  if (wmoCode >= 51 && wmoCode <= 67) return { icon: 'water-drop', color: '#4FC3F7' }; // Rain/Drizzle (Light Blue)
+  if (wmoCode >= 71 && wmoCode <= 77) return { icon: 'ac-unit', color: '#E0F7FA' }; // Snow (Icy White/Blue)
+  if (wmoCode >= 80 && wmoCode <= 82) return { icon: 'umbrella', color: '#29B6F6' }; // Rain showers (Blue)
+  if (wmoCode >= 95 && wmoCode <= 99) return { icon: 'thunderstorm', color: '#7E57C2' }; // Thunderstorm (Deep Purple)
+  
+  return { icon: 'cloud', color: '#B0BEC5' }; // Default fallback
+};
+
+const weatherCache = {
+  data: null,
+  timestamp: 0,
+  coordsKey: null
+};
+const CACHE_LIMIT_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 export default function Overview() {
   const tripData = useTrip();
-  const { takeoffDays, weather, readinessPercent, notifications, group, refreshTripData } = tripData;
+  const { takeoffDays, weather: defaultWeather, readinessPercent, notifications, group, refreshTripData } = tripData;
+
+  const router = useRouter();
+
+  // 2. PUT THE HELPER FUNCTION HERE (Before the return statement)
+  const getNotificationStyle = (type) => {
+    switch (type) {
+      case 'urgent': 
+        return { color: '#ef4444', lightColor: '#fee2e2' };
+      case 'action': 
+        return { color: '#10b981', lightColor: '#d1fae5' };
+      case 'info':   
+      default:
+        return { color: '#3b82f6', lightColor: '#dbeafe' };
+    }
+  };
+
+  // Set up state for our live weather UI, using the default data initially
+  const [liveWeather, setLiveWeather] = useState({
+    temp: defaultWeather?.temp || '--',
+    location: defaultWeather?.location || 'TBD',
+    icon: defaultWeather?.icon || 'wb-sunny'
+  });
+  
+
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        let lat, lon, locationName;
+
+        // 1. DETERMINE WHICH COORDINATES TO USE (Keep this exactly the same)
+        if (takeoffDays > 0) {
+          if (!defaultWeather?.coordinates) return;
+          lat = defaultWeather.coordinates.latitude;
+          lon = defaultWeather.coordinates.longitude;
+          locationName = defaultWeather.location;
+        } else {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+            lat = defaultWeather?.coordinates?.latitude;
+            lon = defaultWeather?.coordinates?.longitude;
+            locationName = defaultWeather?.location;
+          } else {
+            const location = await Location.getCurrentPositionAsync({});
+            lat = location.coords.latitude;
+            lon = location.coords.longitude;
+            locationName = "Current Location"; 
+          }
+        }
+
+        if (!lat || !lon) return;
+
+        // 🌟 CHECK THE CACHE BEFORE FETCHING 🌟
+        const currentCoordsKey = `${lat},${lon}`;
+        const now = Date.now();
+
+        if (
+          weatherCache.coordsKey === currentCoordsKey && 
+          weatherCache.data && 
+          (now - weatherCache.timestamp) < CACHE_LIMIT_MS
+        ) {
+          console.log("🌤️ Loaded weather from 10-minute cache!");
+          setLiveWeather(weatherCache.data);
+          return; // Stop here! Don't hit the API.
+        }
+
+        // 2. FETCH FROM OPEN-METEO
+        console.log("☁️ Fetching fresh weather from API...");
+        const response = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=fahrenheit`
+        );
+        const data = await response.json();
+
+        // 3. FORMAT AND SAVE TO CACHE
+        if (data && data.current_weather) {
+          
+          // 🎨 NEW: Get both the icon and the color from our new helper
+          const { icon, color } = getWeatherDetails(data.current_weather.weathercode);
+
+          const newWeatherData = {
+            temp: Math.round(data.current_weather.temperature),
+            location: locationName,
+            icon: icon,   // Use the destructured icon
+            color: color  // Save the destructured color to state/cache
+          };
+
+          // Save it in our global cache for the next 10 minutes
+          weatherCache.coordsKey = currentCoordsKey;
+          weatherCache.data = newWeatherData;
+          weatherCache.timestamp = now;
+
+          // Update the UI
+          setLiveWeather(newWeatherData);
+        }
+      } catch (error) {
+        console.error("Failed to fetch live weather:", error);
+      }
+    };
+
+    fetchWeather();
+  }, [takeoffDays, defaultWeather]); // Re-run if these change
 
   return (
     <TripInfoScrollView onRefresh={refreshTripData} style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -30,13 +152,18 @@ export default function Overview() {
           <View style={styles.weatherCard}>
             <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
             <View style={styles.weatherContent}>
-              <MaterialIcons name={weather.icon} size={moderateScale(24)} color="#FFD700" />
-              <Text style={styles.temperature}>{weather.temp}°</Text>
+              {/* USING LIVE WEATHER STATE HERE */}
+              <MaterialIcons 
+                name={liveWeather?.icon || 'wb-sunny'} 
+                size={moderateScale(24)} 
+                color={liveWeather?.color || '#FFFFFF'} 
+              />
+              <Text style={styles.temperature}>{liveWeather.temp}°</Text>
             </View>
-            <Text style={styles.location}>{weather.location}</Text>
+            <Text style={styles.location}>{liveWeather.location}</Text>
           </View>
         </View>
-
+        
         <View style={styles.progressHeader}>
           <Text style={styles.progressLabel}>Trip Readiness</Text>
           <Text style={styles.progressPercent}>{readinessPercent}% Ready</Text>
@@ -47,9 +174,25 @@ export default function Overview() {
       {/* Action Required */}
       <View style={styles.actionSection}>
         <Text style={styles.sectionTitle}>Action Required</Text>
-        {notifications.map((notification) => (
-          <InAppNotification key={notification.id} {...notification} />
-        ))}
+        {notifications && notifications.length > 0 ? (
+          <View style={styles.notificationsContainer}>
+            {notifications.map((notif) => {
+              const theme = getNotificationStyle(notif.type);
+              return (
+                <InAppNotification 
+                  key={notif.id}
+                  icon={notif.icon}
+                  title={notif.title}
+                  description={notif.subtitle}
+                  color={theme.color}          
+                  lightColor={theme.lightColor}
+                  onPress={() => router.push(notif.actionRoute)}
+                />
+            )})}
+          </View>
+        ) : (
+          <Text>Nothing Happening</Text>
+        )}
       </View>
 
       {/* The Group */}
@@ -127,7 +270,6 @@ const styles = StyleSheet.create({
     padding: '5%',
   },
   headerCard: {
-    // minHeight: '32%',
     marginBottom: moderateScale(20),
     backgroundColor: '#000D24',
     borderRadius: 15,
@@ -266,6 +408,10 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(13),
     color: Colors.success,
     fontWeight: 'bold',
+  },
+  notificationsContainer: {
+    marginTop: moderateScale(16),
+    gap: moderateScale(8), // Adds perfect spacing between multiple notifications
   },
   
 });

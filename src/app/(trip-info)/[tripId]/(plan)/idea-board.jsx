@@ -4,14 +4,14 @@ import ProgressBar from "@/src/components/progressBar";
 import ReusableTabBar from "@/src/components/reusableTabBar";
 import TripInfoScrollView from "@/src/components/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
-import { getCategoryFallback } from "@/src/constants/eventCategoryStyles"; // <-- NEW IMPORT
+import { getCategoryFallback } from "@/src/constants/eventCategoryStyles";
 import { MediaUtils } from "@/src/utils/MediaUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 // ==========================================
@@ -19,23 +19,35 @@ import { moderateScale } from "react-native-size-matters";
 // ==========================================
 
 const VotingInProgressCard = ({ item, group }) => {
-  const currentVotes = item.votes || {};
-  const yesVotes = Object.values(currentVotes).filter(v => v === 'yes').length;
+  const currentVotes = item.event_votes || [];
+  const yesVotes = currentVotes.reduce((sum, vote) => sum + (vote.vote_value === 1 ? 1 : 0), 0);  
+  
+  // FIX: Calculate required votes so the progress bar accurately hits 100%
   const activeGroupSize = group.filter(member => member.active).length;
-  // Ensure we don't divide by zero if group is empty
-  const progressPercentage = activeGroupSize > 0 ? `${(yesVotes / activeGroupSize) * 100}%` : '0%';
+  const requiredVotes = Math.floor(activeGroupSize / 2) + 1;
+  const fallback = getCategoryFallback(item.category);
+  
+  // Cap at 100% just in case
+  const progressPercentage = requiredVotes > 0 ? `${Math.min((yesVotes / requiredVotes) * 100, 100)}%` : '0%';
 
   return (
     <View style={styles.votingCardContainer}>
-      <Image 
-          source={item.image} 
+      {item.image_url ? (
+        <Image 
+          source={item.image_url} 
           style={styles.votingCardImage}
           contentFit="cover"
           cachePolicy="memory-disk"
-      />
+        />
+      ):(
+        <LinearGradient colors={fallback.colors} style={[ styles.votingCardImage, { alignItems: 'center', justifyContent: 'center' } ]}>
+          <MaterialIcons name={fallback.icon} size={24} color="rgba(255,255,255,0.9)" />
+        </LinearGradient>
+      )}
+      
       <View style={{ flex: 1 }}>
         <Text style={styles.cardTitle}>{item.title}</Text>
-        <Text style={styles.cardSubtitle}>New Idea • $$</Text>
+        <Text style={styles.cardSubtitle}>{item.category} • $$</Text>
         <View style={{ marginTop: moderateScale(8) }}>
           <ProgressBar 
             width={'100%'} 
@@ -44,7 +56,8 @@ const VotingInProgressCard = ({ item, group }) => {
             progressColor={Colors.success} 
           />
           <View style={styles.progressTextRow}>
-            <Text style={styles.progressText}>{yesVotes}/{activeGroupSize} Voted</Text>
+            {/* FIX: Show progress out of Required Votes, not total group size */}
+            <Text style={styles.progressText}>{yesVotes}/{requiredVotes} Needed</Text>
             <Text style={styles.progressText}>Waiting on group</Text>
           </View>
         </View>
@@ -59,9 +72,9 @@ const DiscoverCard = ({ item, swipeLeft, swipeRight }) => {
   return (
     <View style={styles.discoverCardContainer}>
       <View style={styles.discoverCardContent}>
-        {item.image ? (
+        {item.image_url ? (
           <Image 
-            source={item.image} 
+            source={item.image_url} 
             style={styles.discoverCardImage}
             contentFit="cover" 
             transition={200} 
@@ -97,7 +110,7 @@ const DiscoverCard = ({ item, swipeLeft, swipeRight }) => {
 // ==========================================
 
 export default function IdeaBoard() {
-  const { discoverFeed, inProgressFeed, handleVote, group, refreshTripData, tripId } = useTrip();
+  const { discoverFeed, inProgressFeed, handleVote, group, refreshTripData, tripId, addCustomIdea } = useTrip();
 
   const [swiperData, setSwiperData] = useState([]);
   const [isModalVisible, setModalVisible] = useState(false);
@@ -109,155 +122,167 @@ export default function IdeaBoard() {
 
   const onRefresh = useCallback(async () => {
     await refreshTripData();
-    setSwiperData([]);
   }, [refreshTripData]);
 
+  // FIX: Smarter sync logic for swiperData
   useEffect(() => {
-    if (swiperData.length === 0 && discoverFeed.length > 0) {
-      setSwiperData(discoverFeed);
-    }
-  }, [discoverFeed, swiperData.length]);
+    setSwiperData(prevSwiperData => {
+        // If the swiper is currently empty, just load everything.
+        if (prevSwiperData.length === 0) return discoverFeed;
 
-  // NEW: Actually handle capturing the image URI from the picker
-  const handleAttachPhoto = async () => {
+        // Find items in the new discoverFeed that aren't currently in our swiper deck
+        const existingIds = new Set(prevSwiperData.map(item => item.id));
+        const newItems = discoverFeed.filter(item => !existingIds.has(item.id));
+        
+        if (newItems.length > 0) {
+            // Append new real-time ideas to the back of the deck!
+            return [...prevSwiperData, ...newItems]; 
+        }
+        return prevSwiperData;
+    });
+  }, [discoverFeed]);
+
+  const handleAddPhoto = async () => {
     const uri = await MediaUtils.pickImage();
     if (uri) {
       setNewIdea(prev => ({ ...prev, imageUri: uri }));
     }
   };
 
-  const handleSaveIdea = () => {
-    // TODO: Call context function here! (e.g., addCustomIdea(newIdea))
-    console.log("Saving Idea: ", newIdea);
-    
+  const handleSaveIdea = async () => {
+    await addCustomIdea(newIdea); 
     setModalVisible(false);
     setNewIdea({ title: '', category: 'Food', description: '', imageUri: null });
   };
 
+  // FIX: Wrap everything in a root View
   return (
-    <TripInfoScrollView onRefresh={onRefresh} style={styles.container}>
-      <View style={styles.tabBarWrapper}>
-        <ReusableTabBar 
-          tabs={[
-            { label: "Idea Board", name: "idea-board", route: `/(trip-info)/${tripId}/(plan)/idea-board` },
-            { label: "Timeline", name: "timeline", route: `/(trip-info)/${tripId}/(plan)/timeline` },
-            { label: "Map", name: "map", route: `/(trip-info)/${tripId}/(plan)/map` },
-            { label: "Stays", name: "stays", route: `/(trip-info)/${tripId}/(plan)/stays` },
-          ]}
-        />
-      </View>
-
-      <View style={styles.scrollContent}>
-        
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Discover New Ideas</Text>
-          <TouchableOpacity style={styles.addIdeaButton} onPress={() => setModalVisible(true)}>
-            <MaterialIcons name="add" size={moderateScale(16)} color={Colors.primary} />
-            <Text style={styles.addIdeaText}>Add Idea</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.swiperWrapper}>
-          {discoverFeed.length > 0 ? (
-            <DeckSwiper 
-              data={swiperData}
-              renderItem={renderDiscoverCard}
-              onSwipeLeft={(item) => handleVote(item.id, 'no')}
-              onSwipeRight={(item) => handleVote(item.id, 'yes')}
-            />
-          ) : (
-            <View style={{ alignItems: 'center' }}>
-              <Text style={styles.emptyText}>No new ideas right now. Check back later!</Text>
-            </View>
-          )}
-        </View>
-
-        <Text style={styles.sectionTitle}>Voting In Progress</Text>
-        <View style={styles.votingListContainer}>
-            {inProgressFeed.length === 0 ? (
-              <Text style={styles.emptyText}>Swipe right on some ideas to start voting!</Text>
-            ) : (
-              inProgressFeed.map((item, index) => (
-                <VotingInProgressCard key={item.id || index} item={item} group={group} />
-              ))
-            )}
-        </View>
-      </View>
-
-      {/* --- ADD IDEA BOTTOM SHEET --- */}
-      <AnimatedBottomSheet visible={isModalVisible} onClose={() => setModalVisible(false)}>
-        <View style={styles.sheetHeader}>
-          <Text style={styles.sheetTitle}>Add to Trip</Text>
-          <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
-            <MaterialIcons name="close" size={22} color="#0f172a" />
-          </TouchableOpacity>
-        </View>
-
-        <TextInput 
-          style={styles.premiumTitleInput} 
-          placeholder="Name of place or activity..." 
-          placeholderTextColor="#94a3b8"
-          value={newIdea.title}
-          onChangeText={(text) => setNewIdea({...newIdea, title: text})}
-          autoFocus
-        />
-
-        <View style={styles.inputSection}>
-          <Text style={styles.sectionLabel}>CATEGORY</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillContainer}>
-            {['Food', 'Activity', 'Nightlife', 'Lodging', 'Other'].map((cat) => {
-              const isSelected = newIdea.category === cat;
-              return (
-                <TouchableOpacity 
-                  key={cat}
-                  style={[styles.pill, isSelected && styles.pillActive]}
-                  onPress={() => setNewIdea({...newIdea, category: cat})}
-                >
-                  <Text style={[styles.pillText, isSelected && styles.pillTextActive]}>{cat}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        <View style={styles.inputSection}>
-          <Text style={styles.sectionLabel}>DETAILS (OPTIONAL)</Text>
-          
-          <TouchableOpacity style={styles.photoUploadRow} onPress={handleAttachPhoto}>
-              <View style={styles.photoIconCircle}>
-                <MaterialIcons name={newIdea.imageUri ? "check" : "add-a-photo"} size={18} color="#0f172a" />
-              </View>
-              <Text style={styles.photoUploadText}>
-                  {newIdea.imageUri ? 'Photo selected' : 'Attach a photo'}
-              </Text>
-          </TouchableOpacity>
-
-          <TextInput 
-            style={styles.premiumNotesInput} 
-            placeholder="Add a link, address, or reason why..." 
-            placeholderTextColor="#94a3b8"
-            value={newIdea.description}
-            onChangeText={(text) => setNewIdea({...newIdea, description: text})}
-            multiline
+    <View style={styles.container}>
+      {/* 1. SCROLLVIEW SIBLING */}
+      <TripInfoScrollView onRefresh={onRefresh} style={{ flex: 1 }}>
+        <View style={styles.tabBarWrapper}>
+          <ReusableTabBar 
+            tabs={[
+              { label: "Idea Board", name: "idea-board", route: `/(trip-info)/${tripId}/(plan)/idea-board` },
+              { label: "Timeline", name: "timeline", route: `/(trip-info)/${tripId}/(plan)/timeline` },
+              { label: "Map", name: "map", route: `/(trip-info)/${tripId}/(plan)/map` },
+              { label: "Stays", name: "stays", route: `/(trip-info)/${tripId}/(plan)/stays` },
+            ]}
           />
         </View>
 
-        <TouchableOpacity 
-          style={[styles.premiumSubmitButton, !newIdea.title && styles.premiumSubmitDisabled]} 
-          disabled={!newIdea.title}
-          onPress={handleSaveIdea}
-        >
-          <Text style={styles.premiumSubmitText}>Save Idea</Text>
-        </TouchableOpacity>
+        <View style={styles.scrollContent}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Discover New Ideas</Text>
+            <TouchableOpacity style={styles.addIdeaButton} onPress={() => setModalVisible(true)}>
+              <MaterialIcons name="add" size={moderateScale(16)} color={Colors.primary} />
+              <Text style={styles.addIdeaText}>Add Idea</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.swiperWrapper}>
+            {swiperData.length > 0 ? (
+              <DeckSwiper 
+                data={swiperData}
+                renderItem={renderDiscoverCard}
+                onSwipeLeft={(item) => handleVote(item.id, 'no')}
+                onSwipeRight={(item) => handleVote(item.id, 'yes')}
+              />
+            ) : (
+              <View style={{ alignItems: 'center' }}>
+                <Text style={styles.emptyText}>No new ideas right now. Check back later!</Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.sectionTitle}>Voting In Progress</Text>
+          <View style={styles.votingListContainer}>
+              {inProgressFeed.length === 0 ? (
+                <Text style={styles.emptyText}>Swipe right on some ideas to start voting!</Text>
+              ) : (
+                inProgressFeed.map((item, index) => (
+                  <VotingInProgressCard key={item.id || index} item={item} group={group} />
+                ))
+              )}
+          </View>
+        </View>
+      </TripInfoScrollView>
+
+      {/* 2. BOTTOM SHEET SIBLING (Outside the ScrollView!) */}
+      <AnimatedBottomSheet visible={isModalVisible} onClose={() => setModalVisible(false)}>
+        {/* Wrap in KeyboardAvoidingView so inputs aren't hidden when keyboard opens */}
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+            <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>Add to Trip</Text>
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
+                <MaterialIcons name="close" size={22} color="#0f172a" />
+            </TouchableOpacity>
+            </View>
+
+            <TextInput 
+            style={styles.premiumTitleInput} 
+            placeholder="Name of place or activity..." 
+            placeholderTextColor="#94a3b8"
+            value={newIdea.title}
+            onChangeText={(text) => setNewIdea({...newIdea, title: text})}
+            />
+
+            <View style={styles.inputSection}>
+            <Text style={styles.sectionLabel}>CATEGORY</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillContainer}>
+                {['Food', 'Activity', 'Nightlife', 'Lodging', 'Other'].map((cat) => {
+                const isSelected = newIdea.category === cat;
+                return (
+                    <TouchableOpacity 
+                    key={cat}
+                    style={[styles.pill, isSelected && styles.pillActive]}
+                    onPress={() => setNewIdea({...newIdea, category: cat})}
+                    >
+                    <Text style={[styles.pillText, isSelected && styles.pillTextActive]}>{cat}</Text>
+                    </TouchableOpacity>
+                );
+                })}
+            </ScrollView>
+            </View>
+
+            <View style={styles.inputSection}>
+            <Text style={styles.sectionLabel}>DETAILS (OPTIONAL)</Text>
+            
+            <TouchableOpacity style={styles.photoUploadRow} onPress={handleAddPhoto}>
+                <View style={styles.photoIconCircle}>
+                    <MaterialIcons name={newIdea.imageUri ? "check" : "add-a-photo"} size={18} color="#0f172a" />
+                </View>
+                <Text style={styles.photoUploadText}>
+                    {newIdea.imageUri ? 'Photo selected' : 'Attach a photo'}
+                </Text>
+            </TouchableOpacity>
+
+            <TextInput 
+                style={styles.premiumNotesInput} 
+                placeholder="Add a link, address, or reason why..." 
+                placeholderTextColor="#94a3b8"
+                value={newIdea.description}
+                onChangeText={(text) => setNewIdea({...newIdea, description: text})}
+                multiline
+            />
+            </View>
+
+            <TouchableOpacity 
+            style={[styles.premiumSubmitButton, !newIdea.title && styles.premiumSubmitDisabled]} 
+            disabled={!newIdea.title}
+            onPress={handleSaveIdea}
+            >
+            <Text style={styles.premiumSubmitText}>Save Idea</Text>
+            </TouchableOpacity>
+        </KeyboardAvoidingView>
       </AnimatedBottomSheet>
-    </TripInfoScrollView>
+    </View>
   );
 }
 
 // ==========================================
 // 3. STYLES
 // ==========================================
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   tabBarWrapper: { padding: 10, alignItems: 'center' },

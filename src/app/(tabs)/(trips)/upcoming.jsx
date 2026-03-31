@@ -9,71 +9,81 @@ import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from "react-native-popup-menu";
 import { moderateScale, verticalScale } from "react-native-size-matters";
 
-const FALLBACK_IMAGE = require("../../../../assets/images/Kyoto.jpg");
+// IMPORT YOUR SUPABASE CLIENT HERE (Adjust path as needed)
+import { supabase } from "@/src/lib/supabase";
 
-function toInitials(name) {
-  return String(name || "Me")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "ME";
-}
 
-function daysUntil(dateString) {
-  if (!dateString) return 0;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(`${dateString}T12:00:00`);
-  return Math.max(0, Math.ceil((start - today) / 86400000));
-}
+// const MOCK_TRIP_DATA = [
+//   {
+//     id: 'trip-123',
+//     name: 'Japan 2026', // Added Trip Name for the header!
+//     takeoffDays: 12,
+//     destinations: 'Kyoto, Japan',
+//     startDate: '2024-10-12',
+//     endDate: '2024-10-24',
+//     image: require('../../../../assets/images/Kyoto.jpg'),
+//     readinessPercent: 60,
+//     group: [
+//         { id: 1, name: "Alice B.", initials: "AB", profileColor: '#1E90FF', profilePic: null, active: false },
+//         { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', profilePic: null, active: true },
+//         { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', profilePic: null, active: true },
+//     ],
+//   },
+//   {
+//     id: 'trip-456',
+//     name: 'Miami Bachelor Party',
+//     destinations: 'Miami, Florida',
+//     startDate: '2026-05-08',
+//     endDate: '2026-05-11',
+//     image: require('../../../../assets/images/Miami.jpg'), 
+//     readinessPercent: 90,
+//     group: [
+//         { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', active: true },
+//         { id: 4, name: "David L.", initials: "DL", profileColor: '#FF4500', active: true },
+//         { id: 5, name: "Chris T.", initials: "CT", profileColor: '#8A2BE2', active: false },
+//     ],
+//   },
+//   {
+//     id: 'trip-789',
+//     name: 'Euro Trip',
+//     destinations: 'Paris & Rome',
+//     startDate: '2026-07-01',
+//     endDate: '2026-07-15',
+//     image: require('../../../../assets/images/paris.png'), 
+//     readinessPercent: 20,
+//     group: [
+//         { id: 1, name: "Alice B.", initials: "AB", profileColor: '#1E90FF', active: true },
+//         { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', active: true },
+//     ],
+//   }
+// ];
 
-function readinessPercent(trip) {
-  const days = daysUntil(trip.start_date);
-  if (days <= 3) return 90;
-  if (days <= 14) return 70;
-  if (days <= 30) return 50;
-  return 30;
-}
+const UpcomingTripCard = ({ trip, onDelete }) => {
+  const router = useRouter(); 
 
-const UpcomingTripCard = ({ trip, currentUserName, onDelete }) => {
-  const router = useRouter();
-  const percent = readinessPercent(trip);
-  const takeoffDays = daysUntil(trip.start_date);
-  const group = useMemo(
-    () => [
-      {
-        id: String(trip.user_id || "me"),
-        name: currentUserName,
-        initials: toInitials(currentUserName),
-        profileColor: "#32CD32",
-        profilePic: null,
-        active: true,
-      },
-    ],
-    [trip.user_id, currentUserName]
-  );
+  // Hardcoded for now until we build tasks!
+  const tripStatus = 'Finalizing Itinerary';
+  
+  // Format image source safely. If it's a URL string from DB, wrap in { uri: ... }
+  const imageSource = typeof trip.image === 'string' ? { uri: trip.image } : trip.image;
 
   return (
-    <TouchableOpacity style={styles.card} onPress={() => router.push(`/(trip-info)/${trip.id}/overview`)}>
-      <Image
-        source={trip.cover_photo_url ? { uri: trip.cover_photo_url } : FALLBACK_IMAGE}
-        contentFit="cover"
-        cachePolicy="memory-disk"
-        style={styles.cardImage}
-      />
-
-      <View style={[styles.subtitleRow, { position: "absolute", top: 10, right: 10 }]}> 
-        <BlurView intensity={20} tint="default" style={styles.blurFill} />
-        <MaterialCommunityIcons name="map-marker-outline" size={moderateScale(14)} color="white" />
-        <Text style={styles.cardSubtitle}>{trip.destination}</Text>
-      </View>
-
+    <TouchableOpacity 
+      style={styles.card}
+      onPress={() => router.push(`/(trip-info)/${trip.id}/overview`)} 
+    >
+      <Image source={imageSource} contentFit='cover' cachePolicy='memory-disk' style={styles.cardImage} />
+      <View style={[styles.subtitleRow, { position: 'absolute', top: 10, right: 10}]}>
+          <BlurView intensity={20} tint="default" style={{ position: 'absolute', top: 0, right: 0, left: 0, bottom: 0, borderRadius: 20, backgroundColor: 'rgba(255, 255, 255, 0.38)', overflow: 'hidden' }}/>
+            
+          <MaterialCommunityIcons name="map-marker-outline" size={moderateScale(14)} color={'white'} />
+          <Text style={styles.cardSubtitle}>{trip.destinations}</Text>
+        </View> 
       <View style={styles.cardContent}>
         <Text style={styles.cardTitle}>{trip.title}</Text>
 
@@ -96,7 +106,9 @@ const UpcomingTripCard = ({ trip, currentUserName, onDelete }) => {
 
         <ProgressBar width="100%" height={moderateScale(8)} progress={`${percent}%`} backgroundColor="#F3F3F3" />
         <View style={styles.divider} />
-        <GroupDisplay members={group} />
+        
+        {/* Pass the group array straight from the DB into your component */}
+        <GroupDisplay members={trip.group || []} />
 
         <View style={styles.menuWrap}>
           <Menu>
@@ -104,9 +116,9 @@ const UpcomingTripCard = ({ trip, currentUserName, onDelete }) => {
               <MaterialIcons name="more-vert" size={moderateScale(20)} color="grey" />
             </MenuTrigger>
             <MenuOptions customStyles={{ optionsContainer: styles.menuOptionsContainer }}>
-              <MenuOption
-                onSelect={() => onDelete(trip.id)}
-                customStyles={{ optionWrapper: { padding: 10, flexDirection: "row", gap: 6, alignItems: "center" } }}
+              <MenuOption 
+                onSelect={() => onDelete(trip.id)} 
+                customStyles={{ optionWrapper: { padding: 10, flexDirection: 'row', gap: 6, padding: 6, alignItems: 'center' } }}
               >
                 <MaterialIcons name="delete-outline" size={20} color="red" />
                 <Text style={{ fontSize: moderateScale(14), color: "red", fontWeight: "600" }}>Delete</Text>
@@ -168,28 +180,22 @@ export default function Upcoming() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.emptyText}>Loading...</Text>
-      </View>
-    );
-  }
-
-  if (!trips.length) {
-    return (
-      <View style={styles.loadingContainer}>
-        <View style={styles.emptyBox}>
-          <Text style={styles.emptyText}>Plan a New Adventure</Text>
-          <AddTripButton />
-        </View>
+      <View style={[styles.container, { flex: 1, justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
   }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {trips.map((trip) => (
-        <UpcomingTripCard key={trip.id} trip={trip} currentUserName={currentUserName} onDelete={handleDeleteTrip} />
-      ))}
+      {trips.length > 0 ? (
+        trips.map(trip => <UpcomingTripCard key={trip.id} trip={trip} onDelete={handleDeleteTrip} />)
+      ) : (
+        <View style={styles.emptyBox}>
+          <Text style={styles.emptyText}>No upcoming trips yet!</Text>
+          <MaterialCommunityIcons name="airplane-takeoff" size={40} color={Colors.textSecondary} />
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -237,21 +243,19 @@ const styles = StyleSheet.create({
     marginTop: 3,
     marginBottom: -2,
   },
-  blurFill: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    left: 0,
-    bottom: 0,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.38)",
-    overflow: "hidden",
+  cardSubtitle: {
+    fontSize: moderateScale(12),
+    color: 'white', 
+    fontWeight: '600',
   },
-  cardSubtitle: { fontSize: moderateScale(12), color: "white", fontWeight: "600" },
-  progressText: { fontSize: 12, fontWeight: "600" },
-  dateRow: { flexDirection: "row", alignItems: "center", gap: moderateScale(6), marginTop: 10 },
-  progressHeader: { flexDirection: "row", justifyContent: "space-between", marginTop: 10, marginBottom: 5 },
-  dateRange: { color: Colors.textSecondaryDark, fontSize: moderateScale(12) },
+  progressText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  dateRange: {
+    color: Colors.textSecondaryDark,
+    fontSize: moderateScale(12),
+  },
   emptyBox: {
     width: "100%",
     borderWidth: 2,
@@ -261,9 +265,18 @@ const styles = StyleSheet.create({
     paddingVertical: verticalScale(30),
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 20,
   },
-  divider: { width: "100%", height: 0.7, backgroundColor: "#CFCFCF", marginVertical: 20 },
-  emptyText: { fontSize: moderateScale(18), color: Colors.textSecondary, marginBottom: 20 },
+  divider: {
+    width: "100%",
+    height: .7,
+    backgroundColor: '#CFCFCF',
+    marginVertical: 20,
+  },
+  emptyText: {
+    fontSize: moderateScale(18),       
+    color: Colors.textSecondary,
+    marginBottom: 20,
+  },
   menuOptionsContainer: { borderRadius: 10, padding: 5, width: 120, marginTop: 20 },
-  menuWrap: { position: "absolute", top: 5, right: 3 },
 });

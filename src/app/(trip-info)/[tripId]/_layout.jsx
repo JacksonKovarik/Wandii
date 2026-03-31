@@ -10,139 +10,198 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Tabs, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
-const FALLBACK_IMAGE = require("../../../../assets/images/Kyoto.jpg");
-const IDEA_IMAGE = require("../../../../assets/images/paris.png");
+import { supabase } from "@/src/lib/supabase";
+import { MediaUtils } from "@/src/utils/MediaUtils";
 
-function getUserLabel(user) {
-  if (!user?.email) return "You";
-  return user.email.split("@")[0];
-}
+// --- TEMPORARY CURRENT USER ---
+const CURRENT_USER_ID = '5b6c11f8-d8d5-45c3-815b-54870bcbb0ad'; 
 
-function getInitials(value) {
-  return String(value || "You")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "YU";
-}
+// ==========================================
+// DATA FETCHING
+// ==========================================
 
-function calculateTakeoffDays(startDate) {
-  if (!startDate) return 0;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const start = new Date(`${startDate}T12:00:00`);
-  return Math.max(0, Math.ceil((start - today) / 86400000));
-}
+const fetchTripNotifications = async (tripId, userId) => {
+    try {
+        const activeNotifications = [];
+        const [walletResponse, ideasResponse] = await Promise.all([
+            // ADDED expense_id to the select so we can use it as a unique key
+            supabase.from('Expense_Splits').select('amount_owed, Expenses!inner(expense_id, title, trip_id)').eq('user_id', userId).eq('Expenses.trip_id', tripId),
+            supabase.from('Events').select('event_id, title, event_votes(user_id, vote_value)').eq('trip_id', tripId).is('start_timestamp', null)
+        ]);
 
-function buildTripTemplate(row, user) {
-  const displayName = getUserLabel(user);
-  const startDate = row?.start_date || new Date().toISOString().split("T")[0];
-  const endDate = row?.end_date || startDate;
-  const takeoffDays = calculateTakeoffDays(startDate);
-  const budget = Number(row?.budget_estimate || 0);
+        // 1. Process Wallet Notifications (Unpaid expenses)
+        if (walletResponse.data) {
+            walletResponse.data.forEach(split => {
+                // If the user owes money on this split, trigger a notification
+                if (split.amount_owed > 0) {
+                    activeNotifications.push({
+                        id: `wallet-${split.Expenses.expense_id}`,
+                        type: 'urgent', 
+                        icon: 'account-balance-wallet',
+                        title: 'Payment Due',
+                        subtitle: `You owe $${split.amount_owed} for ${split.Expenses.title}`,
+                        actionRoute: `/(trip-info)/${tripId}/wallet`
+                    });
+                }
+            });
+        }
 
-  return {
-    tripId: String(row?.id ?? "temp-trip"),
-    id: String(row?.id ?? "temp-trip"),
-    name: row?.title || "Untitled Trip",
-    title: row?.title || "Untitled Trip",
-    takeoffDays,
-    destination: row?.destination || "Unknown destination",
-    startDate,
-    endDate,
-    image: row?.cover_photo_url ? { uri: row.cover_photo_url } : FALLBACK_IMAGE,
-    weather: { temp: 72, location: row?.destination || "Trip", icon: "wb-sunny" },
-    readinessPercent: takeoffDays <= 3 ? 90 : takeoffDays <= 14 ? 70 : takeoffDays <= 30 ? 50 : 30,
-    notifications: [
-      {
-        id: 1,
-        title: row?.vibe ? `${row.vibe} vibe set` : "Trip details saved",
-        description: budget > 0 ? `Budget estimate: $${Math.round(budget)}` : "Start adding plans, docs, and memories.",
-        icon: "mail",
-        color: Colors.primary,
-        lightColor: Colors.primaryLight,
-      },
-    ],
-    group: [
-      {
-        id: String(user?.id || "me"),
-        name: displayName,
-        initials: getInitials(displayName),
-        profileColor: "#32CD32",
-        profilePic: null,
-        active: true,
-      },
-    ],
-    budgetData: { totalSpent: 0, totalBudget: budget || 0 },
-    groupBalances: [
-      {
-        id: String(user?.id || "me"),
-        name: displayName,
-        balance: 0,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=FF8820&color=fff`,
-      },
-    ],
-    transactions: [],
-    timelineData: {
-      [startDate]: [
-        {
-          id: "1",
-          time: "10:00 AM",
-          title: "Arrival / first plan",
-          category: "Travel",
-          type: "event",
-        },
-      ],
-    },
-    staysData: [],
-    documents: [],
-    ideaBoard: [
-      {
-        id: "1",
-        title: "Welcome dinner",
-        description: `Pick a first-night spot in ${row?.destination || "your destination"}.`,
-        category: "Food",
-        image: IDEA_IMAGE,
-        votes: {},
-        status: "voting",
-      },
-      {
-        id: "2",
-        title: "Must-do activity",
-        description: "Add the one experience everyone wants on this trip.",
-        category: "Fun",
-        image: IDEA_IMAGE,
-        votes: {},
-        status: "voting",
-      },
-    ],
-    memories: [],
-  };
-}
+        // 2. Process Idea Board Notifications (Needs Vote)
+        if (ideasResponse.data) {
+            ideasResponse.data.forEach(idea => {
+                // Check if the current user's ID exists in the votes array
+                const hasVoted = idea.event_votes?.some(vote => vote.user_id === userId);
+                
+                if (!hasVoted) {
+                    activeNotifications.push({
+                        id: `vote-${idea.event_id}`,
+                        type: 'action', 
+                        icon: 'how-to-vote',
+                        title: 'Vote Required',
+                        subtitle: `New idea: ${idea.title}`,
+                        actionRoute: `/(trip-info)/${tripId}/(plan)`
+                    });
+                }
+            });
+        }
 
-async function fetchTripData(tripId, userId, user) {
-  if (!tripId || !userId) return buildTripTemplate(null, user);
-
-  try {
-    const data = await getTripById(userId, tripId);
-
-    if (!data) {
-      console.warn("Could not load trip detail:", "Trip not found");
-      return buildTripTemplate({ id: tripId }, user);
+        return activeNotifications;
+    } catch (error) {
+        console.error("Error fetching notifications:", error);
+        return [];
     }
 
-    return buildTripTemplate(data, user);
-  } catch (error) {
-    console.warn("Could not load trip detail:", error?.message || "Trip not found");
-    return buildTripTemplate({ id: tripId }, user);
-  }
-}
+const fetchTripData = async (tripId, userId) => {
+    if (!tripId) return null; 
 
+    try {
+        const { data: trip, error } = await supabase
+            .from('Trips')
+            .select(`
+                trip_id, trip_name, start_date, end_date, cover_photo_url, target_budget,
+                Trip_Destinations ( cached_destinations ( city, country, cover_image_url, longitude, latitude ) ),
+                Trip_Members ( user_id, role, Users ( first_name, last_name, avatar_url ) )
+            `)
+            .eq('trip_id', tripId)
+            .maybeSingle(); 
+
+        if (error) throw error;
+        if (!trip) return null; 
+
+        const { data: eventsData, error: eventsError } = await supabase
+            .from('Events')
+            .select('*, event_votes(user_id, vote_value), Photos(photo_id, photo_url)')
+            .eq('trip_id', tripId);
+            
+        if (eventsError) throw eventsError;
+
+        const ideaBoard = [];
+        const timelineData = {};
+
+        eventsData?.forEach(event => {
+            const frontendEvent = { 
+                ...event, 
+                id: event.event_id,
+                image_url: event.Photos?.photo_url || null 
+            };
+
+            if (event.start_timestamp) {
+                const dateStr = event.start_timestamp.split('T')[0]; 
+                if (!timelineData[dateStr]) timelineData[dateStr] = [];
+                
+                const timePart = event.start_timestamp.split('T')[1].substring(0, 5);
+                let [h, m] = timePart.split(':');
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                h = h % 12 || 12;
+                frontendEvent.time = `${h}:${m} ${ampm}`;
+                frontendEvent.type = 'event';
+                timelineData[dateStr].push(frontendEvent);
+            } else {
+                const votesObj = {};
+                event.event_votes?.forEach(v => {
+                    votesObj[v.user_id] = v.vote_value === 1 ? 'yes' : 'no';
+                });
+                
+                frontendEvent.votes = votesObj;
+                frontendEvent.status = event.status === 'approved' ? 'approved' : 'voting'; 
+                ideaBoard.push(frontendEvent);
+            }
+        });
+
+        // ==========================================
+        // TRIP READINESS: "COVERAGE" CALCULATION
+        // ==========================================
+        let readinessPercent = 0;
+        if (trip.start_date && trip.end_date) {
+            const start = new Date(trip.start_date);
+            const end = new Date(trip.end_date);
+            
+            // Calculate total days (e.g., Friday to Sunday is 3 days, so + 1)
+            const totalTripDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1);
+            
+            // Count how many unique days in the timeline have at least one event
+            const plannedDays = Object.keys(timelineData).filter(date => timelineData[date].length > 0).length;
+            
+            // Cap at 100% just in case users add events outside official trip dates
+            readinessPercent = Math.min(100, Math.round((plannedDays / totalTripDays) * 100));
+        }
+
+        const today = new Date();
+        const startDate = new Date(trip.start_date);
+        const takeoffDays = Math.max(0, Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 3600 * 24)));
+        const destinations = trip.Trip_Destinations?.map(td => td.cached_destinations).filter(Boolean) || [];
+        const primaryDestination = destinations[0] || null;
+        const destinationsStr = destinations.map(cd => `${cd.city}, ${cd.country}`).join(' & ') || 'TBD';
+        const activeNotifications = await fetchTripNotifications(tripId, userId);
+
+        return {
+            id: trip.trip_id,
+            name: trip.trip_name,
+            destination: destinationsStr,
+            startDate: trip.start_date,
+            endDate: trip.end_date,
+            image: trip.cover_photo_url || primaryDestination?.cover_image_url,
+            takeoffDays: takeoffDays,
+            targetBudget: trip.target_budget,
+            readinessPercent: readinessPercent, // Calculated dynamically!
+            weather: { 
+                temp: '--', 
+                location: primaryDestination ? primaryDestination.city : 'TBD', 
+                icon: 'wb-sunny',
+                coordinates: primaryDestination ? { // ADDED for the overview.jsx API call!
+                    latitude: primaryDestination.latitude,
+                    longitude: primaryDestination.longitude
+                } : null
+            },
+            notifications: activeNotifications, 
+            ideaBoard,      
+            timelineData,   
+            group: trip.Trip_Members?.map((member, index) => {
+                const user = member.Users;
+                return {
+                    id: member.user_id,
+                    name: `${user?.first_name || 'U'} ${user?.last_name?.charAt(0) || ''}.`,
+                    initials: `${user?.first_name?.charAt(0) || ''}${user?.last_name?.charAt(0) || ''}`,
+                    profileColor: ['#1E90FF', '#32CD32', '#FFA500', '#FF4500', '#8A2BE2'][index % 5],
+                    profilePic: user?.avatar_url,
+                    active: member.user_id === userId,
+                    role: member.role
+                };
+            }) || []
+        };
+        
+    } catch (err) {
+        console.error("Error fetching core trip data:", err);
+    }
+};
+
+// ==========================================
+// HELPER COMPONENTS
+// ==========================================
 const HeaderButton = ({ icon, onPress }) => (
   <TouchableOpacity onPress={onPress}>
     <BlurView
@@ -163,228 +222,276 @@ const HeaderButton = ({ icon, onPress }) => (
   </TouchableOpacity>
 );
 
-const CustomHeader = ({ trip }) => (
-  <View style={styles.headerContainer}>
-    <Image source={trip.image} style={styles.gradient} contentFit="cover" cachePolicy="memory-disk" />
-    <LinearGradient
-      style={styles.gradient}
-      colors={["rgba(0,0,0,0)", "rgba(0,0,0,.2)", "rgba(0,0,0,.6)", "rgba(0,0,0,0.8)"]}
-      locations={[0, 0.49, 0.78, 1]}
-    />
+const CustomHeader = ({ trip }) => {
+    if (!trip) return null;
+    const imageSource = typeof trip.image === 'string' ? { uri: trip.image } : trip.image;
 
-    <View style={styles.headerButtons}>
-      <HeaderButton icon="arrow-back" onPress={() => router.back()} />
-      <View style={styles.headerButtonRow}>
-        <HeaderButton icon="search" onPress={() => console.log("search")} />
-        <HeaderButton icon="settings" onPress={() => router.navigate(`/(trip-info)/${trip.id}/settings`)} />
-      </View>
-    </View>
+    return (
+        <View style={styles.headerContainer}>
+            <Image source={imageSource} style={styles.gradient} contentFit='cover' cachePolicy='memory-disk' />
+            <LinearGradient style={styles.gradient} colors={['rgba(0,0,0,0)', 'rgba(0,0,0,.2)', 'rgba(0,0,0,.6)', 'rgba(0,0,0,0.8)']} locations={[0, 0.49, 0.78, 1]} />
 
-    <View style={styles.contentWrapper}>
-      <View style={styles.spacer} />
-      <View style={styles.textContainer}>
-        <Text style={styles.destination}>{trip.destination}</Text>
-        <View style={styles.dateRow}>
-          <MaterialIcons name="calendar-today" size={moderateScale(12)} color="white" />
-          <Text style={styles.dateRange}>
-            {DateUtils.formatRange(
-              DateUtils.parseYYYYMMDDToDate(trip.startDate),
-              DateUtils.parseYYYYMMDDToDate(trip.endDate)
-            )}
-          </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: '5%', paddingTop: moderateScale(65) }}>
+                <HeaderButton icon="arrow-back" onPress={() => router.back()}/>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(12) }}>
+                    <HeaderButton icon="search" onPress={() => console.log('search')} />
+                    <HeaderButton icon="settings" onPress={() => router.navigate(`/(trip-info)/${trip.id}/settings`)} />
+                </View>
+            </View>
+            
+            <View style={ styles.contentWrapper }>
+                <View style={ styles.spacer } />
+                <View style={ styles.textContainer }>
+                    <Text style={ styles.destination }>{ trip.name }</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(6) }}>
+                        <MaterialIcons name="calendar-today" size={moderateScale(12)} color="white" />
+                        <Text style={ styles.dateRange }>{ DateUtils.formatRange(DateUtils.parseYYYYMMDDToDate(trip.startDate), DateUtils.parseYYYYMMDDToDate(trip.endDate)) }</Text>
+                    </View>
+                </View>
+            </View>
+            <TripInfoTabBar tripId={ trip.id }/>
         </View>
-      </View>
-    </View>
-    <TripInfoTabBar tripId={trip.id} />
-  </View>
-);
+    );
+}
 
+// ==========================================
+// MAIN LAYOUT COMPONENT
+// ==========================================
 export default function TripInfoLayout() {
-  const { user } = useAuth();
-  const { tripId } = useLocalSearchParams();
-  const [tripData, setTripData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const CURRENT_USER_ID = String(user?.id || "me");
+    const { tripId } = useLocalSearchParams();
+    const userId = CURRENT_USER_ID;
 
-  useEffect(() => {
-    let mounted = true;
+    const [tripData, setTripData] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    async function loadTrip() {
-      if (!tripId || !user?.id) return;
-      setIsLoading(true);
-      const data = await fetchTripData(tripId, user.id, user);
-      if (mounted) {
-        setTripData(data);
-        setIsLoading(false);
-      }
+    useEffect(() => {
+        const loadTripDashboard = async () => {
+            if (!tripId) return;
+            setIsLoading(true);
+            const data = await fetchTripData(tripId, userId);
+            setTripData(data);
+            setIsLoading(false); 
+        };
+        loadTripDashboard();
+    }, [tripId, userId]);
+
+    // 1. DEFINE ALL ACTION HANDLERS FIRST
+    const refreshTripData = async () => {
+        const freshData = await fetchTripData(tripId, userId);
+        if (freshData) setTripData(freshData);
+    };
+
+    const handleVote = async (ideaId, voteType) => {
+        const previousState = tripData; 
+        setTripData(prev => {
+            const activeGroupSize = prev.group.filter(member => member.active).length;
+            const requiredVotes = Math.floor(activeGroupSize / 2) + 1;
+            const updatedIdeas = prev.ideaBoard.map(idea => {
+                if (idea.id === ideaId) {
+                    const newVotes = { ...(idea.votes || {}), [CURRENT_USER_ID]: voteType };
+                    const yesCount = Object.values(newVotes).filter(v => v === 'yes').length;
+                    return { ...idea, votes: newVotes, status: yesCount >= requiredVotes ? 'approved' : 'voting' };
+                }
+                return idea;
+            });
+            return { ...prev, ideaBoard: updatedIdeas };
+        });
+
+        try {
+            const voteVal = voteType === 'yes' ? 1 : -1;
+            await supabase.from('event_votes').delete().match({ event_id: ideaId, user_id: CURRENT_USER_ID });
+            await supabase.from('event_votes').insert({ event_id: ideaId, user_id: CURRENT_USER_ID, vote_value: voteVal });
+
+            const activeGroupSize = previousState.group.filter(member => member.active).length;
+            const requiredVotes = Math.floor(activeGroupSize / 2) + 1;
+            const votedIdea = previousState.ideaBoard.find(idea => idea.id === ideaId);
+            const currentVotes = { ...(votedIdea?.votes || {}), [CURRENT_USER_ID]: voteType };
+            const yesCount = Object.values(currentVotes).filter(v => v === 'yes').length;
+
+            if (yesCount >= requiredVotes) {
+                await supabase.from('Events').update({ status: 'approved' }).eq('event_id', ideaId);
+            }
+        } catch (error) {
+            setTripData(previousState); 
+            Alert.alert("Network Error", "Failed to save your vote.");
+            console.error("Failed to save vote to database:", error);
+        }
+    };
+
+    const addEventToBucket = async (date, event) => {
+        const previousState = tripData;
+        const newEventId = event.id || Date.now().toString();
+        
+        setTripData(prev => {
+            const updatedIdeaBoard = prev.ideaBoard.map(idea => idea.id === event.id ? { ...idea, status: 'scheduled' } : idea);
+            const newEvent = { ...event, id: newEventId, type: 'event', time: 'TBD' };
+            return {
+                ...prev,
+                ideaBoard: updatedIdeaBoard,
+                timelineData: { ...prev.timelineData, [date]: [...(prev.timelineData[date] || []), newEvent] }
+            };
+        });
+
+        try {
+            const startTimestamp = `${date}T09:00:00`; 
+            await supabase.from('Events').update({ start_timestamp: startTimestamp, status: 'scheduled' }).eq('event_id', event.id);
+        } catch (error) {
+            setTripData(previousState);
+            Alert.alert("Network Error", "Failed to schedule event.");
+            console.error("Failed to schedule event in database:", error);
+        }
+    };
+
+    const updateDayEvents = (date, newlyOrderedData) => {
+        setTripData(prev => ({ ...prev, timelineData: { ...prev.timelineData, [date]: newlyOrderedData } }));
+    };
+
+    const addCustomIdea = async (idea) => {
+        try {
+            let finalImageId = null;
+            if (idea.imageUri) {
+                const newPhotoRecord = await MediaUtils.uploadImageToSupabase(idea.imageUri, tripId, CURRENT_USER_ID, null, 'idea_board');
+                finalImageId = newPhotoRecord.photo_id;
+            }
+
+            const { data: newEvent, error } = await supabase
+                .from('Events')
+                .insert({
+                    trip_id: tripId, title: idea.title, category: idea.category,
+                    description: idea.description, image_id: finalImageId, status: 'Idea'
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            await supabase.from('event_votes').insert({ event_id: newEvent.event_id, user_id: CURRENT_USER_ID, vote_value: 1 });
+            refreshTripData();
+        } catch (error) {
+            console.error("Error saving custom idea:", error);
+        }
+    };
+
+    const updateEventTime = async (eventId, dateStr, formattedTime) => {
+        const previousState = tripData;
+        setTripData(prev => {
+            const updatedDayData = (prev.timelineData[dateStr] || []).map(item =>
+                item.id === eventId ? { ...item, time: formattedTime } : item
+            );
+            return { ...prev, timelineData: { ...prev.timelineData, [dateStr]: updatedDayData } };
+        });
+
+        try {
+            const [time, modifier] = formattedTime.split(' ');
+            let [hours, minutes] = time.split(':');
+            if (hours === '12') hours = '00';
+            if (modifier === 'PM') hours = parseInt(hours, 10) + 12;
+            
+            const formattedHours = hours.toString().padStart(2, '0');
+            const startTimestamp = `${dateStr}T${formattedHours}:${minutes}:00`;
+
+            await supabase.from('Events').update({ start_timestamp: startTimestamp }).eq('event_id', eventId);
+        } catch (error) {
+            setTripData(previousState);
+            Alert.alert("Network Error", "Failed to update event time.");
+            console.error("Failed to save time to DB:", error);
+        }
+    };
+
+    const unassignEvent = async (eventId, dateStr) => {
+        const previousState = tripData;
+        setTripData(prev => ({
+            ...prev,
+            ideaBoard: prev.ideaBoard.map(idea => idea.id === eventId ? { ...idea, status: 'approved' } : idea),
+            timelineData: { ...prev.timelineData, [dateStr]: (prev.timelineData[dateStr] || []).filter(e => e.id !== eventId) }
+        }));
+
+        try {
+            await supabase.from('Events').update({ start_timestamp: null, status: 'approved' }).eq('event_id', eventId);
+        } catch (error) {
+            setTripData(previousState);
+            Alert.alert("Network Error", "Failed to unassign event.");
+            console.error("Failed to unassign event:", error);
+        }
+    };
+
+    const deleteEvent = async (eventId, dateStr) => {
+        const previousState = tripData;
+        setTripData(prev => ({
+            ...prev,
+            ideaBoard: prev.ideaBoard.filter(idea => idea.id !== eventId),
+            timelineData: { ...prev.timelineData, [dateStr]: (prev.timelineData[dateStr] || []).filter(e => e.id !== eventId) }
+        }));
+
+        try {
+            await supabase.from('event_votes').delete().eq('event_id', eventId);
+            await supabase.from('Events').delete().eq('event_id', eventId);
+        } catch (error) {
+            setTripData(previousState);
+            Alert.alert("Network Error", "Failed to delete event.");
+            console.error("Failed to delete event:", error);
+        }
+    };
+
+    const deleteStay = (stayId) => { /* Keep existing */ }
+    const addTransaction = (payload) => { /* Keep existing */ }
+    const addSettlement = (payload) => { /* Keep existing */ }
+
+    // 2. SAFELY DERIVE DATA USING OPTIONAL CHAINING
+    const ideaBoard = tripData?.ideaBoard || [];
+    const discoverFeed = ideaBoard.filter(idea => (idea.votes || {})[CURRENT_USER_ID] === undefined && idea.status !== 'approved');
+    const inProgressFeed = ideaBoard.filter(idea => (idea.votes || {})[CURRENT_USER_ID] === 'yes' && idea.status !== 'approved' && idea.status !== 'scheduled');
+    const unassignedIdeas = ideaBoard.filter(idea => idea.status === 'approved');
+
+    // 3. RUN useMemo BEFORE EARLY RETURN
+    const contextValue = useMemo(() => {
+        if (!tripData) return {}; // Failsafe fallback
+        
+        return {
+            tripId,
+            ...tripData,         
+            discoverFeed,        
+            inProgressFeed,      
+            unassignedIdeas,     
+            refreshTripData,     
+            handleVote,          
+            addEventToBucket,    
+            updateDayEvents,  
+            addCustomIdea,      
+            updateEventTime, 
+            unassignEvent,    
+            deleteEvent,     
+            deleteStay,          
+            addTransaction,      
+            addSettlement,       
+        };
+    }, [tripId, tripData, discoverFeed, inProgressFeed, unassignedIdeas]);
+
+    // 4. NOW DO THE EARLY RETURN FOR LOADING
+    if (isLoading || !tripData) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+        );
     }
 
-    loadTrip();
-    return () => {
-      mounted = false;
-    };
-  }, [tripId, user]);
-
-  const refreshTripData = async () => {
-    if (!tripId || !user?.id) return;
-    const freshData = await fetchTripData(tripId, user.id, user);
-    setTripData((prev) => ({ ...prev, ...freshData }));
-  };
-
-  const discoverFeed = useMemo(() => {
-    const ideaBoard = tripData?.ideaBoard || [];
-    return ideaBoard.filter((idea) => {
-      const votes = idea.votes || {};
-      const hasVoted = votes[CURRENT_USER_ID] !== undefined;
-      return !hasVoted && idea.status !== "approved";
-    });
-  }, [tripData, CURRENT_USER_ID]);
-
-  const inProgressFeed = useMemo(() => {
-    const ideaBoard = tripData?.ideaBoard || [];
-    return ideaBoard.filter((idea) => {
-      const votes = idea.votes || {};
-      return votes[CURRENT_USER_ID] === "yes" && idea.status !== "approved" && idea.status !== "scheduled";
-    });
-  }, [tripData, CURRENT_USER_ID]);
-
-  const unassignedIdeas = useMemo(() => {
-    const ideaBoard = tripData?.ideaBoard || [];
-    return ideaBoard.filter((idea) => idea.status === "approved");
-  }, [tripData]);
-
-  const handleVote = (ideaId, voteType) => {
-    setTripData((prev) => {
-      const activeGroupSize = prev.group.filter((member) => member.active).length;
-      const requiredVotes = Math.floor(activeGroupSize / 2) + 1;
-
-      const updatedIdeas = prev.ideaBoard.map((idea) => {
-        if (idea.id === ideaId) {
-          const currentVotes = idea.votes || {};
-          const newVotes = { ...currentVotes, [CURRENT_USER_ID]: voteType };
-          const yesCount = Object.values(newVotes).filter((v) => v === "yes").length;
-          const isNowApproved = yesCount >= requiredVotes;
-
-          return {
-            ...idea,
-            votes: newVotes,
-            status: isNowApproved ? "approved" : idea.status || "voting",
-          };
-        }
-        return idea;
-      });
-
-      return { ...prev, ideaBoard: updatedIdeas };
-    });
-  };
-
-  const addEventToBucket = (date, event) => {
-    setTripData((prev) => {
-      const updatedIdeaBoard = prev.ideaBoard.map((idea) =>
-        idea.id === event.id ? { ...idea, status: "scheduled" } : idea
-      );
-
-      const newEvent = { ...event, id: Date.now().toString(), type: "event", time: "TBD" };
-
-      return {
-        ...prev,
-        ideaBoard: updatedIdeaBoard,
-        timelineData: {
-          ...prev.timelineData,
-          [date]: [...(prev.timelineData[date] || []), newEvent],
-        },
-      };
-    });
-  };
-
-  const updateDayEvents = (date, newlyOrderedData) => {
-    setTripData((prev) => ({
-      ...prev,
-      timelineData: { ...prev.timelineData, [date]: newlyOrderedData },
-    }));
-  };
-
-  const deleteStay = (stayId) => {
-    setTripData((prev) => ({
-      ...prev,
-      staysData: prev.staysData.filter((stay) => stay.id !== stayId),
-    }));
-  };
-
-  const addTransaction = (payload) => {
-    setTripData((prev) => {
-      const newTransaction = {
-        id: Date.now().toString(),
-        title: payload.title,
-        icon: payload.icon || "receipt",
-        payer: "You",
-        split: payload.isSplitEqually ? "Split equally" : "Custom split",
-        amount: payload.amount,
-      };
-
-      const newBudgetData = {
-        ...prev.budgetData,
-        totalSpent: prev.budgetData.totalSpent + payload.amount,
-      };
-
-      const newGroupBalances = prev.groupBalances.map((member) => {
-        const memberSplit = payload.splits.find((s) => String(s.memberId) === String(member.id));
-
-        if (memberSplit) {
-          const amountOwed = payload.isSplitEqually
-            ? payload.amount / payload.splits.length
-            : memberSplit.amount;
-
-          return {
-            ...member,
-            balance: member.balance + amountOwed,
-          };
-        }
-        return member;
-      });
-
-      return {
-        ...prev,
-        transactions: [newTransaction, ...prev.transactions],
-        budgetData: newBudgetData,
-        groupBalances: newGroupBalances,
-      };
-    });
-  };
-
-  const addSettlement = (payload) => {
-    setTripData((prev) => {
-      const newGroupBalances = prev.groupBalances.map((member) => {
-        if (String(member.id) === String(payload.toMemberId)) {
-          const newBalance = member.balance > 0 ? member.balance - payload.amount : member.balance + payload.amount;
-          return { ...member, balance: newBalance };
-        }
-        return member;
-      });
-
-      const targetMember = prev.groupBalances.find((m) => String(m.id) === String(payload.toMemberId));
-      const newTransaction = {
-        id: Date.now().toString(),
-        title: `Paid ${targetMember?.name || "Member"}`,
-        icon: "check-circle-outline",
-        payer: "You",
-        split: "Settlement",
-        amount: payload.amount,
-      };
-
-      return {
-        ...prev,
-        groupBalances: newGroupBalances,
-        transactions: [newTransaction, ...prev.transactions],
-      };
-    });
-  };
-
-  if (isLoading || !tripData) {
+    // 5. MAIN RENDER
     return (
-      <View style={styles.loadingState}>
-        <ActivityIndicator size="large" color={Colors.primary} />
-      </View>
+        <TripContext.Provider value={contextValue}>
+            <StatusBar style="light" /> 
+            <View style={{ flex: 1 }}>
+                <CustomHeader trip={tripData} />
+                <Tabs screenOptions={{ tabBarStyle: { display: "none" }, headerShown: false, unmountOnBlur: true }}>
+                    <Tabs.Screen name="overview" options={{ title: "Overview" }} />
+                    <Tabs.Screen name="(plan)" options={{ title: "Plan" }} />
+                    <Tabs.Screen name="wallet" options={{ title: "Wallet" }} />
+                    <Tabs.Screen name="docs" options={{ title: "Docs" }} />
+                    <Tabs.Screen name="memories" options={{ title: "Memories" }} />
+                    <Tabs.Screen name="album" options={{ headerShown: false }} />
+                </Tabs>
+            </View>
+        </TripContext.Provider>
     );
   }
 
@@ -429,22 +536,12 @@ export default function TripInfoLayout() {
 }
 
 const styles = StyleSheet.create({
-  headerContainer: { height: "39%" },
-  imageBackground: { flex: 1 },
-  gradient: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-  headerButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: "5%",
-    paddingTop: moderateScale(65),
-  },
-  headerButtonRow: { flexDirection: "row", alignItems: "center", gap: moderateScale(12) },
-  contentWrapper: { flex: 1, paddingHorizontal: "5%", paddingTop: moderateScale(40), paddingBottom: moderateScale(28) },
-  spacer: { flex: 1 },
-  textContainer: { gap: 4 },
-  dateRow: { flexDirection: "row", alignItems: "center", gap: moderateScale(6) },
-  destination: { color: "white", fontSize: moderateScale(25), fontWeight: "bold" },
-  dateRange: { color: "white", fontSize: moderateScale(12), marginTop: 4 },
-  loadingState: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: Colors.background },
+    headerContainer: { height: '39%' },
+    imageBackground: { flex: 1 },
+    gradient: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+    contentWrapper: { flex: 1, paddingHorizontal: '5%', paddingTop: moderateScale(40), paddingBottom: moderateScale(28) },
+    spacer: { flex: 1 },
+    textContainer: { gap: 4 },
+    destination: { color: 'white', fontSize: moderateScale(25), fontWeight: 'bold', maxWidth: '60%' },
+    dateRange: { color: 'white', fontSize: moderateScale(12), marginTop: 4 },
 });
