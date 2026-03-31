@@ -15,7 +15,7 @@ function RootNavigator() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       {/* index route */}
-      <Stack.Screen name="index" />
+      {/* <Stack.Screen name="index" /> */}
 
       <Stack.Protected guard={isLoggedIn}>
         <Stack.Screen name="(tabs)" />
@@ -30,8 +30,7 @@ function RootNavigator() {
       </Stack.Protected>
 
       <Stack.Protected guard={!isLoggedIn}>
-        <Stack.Screen name="sign-in" />
-        <Stack.Screen name="sign-up" />
+        <Stack.Screen name="index" />
       </Stack.Protected>
     </Stack>
   );

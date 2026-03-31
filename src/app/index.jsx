@@ -248,7 +248,6 @@ export default function Index() {
                 },
               ]}
             >
-              // email
               <TextInput
                 style={[styles.input, errors.email && styles.errorInput]}
                 placeholder="Email"
@@ -262,7 +261,6 @@ export default function Index() {
                 }}
               />
 
-              // password
               <View
                 style={[
                   styles.passwordRow,
@@ -291,7 +289,6 @@ export default function Index() {
                 </TouchableOpacity>
               </View>
 
-              // confirm password (only in sign-up mode)
               {mode === "sign-up" && (
                 <View
                   style={[
@@ -324,7 +321,6 @@ export default function Index() {
                 </View>
               )}
 
-              // sign in / sign up button
               <TouchableOpacity
                 style={styles.signInButton}
                 onPress={mode === "sign-in" ? onSignIn : onSignUp}
@@ -341,7 +337,6 @@ export default function Index() {
                 </Text>
               </TouchableOpacity>
 
-              // toggle between sign in and sign up
               {mode === "sign-in" ? (
                 <TouchableOpacity
                   onPress={() => {
