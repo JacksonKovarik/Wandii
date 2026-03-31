@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { moderateScale } from 'react-native-size-matters';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 export default function ReliveStoryViewer({ trip, onClose }) {
     // 1. Flatten the data into slides

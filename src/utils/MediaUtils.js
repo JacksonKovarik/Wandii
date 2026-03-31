@@ -29,7 +29,7 @@ export const MediaUtils = {
     }
 
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, // Updated to use MediaTypeOptions
+      mediaTypes: [ImagePicker.MediaType.images],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 1,

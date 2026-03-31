@@ -1,9 +1,11 @@
 import CalendarPicker from "@/src/components/calendarPicker";
 import NextStepButton from "@/src/components/nextStepButton";
+import { useTripDraft } from "@/src/context/TripDraftContext";
 import DateUtils from "@/src/utils/DateUtils";
 import { useState } from "react";
 import {
   Keyboard,
+  Modal,
   StyleSheet,
   Text,
   TextInput,

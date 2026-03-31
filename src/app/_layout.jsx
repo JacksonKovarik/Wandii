@@ -35,7 +35,13 @@ function RootNavigator() {
   );
 }
 
-export default function RootLayout() {
+function RootNavigator() {
+  const { user, loading } = useAuth();
+
+  if (loading) return null;
+
+  const isLoggedIn = !!user;
+
   return (
     <AuthProvider>
       <TripDraftProvider>

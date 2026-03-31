@@ -68,7 +68,7 @@ export default function Docs() {
         <DocumentCard key={doc.id} title={doc.title} date={doc.date} size={doc.size} />
       ))}
 
-      <TouchableOpacity style={styles.uploadContainer} onPress={() => openModal()}>
+      <TouchableOpacity style={styles.uploadContainer} onPress={() => setModalVisible(true)}>
         <MaterialIcons name="cloud-upload" size={moderateScale(24)} color={Colors.gray} />
         <Text style={styles.uploadText}>Tap to upload PDF or Image</Text>
       </TouchableOpacity>      

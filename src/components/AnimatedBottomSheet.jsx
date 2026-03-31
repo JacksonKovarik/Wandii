@@ -33,7 +33,7 @@ export default function AnimatedBottomSheet({ visible, onClose, children }) {
         setRenderModal(false);
       });
     }
-  }, [visible]);
+  }, [fadeAnim, slideAnim, visible]);
 
   if (!renderModal) return null;
 

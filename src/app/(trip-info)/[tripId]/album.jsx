@@ -4,7 +4,7 @@ import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Dimensions, FlatList, Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const { width: screenWidth } = Dimensions.get('window');

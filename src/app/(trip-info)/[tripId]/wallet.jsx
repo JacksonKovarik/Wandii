@@ -128,7 +128,7 @@ export default function WalletScreen() {
       });
       setExpenseForm(prev => ({ ...prev, splits: initialSplits }));
     }
-  }, [isModalVisible]);
+  }, [expenseForm.id, expenseForm.splits, groupBalances, isModalVisible]);
 
   // --- CRUD ACTIONS ---
   
@@ -324,7 +324,7 @@ export default function WalletScreen() {
                     <View style={{ alignItems: 'center', paddingVertical: 15 }}>
                         <MaterialCommunityIcons name="party-popper" size={32} color={Colors.success} style={{ marginBottom: 10 }} />
                         <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.darkBlue }}>All Settled Up!</Text>
-                        <Text style={{ fontSize: 13, color: Colors.textSecondary, marginTop: 4 }}>You don't owe anyone, and nobody owes you.</Text>
+                        <Text style={{ fontSize: 13, color: Colors.textSecondary, marginTop: 4 }}>You do not owe anyone, and nobody owes you.</Text>
                     </View>
                 ) : (
                     groupBalances
