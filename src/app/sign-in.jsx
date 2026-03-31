@@ -12,11 +12,28 @@ export default function SignIn() {
   async function onSignIn() {
     try {
       setBusy(true);
+
       const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
-      if (error) throw error;
+
+      if (error) {
+        if (
+          error.code === "invalid_credentials" ||
+          error.message.toLowerCase().includes("invalid") ||
+          error.message.toLowerCase().includes("credentials") ||
+          error.message.toLowerCase().includes("password")
+        ) {
+          Alert.alert(
+            "Wrong credentials",
+            "The email or password is incorrect. Would you like to create an account?"
+          );
+          return;
+        }
+
+        throw error;
+      }
 
       router.replace("/(tabs)/home");
     } catch (e) {
@@ -38,6 +55,7 @@ export default function SignIn() {
         keyboardType="email-address"
         placeholder="Email"
       />
+
       <TextInput
         style={styles.input}
         value={password}
@@ -46,13 +64,17 @@ export default function SignIn() {
         placeholder="Password"
       />
 
-      <TouchableOpacity style={[styles.button, busy && { opacity: 0.6 }]} onPress={onSignIn} disabled={busy}>
+      <TouchableOpacity
+        style={[styles.button, busy && { opacity: 0.6 }]}
+        onPress={onSignIn}
+        disabled={busy}
+      >
         <Text style={styles.buttonText}>{busy ? "Signing in..." : "Sign In"}</Text>
       </TouchableOpacity>
 
       <Link href="/sign-up" asChild>
         <TouchableOpacity>
-          <Text style={styles.link}>Need an account? Sign up</Text>
+          <Text style={styles.link}>Need an account? Create one</Text>
         </TouchableOpacity>
       </Link>
     </View>

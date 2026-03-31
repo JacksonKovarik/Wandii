@@ -34,6 +34,7 @@ export default function Layout() {
       <Tabs.Screen 
         name="profile" 
         options={{
+          headerShown: false,
           title: "Profile", 
           tabBarIcon: ({ color }) => <MaterialIcons name="person" size={24} color={color} />
         }} 

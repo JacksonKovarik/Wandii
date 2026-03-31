@@ -11,7 +11,6 @@ import { moderateScale, verticalScale } from "react-native-size-matters";
 import { useAuth } from "@/src/context/AuthContext";
 import { useTripDraft } from "@/src/context/TripDraftContext";
 import { supabase } from "@/src/lib/supabase";
-import { createTrip } from "@/src/lib/trips";
 
 async function uploadCoverPhotoIfNeeded(userId, coverPhotoUri) {
   if (!coverPhotoUri) return null;
@@ -55,26 +54,22 @@ export default function TripPlanThird() {
   const [busy, setBusy] = useState(false);
 
   const pickImage = async () => {
-    try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-      if (!permission.granted) {
-        Alert.alert("Permission required", "Permission to access photos is required.");
-        return;
-      }
+    if (!permission.granted) {
+      Alert.alert("Permission required", "Permission to access photos is required.");
+      return;
+    }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 0.8,
-      });
+    const results = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+      base64: false,
+    });
 
-      if (!result.canceled && result.assets?.[0]?.uri) {
-        setField("coverPhotoUri", result.assets[0].uri);
-      }
-    } catch (e) {
-      console.error("Could not pick image:", e);
-      Alert.alert("Could not pick image", e?.message ?? "Unknown error");
+    if (!results.canceled && results.assets?.[0]?.uri) {
+      setField("coverPhotoUri", results.assets[0].uri);
     }
   };
 
@@ -96,16 +91,18 @@ export default function TripPlanThird() {
 
       const coverUrl = await uploadCoverPhotoIfNeeded(user.id, draft.coverPhotoUri);
 
-      const { error } = await createTrip({
-        userId: user.id,
-        title: draft.tripName,
-        destination: draft.destination,
-        startDate: draft.startDate,
-        endDate: draft.endDate,
-        coverPhotoUrl: coverUrl,
-        budgetEstimate: draft.budget,
-        vibe: draft.vibe,
-      });
+      const { error } = await supabase.from("trips").insert([
+        {
+          user_id: user.id,
+          title: draft.tripName,
+          destination: draft.destination,
+          start_date: draft.startDate,
+          end_date: draft.endDate,
+          cover_photo_url: coverUrl,
+          budget_estimate: draft.budget,
+          vibe: draft.vibe,
+        },
+      ]);
 
       if (error) {
         throw error;
@@ -266,3 +263,4 @@ const styles = StyleSheet.create({
     borderRadius: moderateScale(12),
   },
 });
+

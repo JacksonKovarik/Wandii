@@ -1,9 +1,7 @@
-import PastTripCard from "@/src/components/pastTripCard";
-import ReliveStoryViewer from "@/src/components/ReliveStoryViewer";
-import { useAuth } from "@/src/context/AuthContext";
-import { getPastTrips } from "@/src/lib/trips";
-import React, { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, Modal, StyleSheet, Text, View } from "react-native";
+
+import PastTripCard from "@/src/components/pastTripCard"; // or rename to TripCard
+import React from "react";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 import { moderateScale, scale, verticalScale } from "react-native-size-matters";
 
 const FALLBACK_IMAGE = require("../../../../assets/images/paris.png");
@@ -23,60 +21,30 @@ function formatShortRange(startDate, endDate) {
 }
 
 export default function Past() {
-  const { user } = useAuth();
-  const [activeStoryTrip, setActiveStoryTrip] = useState(null);
-  const [trips, setTrips] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const trips = [
+  {
+    location: "Kyoto, Japan",
+    dates: "Apr 3 - Apr 12, 2026",
+    photos: 42,
+    journals: 5,
+    image: JapanImage,
+  },
 
-  const loadTrips = useCallback(async () => {
-    if (!user) {
-      setTrips([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const data = await getPastTrips(user.id);
-      setTrips(
-        (data ?? []).map((trip) => ({
-          id: String(trip.id),
-          name: trip.title,
-          location: trip.destination,
-          dates: formatShortRange(trip.start_date, trip.end_date),
-          photos: 0,
-          journals: 0,
-          image: trip.cover_photo_url ? { uri: trip.cover_photo_url } : FALLBACK_IMAGE,
-          memories: [],
-        }))
-      );
-    } catch (error) {
-      console.warn(error?.message || "Could not load past trips");
-      setTrips([]);
-    }
-    setLoading(false);
-  }, [user]);
-
-  useEffect(() => {
-    loadTrips();
-  }, [loadTrips]);
-
-  const openTripMemories = (trip) => {
-    if (!trip.memories?.length) {
-      Alert.alert("No memories yet", "This trip doesn’t have saved memories yet.");
-      return;
-    }
-    setActiveStoryTrip(trip);
-  };
+  {
+    location: "Paris, France",
+    dates: "Mar 10 - Mar 18, 2025",
+    photos: 87,
+    journals: 3,
+    image: ParisImage,
+  },
+];
 
   return (
     <View style={styles.container}>
       <FlatList
         data={trips}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <PastTripCard trip={item} onRelivePress={() => openTripMemories(item)} />
-        )}
+        keyExtractor={(item, index) => index.toString()}
+        renderItem={({ item }) => <PastTripCard trip={item} />}
         ListEmptyComponent={() => (
           <View style={styles.emptyContent}>
             <Text style={styles.emptyTrips}>{loading ? "Loading..." : "No Trips Found..."}</Text>
@@ -84,25 +52,40 @@ export default function Past() {
         )}
         contentContainerStyle={trips.length === 0 ? styles.emptyContainer : styles.listContainer}
       />
-
-      <Modal
-        visible={activeStoryTrip !== null}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={() => setActiveStoryTrip(null)}
-      >
-        {activeStoryTrip && (
-          <ReliveStoryViewer trip={activeStoryTrip} onClose={() => setActiveStoryTrip(null)} />
-        )}
-      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  listContainer: { paddingTop: verticalScale(20), paddingHorizontal: scale(20) },
-  emptyContainer: { flexGrow: 1, justifyContent: "center", alignItems: "center" },
-  emptyContent: { justifyContent: "center", alignItems: "center" },
-  emptyTrips: { fontSize: moderateScale(30), opacity: 0.4, color: "#9D9D9D" },
+  container: {
+    flex: 1,
+  },
+
+  listContainer: {
+    paddingTop: verticalScale(20),
+    paddingHorizontal: scale(20),
+  },
+
+  emptyContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  emptyContent: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  emptyTrips: {
+    fontSize: moderateScale(30),
+    opacity: 0.4,
+    color: "#9D9D9D",
+  },
+
+  emptyImage: {
+    width: scale(150),
+    height: verticalScale(150),
+    marginBottom: verticalScale(20),
+  },
 });
