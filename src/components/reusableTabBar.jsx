@@ -4,7 +4,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 import { Colors } from "../constants/colors";
 
-export default function ReusableTabBar({ tabs, extraBgStyles, extraTabStyles }) {
+export default function ReusableTabBar({ tabs, extraBgStyles, extraTabStyles, extraTextStyles }) {
     const route = useRoute();
     const router = useRouter();
 
@@ -25,7 +25,8 @@ export default function ReusableTabBar({ tabs, extraBgStyles, extraTabStyles }) 
                     <Text
                         style={[
                             styles.tabText,
-                            isActive(tab.name) ? styles.tabTextActive : styles.tabTextInactive,
+                            extraTextStyles,
+                            isActive(tab.name) ? styles.tabTextActive : extraTextStyles ? extraTextStyles : styles.tabTextInactive,
                         ]}
                         numberOfLines={1}
                     >
