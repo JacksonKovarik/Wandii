@@ -11,7 +11,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 // ==========================================
@@ -23,7 +23,7 @@ const VotingInProgressCard = ({ item, group }) => {
   const yesVotes = currentVotes.reduce((sum, vote) => sum + (vote.vote_value === 1 ? 1 : 0), 0);  
   
   // FIX: Calculate required votes so the progress bar accurately hits 100%
-  const activeGroupSize = group.filter(member => member.active).length;
+  const activeGroupSize = group.length;
   const requiredVotes = Math.floor(activeGroupSize / 2) + 1;
   const fallback = getCategoryFallback(item.category);
   
@@ -210,71 +210,68 @@ export default function IdeaBoard() {
 
       {/* 2. BOTTOM SHEET SIBLING (Outside the ScrollView!) */}
       <AnimatedBottomSheet visible={isModalVisible} onClose={() => setModalVisible(false)}>
-        {/* Wrap in KeyboardAvoidingView so inputs aren't hidden when keyboard opens */}
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-            <View style={styles.sheetHeader}>
+          <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Add to Trip</Text>
             <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
                 <MaterialIcons name="close" size={22} color="#0f172a" />
             </TouchableOpacity>
-            </View>
+          </View>
 
-            <TextInput 
+          <TextInput 
             style={styles.premiumTitleInput} 
             placeholder="Name of place or activity..." 
             placeholderTextColor="#94a3b8"
             value={newIdea.title}
             onChangeText={(text) => setNewIdea({...newIdea, title: text})}
-            />
+          />
 
-            <View style={styles.inputSection}>
+          <View style={styles.inputSection}>
             <Text style={styles.sectionLabel}>CATEGORY</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillContainer}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillContainer}>
                 {['Food', 'Activity', 'Nightlife', 'Lodging', 'Other'].map((cat) => {
-                const isSelected = newIdea.category === cat;
-                return (
-                    <TouchableOpacity 
-                    key={cat}
-                    style={[styles.pill, isSelected && styles.pillActive]}
-                    onPress={() => setNewIdea({...newIdea, category: cat})}
-                    >
-                    <Text style={[styles.pillText, isSelected && styles.pillTextActive]}>{cat}</Text>
-                    </TouchableOpacity>
-                );
+                  const isSelected = newIdea.category === cat;
+                  return (
+                      <TouchableOpacity 
+                      key={cat}
+                      style={[styles.pill, isSelected && styles.pillActive]}
+                      onPress={() => setNewIdea({...newIdea, category: cat})}
+                      >
+                      <Text style={[styles.pillText, isSelected && styles.pillTextActive]}>{cat}</Text>
+                      </TouchableOpacity>
+                  );
                 })}
-            </ScrollView>
+              </ScrollView>
             </View>
 
             <View style={styles.inputSection}>
-            <Text style={styles.sectionLabel}>DETAILS (OPTIONAL)</Text>
+              <Text style={styles.sectionLabel}>DETAILS (OPTIONAL)</Text>
             
-            <TouchableOpacity style={styles.photoUploadRow} onPress={handleAddPhoto}>
-                <View style={styles.photoIconCircle}>
+              <TouchableOpacity style={styles.photoUploadRow} onPress={handleAddPhoto}>
+                  <View style={styles.photoIconCircle}>
                     <MaterialIcons name={newIdea.imageUri ? "check" : "add-a-photo"} size={18} color="#0f172a" />
-                </View>
-                <Text style={styles.photoUploadText}>
+                  </View>
+                  <Text style={styles.photoUploadText}>
                     {newIdea.imageUri ? 'Photo selected' : 'Attach a photo'}
-                </Text>
-            </TouchableOpacity>
+                  </Text>
+              </TouchableOpacity>
 
-            <TextInput 
+              <TextInput 
                 style={styles.premiumNotesInput} 
                 placeholder="Add a link, address, or reason why..." 
                 placeholderTextColor="#94a3b8"
                 value={newIdea.description}
                 onChangeText={(text) => setNewIdea({...newIdea, description: text})}
                 multiline
-            />
+              />
             </View>
 
             <TouchableOpacity 
-            style={[styles.premiumSubmitButton, !newIdea.title && styles.premiumSubmitDisabled]} 
-            disabled={!newIdea.title}
-            onPress={handleSaveIdea}
+              style={[styles.premiumSubmitButton, !newIdea.title && styles.premiumSubmitDisabled]} 
+              disabled={!newIdea.title}
+              onPress={handleSaveIdea}
             >
             <Text style={styles.premiumSubmitText}>Save Idea</Text>
-            </TouchableOpacity>
-        </KeyboardAvoidingView>
+          </TouchableOpacity>
       </AnimatedBottomSheet>
     </View>
   );

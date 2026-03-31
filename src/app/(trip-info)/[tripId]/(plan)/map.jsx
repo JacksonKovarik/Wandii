@@ -1,24 +1,28 @@
 import ReusableTabBar from "@/src/components/reusableTabBar";
-import { TripContext } from "@/src/utils/TripContext";
+import { Colors } from "@/src/constants/colors";
+import { supabase } from "@/src/lib/supabase";
+import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useIsFocused } from "@react-navigation/native"; // 1. Import this!
+import { useIsFocused } from "@react-navigation/native";
 import { BlurView } from "expo-blur";
 import * as Location from 'expo-location';
-import { useLocalSearchParams } from "expo-router";
-import React, { useContext, useEffect, useRef, useState } from "react";
-import { StyleSheet, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import { moderateScale } from "react-native-size-matters";
 
 export default function Map() {
-    const { tripId } = useLocalSearchParams();
-    const { staysData, timelineData } = useContext(TripContext);
-    const [hasLocationPermission, setHasLocationPermission] = useState(false);
-    const mapRef = useRef(null);
+    // 1. Standardized Context Usage
+    const { tripId, timelineData } = useTrip();
     
-    // 2. Initialize the hook
+    const [staysData, setStaysData] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [hasLocationPermission, setHasLocationPermission] = useState(false);
+    
+    const mapRef = useRef(null);
     const isFocused = useIsFocused(); 
 
+    // 2. Initial Setup & Data Fetching
     useEffect(() => {
         (async () => {
             let { status } = await Location.requestForegroundPermissionsAsync();
@@ -26,37 +30,68 @@ export default function Map() {
                 setHasLocationPermission(true);
             }
         })();
-    }, []);
 
+        fetchStays();
+    }, [tripId]);
+
+    const fetchStays = async () => {
+        if (!tripId) return;
+        try {
+            const { data, error } = await supabase
+                .from('Accommodations')
+                .select('accommodation_id, title, latitude, longitude')
+                .eq('trip_id', tripId)
+                .not('latitude', 'is', null)
+                .not('longitude', 'is', null);
+
+            if (error) throw error;
+            setStaysData(data || []);
+        } catch (err) {
+            console.error("Map fetch error:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // 3. Process the Events
+    // Flatten the dictionary and filter for events that have a specific time and valid coordinates
     const allEvents = Object.values(timelineData || {}).flat();
-    const allCoordinates = [...(staysData || []), ...allEvents]
-        .map(item => item.coordinate)
-        .filter(coord => coord !== undefined);
+    const scheduledEvents = allEvents.filter(event => 
+        event.time && 
+        event.time !== 'TBD' && 
+        event.time !== 'All Day' && 
+        event.latitude && 
+        event.longitude
+    );
 
+    // 4. Auto-Focus Map logic
     const focusMap = () => {
-        if (!mapRef.current || allCoordinates.length === 0) return;
+        if (!mapRef.current) return;
+        
+        // Map everything to strict numeric coordinates
+        const stayCoords = staysData.map(s => ({ latitude: Number(s.latitude), longitude: Number(s.longitude) }));
+        const eventCoords = scheduledEvents.map(e => ({ latitude: Number(e.latitude), longitude: Number(e.longitude) }));
+        const allCoords = [...stayCoords, ...eventCoords];
 
-        if (allCoordinates.length === 1) {
-            // THE FIX: If there's only 1 marker, use animateToRegion with a fixed zoom
-            mapRef.current.animateToRegion({
-                latitude: allCoordinates[0].latitude,
-                longitude: allCoordinates[0].longitude,
-                latitudeDelta: 0.05, // Controls vertical zoom (0.05 is roughly city-level)
-                longitudeDelta: 0.05, // Controls horizontal zoom
-            }, 1000); // 1000ms animation duration
-        } else {
-            // 2 or more markers? Fit them all perfectly
-            mapRef.current.fitToCoordinates(allCoordinates, {
-                edgePadding: { top: 70, right: 70, bottom: 70, left: 70 },
+        if (allCoords.length > 0) {
+            mapRef.current.fitToCoordinates(allCoords, {
+                edgePadding: { top: 150, right: 50, bottom: 50, left: 50 },
                 animated: true,
             });
         }
     };
 
+    // Trigger map focus when data is ready and the tab is actively focused
+    useEffect(() => {
+        if (isFocused && !isLoading) {
+            setTimeout(focusMap, 500); // Slight delay ensures MapView is fully rendered before zooming
+        }
+    }, [isFocused, isLoading, staysData, timelineData]);
+
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <BlurView intensity={40} style={{ borderRadius: 15, overflow: 'hidden', marginTop: 10}}>
+                <BlurView intensity={40} style={{ width: 'auto', borderRadius: 15, overflow: 'hidden', marginTop: 10, alignItems: 'center' }}>
                     <ReusableTabBar 
                         tabs={[
                             { label: "Idea Board", name: "idea-board", route: `/(trip-info)/${tripId}/(plan)/idea-board` },
@@ -70,67 +105,52 @@ export default function Map() {
                 </BlurView>
             </View>
 
-            {/* 3. The Killswitch: Only render the map if the screen is focused */}
-            {isFocused ? (
+            {isLoading ? (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={Colors.primary} />
+                </View>
+            ) : isFocused ? (
                 <MapView 
                     ref={mapRef}
                     style={styles.map} 
                     showsUserLocation={hasLocationPermission}
-                    showsMyLocationButton={true}
-                    minZoomLevel={4}
-                    onMapReady={focusMap}
-
-                    // provider="google" // Optional: Uncomment if you want to force Google Maps on iOS
-                    
-                    pitchEnabled={false}      // Stops the 3D angle tilt
-                    showsBuildings={false}    // Prevents rendering 3D building polygons
-                    showsTraffic={false}      // Stops live traffic data polling
-                    showsIndoors={false}      // Stops loading indoor mall/airport floor plans
-                    showsCompass={false}      // Removes the extra compass UI overlay
                 >
-                    {staysData?.map((stay) => {
-                        if (!stay.coordinate) return null;
-                        return (
-                            <Marker 
-                                key={`stay-${stay.id}`}
-                                coordinate={stay.coordinate}
-                                title={stay.name}
-                                description={stay.address}
-                                tracksViewChanges={false} 
-                            >
-                                <View style={[styles.customMarker, { backgroundColor: '#4F46E5' }]}>
-                                    <MaterialIcons name="hotel" size={moderateScale(16)} color="white" />
-                                </View>
-                            </Marker>
-                        )
-                    })}
+                    {/* Render Accommodations (Blue Bed Icon) */}
+                    {staysData.map((stay) => (
+                        <Marker 
+                            key={`stay-${stay.accommodation_id}`}
+                            coordinate={{ latitude: Number(stay.latitude), longitude: Number(stay.longitude) }}
+                            title={stay.title}
+                            description="Accommodation"
+                            tracksViewChanges={false}
+                        >
+                            <View style={[styles.customMarker, { backgroundColor: Colors.primary }]}>
+                                <MaterialIcons name="hotel" size={moderateScale(16)} color="white" />
+                            </View>
+                        </Marker>
+                    ))}
 
-                    {allEvents.map((event) => {
-                        if (!event.coordinate) return null; 
-                        return (
-                            <Marker 
-                                key={`event-${event.id}`}
-                                coordinate={event.coordinate}
-                                title={event.title}
-                                description={event.time}
-                                tracksViewChanges={false}
-                            >
-                                <View style={[styles.customMarker, { backgroundColor: '#E11D48' }]}>
-                                    <MaterialIcons name="place" size={moderateScale(16)} color="white" />
-                                </View>
-                            </Marker>
-                        )
-                    })}
+                    {/* Render Scheduled Activities (Red Pin Icon) */}
+                    {scheduledEvents.map((event) => (
+                        <Marker 
+                            key={`event-${event.id}`}
+                            coordinate={{ latitude: Number(event.latitude), longitude: Number(event.longitude) }}
+                            title={event.title}
+                            description={event.time}
+                            tracksViewChanges={false}
+                        >
+                            <View style={[styles.customMarker, { backgroundColor: '#E11D48' }]}>
+                                <MaterialIcons name="place" size={moderateScale(16)} color="white" />
+                            </View>
+                        </Marker>
+                    ))}
                 </MapView>
             ) : (
-                // 4. Render an empty view to completely clear the native memory when leaving the tab
                 <View style={styles.map} /> 
             )}
         </View>
     );
 }
-
-// ... styles remain the same
 
 const styles = StyleSheet.create({
     container: {
@@ -142,8 +162,7 @@ const styles = StyleSheet.create({
         width: '100%', 
         alignItems: 'center',
         zIndex: 10, 
-        // backgroundColor: 'rgba(255,255,255,0.9)',
-        position: 'absolute', // Allows the map to slide under the slightly transparent header
+        position: 'absolute', 
         top: 0
     },
     map: {
