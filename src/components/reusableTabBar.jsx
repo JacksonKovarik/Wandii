@@ -50,6 +50,7 @@ const styles = StyleSheet.create({
         maxWidth: '90%'
     },
     tab: {
+        flex: 1,
         paddingHorizontal: moderateScale(4),
         paddingVertical: moderateScale(8),
         borderRadius: moderateScale(5),

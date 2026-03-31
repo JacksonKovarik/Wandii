@@ -2,14 +2,18 @@ import AnimatedBottomSheet from "@/src/components/AnimatedBottomSheet";
 import ReusableTabBar from "@/src/components/reusableTabBar";
 import TripInfoScrollView from "@/src/components/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
+import { supabase } from '@/src/lib/supabase';
 import DateUtils from "@/src/utils/DateUtils";
 import { openAddressInMaps } from "@/src/utils/LinkingUtils";
+import { getCoordinatesForAddress } from "@/src/utils/LocationUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import * as Clipboard from 'expo-clipboard';
-import { useState } from "react";
-import { Alert, ImageBackground, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useEffect, useState } from "react";
+// FIX: Added KeyboardAvoidingView and Platform to imports
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
 import { moderateScale } from "react-native-size-matters";
@@ -19,14 +23,46 @@ const copyToClipboard = async ({ textToCopy }) => {
   alert('Text copied to clipboard!');
 };
 
+// FIX: Helper to strip timezone shifts and save exact literal local time to Supabase
+const toLocalISOString = (date) => {
+    if (!date) return null;
+    const tzOffset = date.getTimezoneOffset() * 60000;
+    return new Date(date.getTime() - tzOffset).toISOString().slice(0, -1); 
+};
+
+// FIX: Bulletproof date formatting to prevent Hermes engine crashes on Android
+const formatSelectedDate = (date) => {
+  if (!date) return '';
+  const d = new Date(date);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  let hours = d.getHours();
+  let minutes = d.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  const mins = minutes < 10 ? `0${minutes}` : minutes;
+  return `${months[d.getMonth()]} ${d.getDate()}, ${hours}:${mins} ${ampm}`;
+};
+
 const StayCard = ({ stay, onEdit, onDelete }) => {
   return (
     <View style={styles.cardShadow}>
       <View style={styles.cardContainer}>
-        <ImageBackground source={ require("@/assets/images/Kyoto.jpg") } style={styles.cardImage} />
+        {/* <ImageBackground source={{ uri: stay.image }} style={styles.cardImage} /> */}
+
+        <LinearGradient
+          // A beautiful, subtle modern blue/slate gradient
+          colors={['#0f172a', '#3b82f6']} 
+          // colors={['#FF512F', '#F09819']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.cardImage, { justifyContent: 'center', alignItems: 'center' }]}
+        >
+           <MaterialIcons name="hotel" size={moderateScale(50)} color="#ffffff" style={{ opacity: 0.25 }} />
+        </LinearGradient>
 
         <View style={styles.cardContent}>
-          <Text style={styles.stayName}>{stay.name || stay.title}</Text>
+          {/* Mapped to stay.title from DB */}
+          <Text style={styles.stayName}>{stay.title}</Text>
         
           <View style={styles.addressRow}>
             <MaterialIcons name="location-pin" size={moderateScale(20)} color={Colors.primary} />
@@ -41,11 +77,13 @@ const StayCard = ({ stay, onEdit, onDelete }) => {
           <View style={{ flexDirection: 'row', gap: 5, alignItems: 'center', marginTop: 15 }}>
             <View style={{ flex: 1, gap: 5 }}>
               <Text style={styles.dateLabel}>CHECK IN</Text>
-              <Text style={styles.dateValue}>{stay.checkIn ? DateUtils.formatDayAndTime(DateUtils.timestampToDate(stay.checkIn)) : 'TBD'}</Text>
+              {/* Mapped to stay.check_in from DB */}
+              <Text style={styles.dateValue}>{stay.check_in ? DateUtils.formatDayAndTime(DateUtils.timestampToDate(stay.check_in)) : 'TBD'}</Text>
             </View>
             <View style={{ flex: 1, gap: 5 }}>
               <Text style={styles.dateLabel}>CHECK OUT</Text>
-              <Text style={styles.dateValue}>{stay.checkOut ? DateUtils.formatDayAndTime(DateUtils.timestampToDate(stay.checkOut)) : 'TBD'}</Text>
+              {/* Mapped to stay.check_out from DB */}
+              <Text style={styles.dateValue}>{stay.check_out ? DateUtils.formatDayAndTime(DateUtils.timestampToDate(stay.check_out)) : 'TBD'}</Text>
             </View>
           </View>
 
@@ -68,12 +106,12 @@ const StayCard = ({ stay, onEdit, onDelete }) => {
             </MenuTrigger>
 
             <MenuOptions customStyles={{ optionsContainer: styles.menuOptionsContainer }}>
-              {/* NEW: Pass the specific stay object back to the parent */}
               <MenuOption onSelect={() => onEdit(stay)} customStyles={{ optionWrapper: { padding: 10 } }}>
                 <Text style={{ fontSize: moderateScale(14), color: Colors.darkBlue }}>Edit</Text>
               </MenuOption>
               <View style={{ height: 1, backgroundColor: Colors.lightGray, marginHorizontal: 5 }} />
-              <MenuOption onSelect={() => onDelete(stay.id)} customStyles={{ optionWrapper: { padding: 10 } }}>
+              {/* Pass accommodation_id to delete */}
+              <MenuOption onSelect={() => onDelete(stay.accommodation_id)} customStyles={{ optionWrapper: { padding: 10 } }}>
                 <Text style={{ fontSize: moderateScale(14), color: 'red' }}>Delete</Text>
               </MenuOption>
             </MenuOptions>
@@ -86,10 +124,13 @@ const StayCard = ({ stay, onEdit, onDelete }) => {
 
 export default function Stays() {
   const tripData = useTrip();
-  const { staysData = [], deleteStay, refreshTripData, tripId } = tripData;
+  const { tripId, destination } = tripData;
 
-  // --- DB-READY FORM STATE ---
-  // Adding an `id` property allows us to track if we are Editing or Creating
+  // --- LOCAL DATA STATE ---
+  const [staysData, setStaysData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // --- FORM STATE ---
   const defaultStayState = { id: null, title: '', address: '', checkIn: null, checkOut: null };
   const [isModalVisible, setModalVisible] = useState(false);
   const [stayForm, setStayForm] = useState(defaultStayState);
@@ -97,13 +138,55 @@ export default function Stays() {
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
   const [datePickerTarget, setDatePickerTarget] = useState(null);
 
+  // --- DATABASE ACTIONS ---
+
+  // 1. Fetch Stays
+  const fetchStays = async () => {
+    if (!tripId) return;
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('Accommodations')
+        .select('*')
+        .eq('trip_id', tripId)
+        .order('check_in', { ascending: true }); // Chronological order!
+
+      if (error) throw error;
+      setStaysData(data || []);
+    } catch (err) {
+      console.error("Error fetching stays:", err);
+      Alert.alert("Error", "Could not load accommodations.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Run on mount
+  useEffect(() => {
+    fetchStays();
+  }, [tripId]);
+
+  // 2. Delete Stay
   const handleDeletePress = (stayId) => {
     Alert.alert(
       "Delete Stay",
       "Are you sure you want to remove this accommodation?",
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => deleteStay(stayId) }
+        { text: "Delete", style: "destructive", onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('Accommodations')
+                .delete()
+                .eq('accommodation_id', stayId);
+              
+              if (error) throw error;
+              fetchStays(); // Refresh list after delete
+            } catch (err) {
+              console.error("Delete Error:", err);
+              Alert.alert("Error", "Could not delete stay.");
+            }
+        }}
       ]
     );
   };
@@ -113,40 +196,64 @@ export default function Stays() {
     setModalVisible(true);
   };
 
-  // NEW: Handle opening modal to EDIT an existing stay
   const handleOpenEdit = (stay) => {
     setStayForm({
-      id: stay.id,
-      title: stay.name || stay.title, // Handle data mismatches gracefully
+      id: stay.accommodation_id, // Map DB ID
+      title: stay.title,
       address: stay.address,
-      checkIn: stay.checkIn ? new Date(stay.checkIn) : null,
-      checkOut: stay.checkOut ? new Date(stay.checkOut) : null,
+      checkIn: stay.check_in ? new Date(stay.check_in) : null, // Map DB snake_case to UI camelCase
+      checkOut: stay.check_out ? new Date(stay.check_out) : null,
     });
     setModalVisible(true);
   };
 
+  // 3. Save / Update Stay
   const handleSaveStay = async () => {
-    const dbPayload = {
-      title: stayForm.title,
-      address: stayForm.address,
-      checkIn: stayForm.checkIn ? stayForm.checkIn.toISOString() : null,
-      checkOut: stayForm.checkOut ? stayForm.checkOut.toISOString() : null,
-    };
+    try {
+      let coords;
+      if (stayForm.address) {
+        coords = await getCoordinatesForAddress(stayForm.address, destination);      
+      }
 
-    if (stayForm.id) {
-      // It has an ID, so it already exists. We UPDATE.
-      // TODO: await updateStay(stayForm.id, dbPayload);
-      console.log("Updating Stay in DB: ", stayForm.id, dbPayload);
-    } else {
-      // No ID, so it's a new entry. We INSERT.
-      // TODO: await addStay(dbPayload);
-      console.log("Adding New Stay to DB: ", dbPayload);
+      const dbPayload = {
+        trip_id: tripId,
+        title: stayForm.title,
+        address: stayForm.address,
+        // FIX: Replaced .toISOString() with toLocalISOString() to prevent timezone shifting
+        check_in: toLocalISOString(stayForm.checkIn),
+        check_out: toLocalISOString(stayForm.checkOut),
+        latitude: coords?.latitude || null,  
+        longitude: coords?.longitude || null,      
+      };
+
+      if (stayForm.id) {
+        // UPDATE
+        const { error } = await supabase
+          .from('Accommodations')
+          .update(dbPayload)
+          .eq('accommodation_id', stayForm.id);
+        
+        if (error) throw error;
+      } else {
+        // INSERT
+        const { error } = await supabase
+          .from('Accommodations')
+          .insert(dbPayload);
+          
+        if (error) throw error;
+      }
+      
+      setModalVisible(false);
+      setStayForm(defaultStayState);
+      fetchStays(); // Refresh UI
+
+    } catch (err) {
+      console.error("Save Error:", err);
+      Alert.alert("Error", "Could not save accommodation details.");
     }
-    
-    setModalVisible(false);
-    setStayForm(defaultStayState); // Reset form
   };
 
+  // --- DATE PICKER LOGIC ---
   const showDatePicker = (target) => {
     setDatePickerTarget(target);
     setDatePickerVisible(true);
@@ -162,111 +269,118 @@ export default function Stays() {
     hideDatePicker();
   };
 
+  // FIX: Wrapped everything in a root View and placed AnimatedBottomSheet outside the ScrollView
   return (
-    <TripInfoScrollView style={styles.container} onRefresh={refreshTripData}>
-      <View style={{ padding: 10 }}>
-        <View style={{ width: '100%', alignItems: 'center' }}>
-          <ReusableTabBar 
-            tabs={[
-                { label: "Idea Board", name: "idea-board", route: `/(trip-info)/${tripId}/(plan)/idea-board` },
-                { label: "Timeline", name: "timeline", route: `/(trip-info)/${tripId}/(plan)/timeline` },
-                { label: "Map", name: "map", route: `/(trip-info)/${tripId}/(plan)/map` },
-                { label: "Stays", name: "stays", route: `/(trip-info)/${tripId}/(plan)/stays` },
-            ]}
-            extraBgStyle={{ backgroundColor: '#E0E0E0'}}
-          />
-        </View>
-      </View>
-
-      <View style={styles.scrollContent}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: moderateScale(20) }}>
-          <Text style={styles.sectionTitle}>Accommodations</Text>
-          {/* NEW: Wire up the Add button */}
-          <TouchableOpacity style={{ flexDirection: 'row', gap: 5 }} onPress={handleOpenAdd}>
-            <MaterialIcons name="add" size={moderateScale(18)} color={Colors.primary} />
-            <Text style={styles.newEntryButton}>Add Stay</Text>
-          </TouchableOpacity>
-        </View>
-
-        {staysData.map(stay => (
-          <StayCard 
-             key={stay.id} 
-             stay={stay} 
-             onEdit={handleOpenEdit} 
-             onDelete={handleDeletePress} 
-          />
-        ))}
-      </View>
-
-      <AnimatedBottomSheet visible={isModalVisible} onClose={() => setModalVisible(false)}>
-        <View style={styles.sheetHeader}>
-          <Text style={styles.sheetTitle}>
-             {stayForm.id ? 'Edit Accommodation' : 'Add Accommodation'}
-          </Text>
-          <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
-            <MaterialIcons name="close" size={22} color="#0f172a" />
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-          <TextInput 
-            style={styles.premiumTitleInput} 
-            placeholder="Name of Hotel, Airbnb..." 
-            placeholderTextColor="#94a3b8"
-            value={stayForm.title}
-            onChangeText={(text) => setStayForm({...stayForm, title: text})}
-          />
-
-          <View style={styles.inputSection}>
-            <Text style={styles.sectionLabel}>ADDRESS</Text>
-            <TextInput 
-              style={styles.standardInput} 
-              placeholder="123 Main St, City, Country" 
-              placeholderTextColor="#94a3b8"
-              value={stayForm.address}
-              onChangeText={(text) => setStayForm({...stayForm, address: text})}
+    <View style={styles.container}>
+      <TripInfoScrollView style={{ flex: 1 }} onRefresh={fetchStays}>
+        <View style={{ padding: 10 }}>
+          <View style={{ width: '100%', alignItems: 'center' }}>
+            <ReusableTabBar 
+              tabs={[
+                  { label: "Idea Board", name: "idea-board", route: `/(trip-info)/${tripId}/(plan)/idea-board` },
+                  { label: "Timeline", name: "timeline", route: `/(trip-info)/${tripId}/(plan)/timeline` },
+                  { label: "Map", name: "map", route: `/(trip-info)/${tripId}/(plan)/map` },
+                  { label: "Stays", name: "stays", route: `/(trip-info)/${tripId}/(plan)/stays` },
+              ]}
+              extraBgStyle={{ backgroundColor: '#E0E0E0'}}
             />
           </View>
+        </View>
 
-          <View style={styles.rowSection}>
-            <View style={{ flex: 1, paddingRight: 8 }}>
-              <Text style={styles.sectionLabel}>CHECK IN</Text>
-              <TouchableOpacity style={styles.dateSelector} onPress={() => showDatePicker('checkIn')}>
-                <MaterialIcons name="calendar-today" size={16} color={stayForm.checkIn ? Colors.darkBlue : '#94a3b8'} />
-                <Text style={stayForm.checkIn ? styles.dateSelectorText : styles.dateSelectorPlaceholder}>
-                  {stayForm.checkIn 
-                    ? stayForm.checkIn.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}) 
-                    : 'Select date & time'
-                  }
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={{ flex: 1, paddingLeft: 8 }}>
-              <Text style={styles.sectionLabel}>CHECK OUT</Text>
-              <TouchableOpacity style={styles.dateSelector} onPress={() => showDatePicker('checkOut')}>
-                <MaterialIcons name="calendar-today" size={16} color={stayForm.checkOut ? Colors.darkBlue : '#94a3b8'} />
-                <Text style={stayForm.checkOut ? styles.dateSelectorText : styles.dateSelectorPlaceholder}>
-                  {stayForm.checkOut 
-                    ? stayForm.checkOut.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'}) 
-                    : 'Select date & time'
-                  }
-                </Text>
-              </TouchableOpacity>
-            </View>
+        <View style={styles.scrollContent}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: moderateScale(20) }}>
+            <Text style={styles.sectionTitle}>Accommodations</Text>
+            <TouchableOpacity style={{ flexDirection: 'row', gap: 5 }} onPress={handleOpenAdd}>
+              <MaterialIcons name="add" size={moderateScale(18)} color={Colors.primary} />
+              <Text style={styles.newEntryButton}>Add Stay</Text>
+            </TouchableOpacity>
           </View>
 
-          <TouchableOpacity 
-            style={[styles.premiumSubmitButton, (!stayForm.title || !stayForm.address) && styles.premiumSubmitDisabled]} 
-            disabled={!stayForm.title || !stayForm.address}
-            onPress={handleSaveStay}
-          >
-            {/* NEW: Dynamic Button Text */}
-            <Text style={styles.premiumSubmitText}>
-              {stayForm.id ? 'Update Stay' : 'Save Stay'}
+          {isLoading ? (
+            <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
+          ) : staysData.length === 0 ? (
+            <Text style={{ textAlign: 'center', color: Colors.gray, marginTop: 20 }}>No accommodations booked yet.</Text>
+          ) : (
+            staysData.map(stay => (
+              <StayCard 
+                 key={stay.accommodation_id} 
+                 stay={stay} 
+                 onEdit={handleOpenEdit} 
+                 onDelete={handleDeletePress} 
+              />
+            ))
+          )}
+        </View>
+      </TripInfoScrollView>
+
+      {/* FIX: Moved Bottom Sheet as a sibling to the ScrollView to prevent gesture capture issues */}
+      <AnimatedBottomSheet visible={isModalVisible} onClose={() => setModalVisible(false)}>
+        {/* FIX: Added KeyboardAvoidingView to ensure inputs don't get covered by the keyboard */}
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <View style={styles.sheetHeader}>
+            <Text style={styles.sheetTitle}>
+              {stayForm.id ? 'Edit Accommodation' : 'Add Accommodation'}
             </Text>
-          </TouchableOpacity>
-        </ScrollView>
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
+              <MaterialIcons name="close" size={22} color="#0f172a" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+            <TextInput 
+              style={styles.premiumTitleInput} 
+              placeholder="Name of Hotel, Airbnb..." 
+              placeholderTextColor="#94a3b8"
+              value={stayForm.title}
+              onChangeText={(text) => setStayForm({...stayForm, title: text})}
+            />
+
+            <View style={styles.inputSection}>
+              <Text style={styles.sectionLabel}>ADDRESS</Text>
+              <TextInput 
+                style={styles.standardInput} 
+                placeholder="123 Main St, City, Country" 
+                placeholderTextColor="#94a3b8"
+                value={stayForm.address}
+                onChangeText={(text) => setStayForm({...stayForm, address: text})}
+              />
+            </View>
+
+            <View style={styles.rowSection}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={styles.sectionLabel}>CHECK IN</Text>
+                <TouchableOpacity style={styles.dateSelector} onPress={() => showDatePicker('checkIn')}>
+                  <MaterialIcons name="calendar-today" size={16} color={stayForm.checkIn ? Colors.darkBlue : '#94a3b8'} />
+                  {/* FIX: Used formatSelectedDate helper for Android Hermes compatibility */}
+                  <Text style={stayForm.checkIn ? styles.dateSelectorText : styles.dateSelectorPlaceholder}>
+                    {stayForm.checkIn ? formatSelectedDate(stayForm.checkIn) : 'Select date & time'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ flex: 1, paddingLeft: 8 }}>
+                <Text style={styles.sectionLabel}>CHECK OUT</Text>
+                <TouchableOpacity style={styles.dateSelector} onPress={() => showDatePicker('checkOut')}>
+                  <MaterialIcons name="calendar-today" size={16} color={stayForm.checkOut ? Colors.darkBlue : '#94a3b8'} />
+                  {/* FIX: Used formatSelectedDate helper for Android Hermes compatibility */}
+                  <Text style={stayForm.checkOut ? styles.dateSelectorText : styles.dateSelectorPlaceholder}>
+                    {stayForm.checkOut ? formatSelectedDate(stayForm.checkOut) : 'Select date & time'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.premiumSubmitButton, (!stayForm.title || !stayForm.address) && styles.premiumSubmitDisabled]} 
+              disabled={!stayForm.title || !stayForm.address}
+              onPress={handleSaveStay}
+            >
+              <Text style={styles.premiumSubmitText}>
+                {stayForm.id ? 'Update Stay' : 'Save Stay'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
 
         <DateTimePickerModal
           isVisible={isDatePickerVisible}
@@ -277,7 +391,7 @@ export default function Stays() {
           themeVariant="dark" 
         />
       </AnimatedBottomSheet>
-    </TripInfoScrollView>
+    </View>
   );
 }
 
@@ -288,31 +402,26 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scrollContent: { padding: '5%' },
   
-  // Headers & Text
   sectionTitle: { fontSize: moderateScale(16), fontWeight: '700', color: Colors.darkBlue },
   newEntryButton: { fontSize: moderateScale(14), color: Colors.primary, fontWeight: '600' },
   
-  // Cards
   cardShadow: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5, marginBottom: 25 },
   cardContainer: { backgroundColor: '#ffffff', borderRadius: 20, overflow: 'hidden', width: '100%' },
   cardImage: { height: 140 },
   cardContent: { paddingVertical: 20, paddingHorizontal: 15 },
   stayName: { fontSize: moderateScale(16), fontWeight: '600', color: Colors.darkBlue, marginBottom: 5 },
   
-  // Address & Details
   addressRow: { width: '100%', flexDirection: 'row', gap: 5, marginBottom: 10, backgroundColor: Colors.lightGray, padding: 10, borderRadius: 4, alignSelf: 'flex-start', alignItems: 'center', marginTop: 10 },
   addressText: { flex: 1, fontSize: moderateScale(11), color: Colors.gray, fontWeight: '500' },
   divider: { height: 2, backgroundColor: Colors.lightGray, width: '100%', marginTop: 10 },
   dateLabel: { fontSize: moderateScale(10), color: Colors.gray, fontWeight: '700' },
   dateValue: { fontSize: moderateScale(14), color: Colors.darkBlue, fontWeight: '700' },
   
-  // Buttons & Menus
   directionsButton: { width: '100%', flexDirection: 'row', paddingVertical: 10, backgroundColor: Colors.darkBlue, alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 10, alignSelf: 'center', marginTop: 20},
   directionsButtonText: { fontSize: moderateScale(14), color: '#ffffff', fontWeight: '600' },
   menuTriggerBlur: { padding: 5, backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 25, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   menuOptionsContainer: { borderRadius: 10, padding: 5, width: 120, marginTop: 40 },
 
-  // --- PREMIUM BOTTOM SHEET FORM STYLES ---
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   sheetTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
   closeButton: { backgroundColor: '#f1f5f9', padding: 6, borderRadius: 16 },

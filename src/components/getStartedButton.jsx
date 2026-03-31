@@ -1,39 +1,29 @@
-import { useRouter } from 'expo-router';
-import { Pressable, Text, StyleSheet } from 'react-native';
-import { Colors } from "@/src/constants/colors"
-import { getIsLoggedIn } from "@/src/utils/auth";
+import { Colors } from "@/src/constants/colors";
+import { useAuth } from "@/src/context/AuthContext";
+import { useRouter } from "expo-router";
+import { Pressable, StyleSheet, Text } from "react-native";
 
-export default function GetStartedButton() {
+export default function GetStartedButton({ onPress }) {
   const router = useRouter();
-
-  async function handlePress() {
-    const loggedIn = await getIsLoggedIn();
-    if (loggedIn) {
-      router.replace({pathname: "/home"}); // go to main app and prevent back to welcome
-    } else {
-      router.push({pathname: "/sign-in"});
-    }
-  }
+  const { user, loading } = useAuth();
 
   return (
-    <Pressable
-        onPress = {handlePress}
-        style = {styles.button}
-    >
-        <Text style={styles.text}>Get Started</Text>
+    <Pressable onPress={onPress} style={styles.button} disabled={loading}>
+      <Text style={styles.text}>{loading ? "Loading..." : "Get Started"}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  button: {  
+  button: {
     backgroundColor: Colors.primary,
     padding: 15,
     paddingHorizontal: 70,
     margin: 15,
-    borderRadius: 20
+    borderRadius: 20,
+    opacity: 1,
   },
   text: {
-    fontSize: 20
+    fontSize: 20,
   },
 });

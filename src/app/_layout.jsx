@@ -1,33 +1,51 @@
-import { getIsLoggedIn } from "@/src/utils/auth";
+import { AuthProvider, useAuth } from "@/src/context/AuthContext";
+import { TripDraftProvider } from "@/src/context/TripDraftContext";
 import { Stack } from "expo-router";
-import { Platform, UIManager } from "react-native";
+import React from "react";
 import { MenuProvider } from "react-native-popup-menu";
 
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
+function RootNavigator() {
+  // 1. Consume the context here, inside the provider!
+  const { user, loading } = useAuth();
+
+  // 2. Handle the loading state here before rendering the Stack
+  if (loading) return null;
+
+  const isLoggedIn = !!user;
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      {/* index route */}
+      {/* <Stack.Screen name="index" /> */}
+
+      <Stack.Protected guard={isLoggedIn}>
+        <Stack.Screen name="(tabs)" />
+
+        <Stack.Screen
+          name="(add-trips)"
+          options={{ presentation: "modal" }}
+        />
+
+        <Stack.Screen name="(trip-info)/[tripId]" />
+        <Stack.Screen name="settings" />
+      </Stack.Protected>
+
+      <Stack.Protected guard={!isLoggedIn}>
+        <Stack.Screen name="index" />
+      </Stack.Protected>
+    </Stack>
+  );
 }
-const isLoggedIn = getIsLoggedIn(); // Replace with actual authentication logic
 
 export default function RootLayout() {
   return (
+    // 3. RootLayout solely handles wrapping the app in Providers now
     <MenuProvider>
-      <Stack>
-
-        {/* Make the root index route the welcome screen */}
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        
-        <Stack.Protected guard={isLoggedIn}>
-          <Stack.Screen name="(tabs)"  options={{ headerShown: false }}/>
-          <Stack.Screen name="(add-trips)" options={{ headerShown: false, presentation: "modal", title: "Modal" }}/>
-          <Stack.Screen name="(trip-info)/[tripId]" options={{ headerShown: false }}/>
-        </Stack.Protected>
-
-        <Stack.Protected guard={!isLoggedIn}>
-          <Stack.Screen name="sign-in" options={{headerShown: false}}/>
-          <Stack.Screen name="sign-up" options={{headerShown: false}}/>
-        </Stack.Protected>
-        
-      </Stack>
+      <AuthProvider>
+        <TripDraftProvider>
+          <RootNavigator />
+        </TripDraftProvider>
+      </AuthProvider>
     </MenuProvider>
   );
 }

@@ -96,6 +96,47 @@ const DateUtils = {
         const dd = String(date.getDate()).padStart(2, '0');
         const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         return `${mm}/${dd} ${time}`;
+    },
+
+    calculateDaysUntil: (targetDateString) => {
+        if (!targetDateString) return 0;
+        const targetDate = new Date(targetDateString);
+        const today = new Date();
+        
+        // Calculate the difference in milliseconds, then convert to days
+        const diffTime = targetDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        return diffDays > 0 ? diffDays : 0; // Return 0 if the trip already passed
+    },
+
+    getDatesBetween(startDateStr, endDateStr) {
+        const dates = [];
+        
+        // 1. Split the "YYYY-MM-DD" strings into mathable numbers
+        const [startYear, startMonth, startDay] = startDateStr.split('-');
+        const [endYear, endMonth, endDay] = endDateStr.split('-');
+
+        // 2. Use the local time constructor: new Date(year, monthIndex, day)
+        // Note: monthIndex is 0-based, so we must subtract 1 from the month!
+        let currentDate = new Date(startYear, startMonth - 1, startDay);
+        const end = new Date(endYear, endMonth - 1, endDay);
+
+        // Normalize hours just to be perfectly safe
+        currentDate.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+
+        while (currentDate <= end) {
+            const yyyy = currentDate.getFullYear();
+            const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const dd = String(currentDate.getDate()).padStart(2, '0');
+            
+            dates.push(`${yyyy}-${mm}-${dd}`);
+            
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        return dates;
     }
 };
 

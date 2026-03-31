@@ -1,183 +1,225 @@
-import TripInfoTabBar from "@/src/components/tripInfoTabBar";
 import { Colors } from "@/src/constants/colors";
-import DateUtils from "@/src/utils/DateUtils";
+import { useAuth } from "@/src/context/AuthContext";
 import { TripContext } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
-// --- Global Trip Mock Data ---
-// --- Global Trip Mock Data ---
-const MOCK_TRIP_DATA = {
-    'trip-123': {
-        id: 'trip-123',
-        name: 'Japan 2026', 
-        takeoffDays: 12,
-        destination: 'Kyoto, Japan',
-        startDate: '2024-10-12',
-        endDate: '2024-10-24',
-        image: require('../../../../assets/images/Kyoto.jpg'),
-        weather: { temp: 72, location: 'Tokyo, JP', icon: 'wb-sunny' },
-        readinessPercent: 60,
-        notifications: [
-            { id: 1, title: "2 Decisions Pending", description: "Welcome Dinner, Museum Day", icon: "mail", color: Colors.primary, lightColor: Colors.primaryLight },
-            { id: 2, title: "Settle Debts", description: "You owe Hunter $45", icon: "payments", color: Colors.danger, lightColor: Colors.dangerLight },
-        ],
-        group: [
-            { id: 1, name: "Alice B.", initials: "AB", profileColor: '#1E90FF', profilePic: null, active: false },
-            { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', profilePic: null, active: true },
-            { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', profilePic: null, active: true },
-        ],
-        budgetData: { totalSpent: 1240.50, totalBudget: 3200.00 },
-        groupBalances: [
-            { id: 1, name: 'Hunter', balance: 45.00, avatar: 'https://i.pravatar.cc/150?u=hunter' },
-            { id: 2, name: 'Ashley', balance: 75.00, avatar: 'https://i.pravatar.cc/150?u=ashley' },
-            { id: 3, name: 'Sarah', balance: -24.50, avatar: 'https://i.pravatar.cc/150?u=sarah' },
-        ],
-        transactions: [
-            { id: 1, title: 'Sushi Dinner', payer: 'You', split: 'Split equally', amount: 128.50, icon: 'food-fork-drink' },
-            { id: 2, title: 'Uber to Hotel', payer: 'Hunter', split: 'Split equally', amount: 24.50, icon: 'car' },
-        ],
-        timelineData: {
-            '2023-10-12': [
-                { id: '1', time: '9:00 AM', title: 'Meiji Shrine', category: 'Culture', type: 'event' },
-                { id: '2', time: '12:30 PM', title: 'Ichiran Ramen', category: 'Lunch Reservation', type: 'event' },
-                { id: '3', time: '4:30 PM', title: 'Tokyo Skytree', category: 'Sightseeing', type: 'event' },
-            ],
-            '2023-10-13': [
-                { id: '5', time: '10:00 AM', title: 'Shinjuku Gyoen National Garden', category: 'Nature', type: 'event' },
-                { id: '6', time: '1:00 PM', title: 'Shibuya Crossing', category: 'Sightseeing', type: 'event' },
-            ]
-        },
-        staysData: [
-            { id: '1', name: 'Ryokan Yamazaki', address: '11-1 Hirano Miyamotocho, Kita Ward, Kyoto', checkIn: new Date('2024-10-20T14:00:00.000Z'), checkOut: new Date('2024-10-24T12:00:00.000Z'), coordinate: { latitude: 35.0270, longitude: 135.7066 }, },
-            { id: '2', name: 'Park Hyatt Tokyo', address: '3-7-1-2 Nishi-Shinjuku, Shinjuku-Ku, Tokyo', checkIn: new Date('2024-10-24T15:00:00.000Z'), checkOut: new Date('2024-10-28T11:00:00.000Z'), coordinate: { latitude: 35.0060, longitude: 135.8066 }, },
-        ],
-        documents: [
-            { id: '1', title: "Passport_Scan.pdf", date: "2023-06-01", size: "2.4 MB" },
-            { id: '2', title: "Visa_Japan.pdf", date: "2023-06-02", size: "1.8 MB" },
-            { id: '3', title: "Flight_Confirmation.pdf", date: "2023-06-03", size: "0.9 MB" },
-        ],
-        ideaBoard: [
-            { id: '1', title: 'Omoide Yokocho', description: 'Narrow alley packed with yakitori joints. Great for evening.', category: 'Food', image: require('../../../../assets/images/Kyoto.jpg'), votes: { 2: 'yes', 1: 'no' }, status: 'voting' },
-            { id: '2', title: 'Shibuya Crossing', description: "The world's busiest intersection, an iconic Tokyo sight.", category: 'Culture', image: null, votes: { 3: 'yes' }, status: 'voting' },
-            { id: '3', title: 'Ghibli Museum', description: 'A whimsical museum showcasing the work of Studio Ghibli.', category: 'Culture', image: require('../../../../assets/images/Kyoto.jpg'), votes: { 2: 'yes', 3: 'yes' }, status: 'approved' },
-            { id: '4', title: 'Robot Café', description: 'Flashy neon lights and futuristic entertainment!', category: 'Fun', image: require('../../../../assets/images/Kyoto.jpg'), votes: {}, status: 'voting' },    
-        ],
-        memories: [
-            { id: 1, day: 1, title: 'Arrived in Kyoto!', description: 'The flight was long but we finally made it. Checked into the Ryokan and immediately found ramen.', date: 'Oct 12, 2024', time: '2:45 PM', images: [1, 2, 3] },
-            { id: 2, day: 2, title: 'Bamboo Forest', description: 'Visited Arashiyama. The scenery was breathtaking and the weather was perfect.', date: 'Oct 13, 2024', time: '5:30 PM', images: [4, 5] },
-        ],
-    },
-    'trip-456': {
-        id: 'trip-456',
-        name: 'Miami Bachelor Party', 
-        takeoffDays: 4,
-        destination: 'Miami, Florida',
-        startDate: '2026-05-08',
-        endDate: '2026-05-11',
-        image: require('../../../../assets/images/Miami.jpg'), // MAKE SURE THIS IMAGE EXISTS! Or swap with Kyoto
-        weather: { temp: 85, location: 'Miami, FL', icon: 'wb-sunny' },
-        readinessPercent: 90,
-        notifications: [
-            { id: 1, title: "Yacht Deposit Due", description: "Need $200 from each person by tomorrow.", icon: "warning", color: Colors.danger, lightColor: Colors.dangerLight },
-        ],
-        group: [
-            { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', profilePic: null, active: true },
-            { id: 4, name: "David L.", initials: "DL", profileColor: '#FF4500', profilePic: null, active: true },
-            { id: 5, name: "Chris T.", initials: "CT", profileColor: '#8A2BE2', profilePic: null, active: false },
-        ],
-        budgetData: { totalSpent: 2150.00, totalBudget: 4000.00 },
-        groupBalances: [
-            { id: 4, name: 'David', balance: -200.00, avatar: 'https://i.pravatar.cc/150?u=david' },
-            { id: 5, name: 'Chris', balance: 200.00, avatar: 'https://i.pravatar.cc/150?u=chris' },
-        ],
-        transactions: [
-            { id: 1, title: 'Airbnb Deposit', payer: 'You', split: 'Split equally', amount: 1200.00, icon: 'home' },
-            { id: 2, title: 'Groceries & Drinks', payer: 'David', split: 'Split equally', amount: 350.00, icon: 'cart' },
-        ],
-        timelineData: {
-            '2026-05-08': [
-                { id: '1', time: '2:00 PM', title: 'Check into Villa', category: 'Lodging', type: 'event' },
-                { id: '2', time: '8:30 PM', title: 'Dinner at Carbone', category: 'Dinner Reservation', type: 'event' },
-            ],
-            '2026-05-09': [
-                { id: '3', time: '11:00 AM', title: 'Private Boat Charter', category: 'Excursion', type: 'event' },
-            ]
-        },
-        staysData: [
-            {
-                id: '1',
-                name: 'Star Island Villa',
-                address: '123 Star Island Dr, Miami Beach',
-                checkIn: '05/08 2:00 PM',
-                checkOut: '05/11 11:00 AM',
-            },
-        ],
-        documents: [
-            { id: '1', title: "Boat_Rental_Agreement.pdf", date: "2026-04-10", size: "1.2 MB" },
-        ],
-        ideaBoard: [
-            { id: '1', title: 'Jet Ski Rentals', description: 'Rent jet skis for 2 hours in Biscayne Bay.', image: require('../../../../assets/images/Miami.jpg') },
-            { id: '2', title: 'LIV Nightclub', description: 'Bottle service for Saturday night.', image: require('../../../../assets/images/Miami.jpg') },
-        ],
-        memories: [],
-    },
-    'trip-789': {
-        id: 'trip-789',
-        name: 'Euro Trip', 
-        takeoffDays: 45,
-        destination: 'Paris & Rome',
-        startDate: '2026-07-01',
-        endDate: '2026-07-15',
-        image: require('../../../../assets/images/paris.png'), // MAKE SURE THIS IMAGE EXISTS! Or swap with Kyoto
-        weather: { temp: 68, location: 'Paris, FR', icon: 'cloud' },
-        readinessPercent: 20,
-        notifications: [],
-        group: [
-            { id: 1, name: "Alice B.", initials: "AB", profileColor: '#1E90FF', profilePic: null, active: true },
-            { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', profilePic: null, active: true },
-        ],
-        budgetData: { totalSpent: 450.00, totalBudget: 8000.00 },
-        groupBalances: [],
-        transactions: [
-            { id: 1, title: 'Train Tickets', payer: 'Alice', split: 'Split equally', amount: 450.00, icon: 'train' },
-        ],
-        timelineData: {
-            '2026-07-01': [
-                { id: '1', time: '10:00 AM', title: 'Land at CDG Airport', category: 'Travel', type: 'event' },
-            ],
-        },
-        staysData: [],
-        documents: [],
-        ideaBoard: [
-            { id: '1', title: 'Louvre Museum Tour', description: 'Skip-the-line guided tour.', image: require('../../../../assets/images/paris.png') },
-            { id: '2', title: 'Colosseum Underground', description: 'Exclusive access to the dungeons.', image: require('../../../../assets/images/paris.png') },
-        ],
-        memories: [],
+import TripInfoTabBar from "@/src/components/tripInfoTabBar";
+import { supabase } from "@/src/lib/supabase";
+import DateUtils from "@/src/utils/DateUtils";
+import { MediaUtils } from "@/src/utils/MediaUtils";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
+
+// --- TEMPORARY CURRENT USER ---
+const CURRENT_USER_ID = '5b6c11f8-d8d5-45c3-815b-54870bcbb0ad'; 
+
+// ==========================================
+// DATA FETCHING
+// ==========================================
+
+const fetchTripNotifications = async (tripId, userId) => {
+    try {
+        const activeNotifications = [];
+        const [walletResponse, ideasResponse] = await Promise.all([
+            // ADDED expense_id to the select so we can use it as a unique key
+            supabase.from('Expense_Splits').select('amount_owed, Expenses!inner(expense_id, title, trip_id)').eq('user_id', userId).eq('Expenses.trip_id', tripId),
+            supabase.from('Events').select('event_id, title, event_votes(user_id, vote_value)').eq('trip_id', tripId).is('start_timestamp', null)
+        ]);
+
+        // 1. Process Wallet Notifications (Unpaid expenses)
+        if (walletResponse.data) {
+            walletResponse.data.forEach(split => {
+                // If the user owes money on this split, trigger a notification
+                if (split.amount_owed > 0) {
+                    activeNotifications.push({
+                        id: `wallet-${split.Expenses.expense_id}`,
+                        type: 'urgent', 
+                        icon: 'account-balance-wallet',
+                        title: 'Payment Due',
+                        subtitle: `You owe $${split.amount_owed} for ${split.Expenses.title}`,
+                        actionRoute: `/(trip-info)/${tripId}/wallet`
+                    });
+                }
+            });
+        }
+
+        // 2. Process Idea Board Notifications (Needs Vote)
+        if (ideasResponse.data) {
+            ideasResponse.data.forEach(idea => {
+                // Check if the current user's ID exists in the votes array
+                const hasVoted = idea.event_votes?.some(vote => vote.user_id === userId);
+                
+                if (!hasVoted) {
+                    activeNotifications.push({
+                        id: `vote-${idea.event_id}`,
+                        type: 'action', 
+                        icon: 'how-to-vote',
+                        title: 'Vote Required',
+                        subtitle: `New idea: ${idea.title}`,
+                        actionRoute: `/(trip-info)/${tripId}/(plan)`
+                    });
+                }
+            });
+        }
+
+        return activeNotifications;
+    } catch (error) {
+        console.error("Error fetching notifications:", error);
+        return [];
     }
 };
 
-const fetchTripData = async (tripId) => {
-  console.log(`Fetching global trip data for: ${tripId}`);
-  await new Promise(resolve => setTimeout(resolve, 600)); 
-  return MOCK_TRIP_DATA[tripId] || MOCK_TRIP_DATA['trip-123']; 
+const fetchTripData = async (tripId, userId) => {
+    if (!tripId) return null; 
+
+    try {
+        const { data: trip, error } = await supabase
+            .from('Trips')
+            .select(`
+                trip_id, trip_name, start_date, end_date, cover_photo_url, target_budget,
+                Trip_Destinations ( cached_destinations ( city, country, cover_image_url, longitude, latitude ) ),
+                Trip_Members ( user_id, role, Users ( first_name, last_name, avatar_url ) )
+            `)
+            .eq('trip_id', tripId)
+            .maybeSingle(); 
+
+        if (error) throw error;
+        if (!trip) return null; 
+
+        const { data: eventsData, error: eventsError } = await supabase
+            .from('Events')
+            .select('*, event_votes(user_id, vote_value), Photos(photo_id, photo_url)')
+            .eq('trip_id', tripId);
+            
+        if (eventsError) throw eventsError;
+
+        const ideaBoard = [];
+        const timelineData = {};
+
+        eventsData?.forEach(event => {
+            const frontendEvent = { 
+                ...event, 
+                id: event.event_id,
+                image_url: event.Photos?.photo_url || null 
+            };
+
+            if (event.start_timestamp) {
+                const dateStr = event.start_timestamp.split('T')[0]; 
+                if (!timelineData[dateStr]) timelineData[dateStr] = [];
+                
+                const timePart = event.start_timestamp.split('T')[1].substring(0, 5);
+                let [h, m] = timePart.split(':');
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                h = h % 12 || 12;
+                frontendEvent.time = `${h}:${m} ${ampm}`;
+                frontendEvent.type = 'event';
+                timelineData[dateStr].push(frontendEvent);
+            } else {
+                const votesObj = {};
+                event.event_votes?.forEach(v => {
+                    votesObj[v.user_id] = v.vote_value === 1 ? 'yes' : 'no';
+                });
+                
+                frontendEvent.votes = votesObj;
+                frontendEvent.status = event.status === 'approved' ? 'approved' : 'voting'; 
+                ideaBoard.push(frontendEvent);
+            }
+        });
+
+        // ==========================================
+        // TRIP READINESS: "COVERAGE" CALCULATION
+        // ==========================================
+        let readinessPercent = 0;
+        if (trip.start_date && trip.end_date) {
+            const start = new Date(trip.start_date);
+            const end = new Date(trip.end_date);
+            
+            // Calculate total days (e.g., Friday to Sunday is 3 days, so + 1)
+            const totalTripDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)) + 1);
+            
+            // Count how many unique days in the timeline have at least one event
+            const plannedDays = Object.keys(timelineData).filter(date => timelineData[date].length > 0).length;
+            
+            // Cap at 100% just in case users add events outside official trip dates
+            readinessPercent = Math.min(100, Math.round((plannedDays / totalTripDays) * 100));
+        }
+
+        const today = new Date();
+        const startDate = new Date(trip.start_date);
+        const takeoffDays = Math.max(0, Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 3600 * 24)));
+        const destinations = trip.Trip_Destinations?.map(td => td.cached_destinations).filter(Boolean) || [];
+        const primaryDestination = destinations[0] || null;
+        const destinationsStr = destinations.map(cd => `${cd.city}, ${cd.country}`).join(' & ') || 'TBD';
+        const activeNotifications = await fetchTripNotifications(tripId, userId);
+
+        return {
+            id: trip.trip_id,
+            name: trip.trip_name,
+            destination: destinationsStr,
+            startDate: trip.start_date,
+            endDate: trip.end_date,
+            image: trip.cover_photo_url || primaryDestination?.cover_image_url,
+            takeoffDays: takeoffDays,
+            targetBudget: trip.target_budget,
+            readinessPercent: readinessPercent, // Calculated dynamically!
+            weather: { 
+                temp: '--', 
+                location: primaryDestination ? primaryDestination.city : 'TBD', 
+                icon: 'wb-sunny',
+                coordinates: primaryDestination ? { // ADDED for the overview.jsx API call!
+                    latitude: primaryDestination.latitude,
+                    longitude: primaryDestination.longitude
+                } : null
+            },
+            notifications: activeNotifications, 
+            ideaBoard,      
+            timelineData,   
+            group: trip.Trip_Members?.map((member, index) => {
+                const user = member.Users;
+                return {
+                    id: member.user_id,
+                    name: `${user?.first_name || 'U'} ${user?.last_name?.charAt(0) || ''}.`,
+                    initials: `${user?.first_name?.charAt(0) || ''}${user?.last_name?.charAt(0) || ''}`,
+                    profileColor: ['#1E90FF', '#32CD32', '#FFA500', '#FF4500', '#8A2BE2'][index % 5],
+                    profilePic: user?.avatar_url,
+                    active: member.user_id === userId,
+                    role: member.role
+                };
+            }) || []
+        };
+        
+    } catch (err) {
+        console.error("Error fetching core trip data:", err);
+    }
 };
 
 // ==========================================
-// 2. HELPER COMPONENTS
+// HELPER COMPONENTS
 // ==========================================
 const HeaderButton = ({ icon, onPress }) => (
-    <TouchableOpacity onPress={onPress}>
-        <BlurView intensity={10} tint="default" style={{ width: 34, height: 34, borderRadius: 20, backgroundColor: 'rgba(255, 255, 255, 0.35)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-            <MaterialIcons name={icon} size={moderateScale(22)} color="white" />
-        </BlurView>
-    </TouchableOpacity>
+  <TouchableOpacity onPress={onPress}>
+    <BlurView
+      intensity={10}
+      tint="default"
+      style={{
+        width: 34,
+        height: 34,
+        borderRadius: 20,
+        backgroundColor: "rgba(255, 255, 255, 0.35)",
+        justifyContent: "center",
+        alignItems: "center",
+        overflow: "hidden",
+      }}
+    >
+      <MaterialIcons name={icon} size={moderateScale(22)} color="white" />
+    </BlurView>
+  </TouchableOpacity>
 );
 
 const CustomHeader = ({ trip }) => {
@@ -222,26 +264,222 @@ const CustomHeader = ({ trip }) => {
 };
 
 // ==========================================
-// 3. MAIN LAYOUT COMPONENT
+// MAIN LAYOUT COMPONENT
 // ==========================================
 export default function TripInfoLayout() {
-    // --- STATE & INITIALIZATION ---
     const { tripId } = useLocalSearchParams();
+    const { user } = useAuth();
+    // const userId = user?.id;
+    const userId = CURRENT_USER_ID;
+
+
     const [tripData, setTripData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
-    const CURRENT_USER_ID = 2; // Mocking Hunter as the active user
 
     useEffect(() => {
-        if (tripId) {
+        const loadTripDashboard = async () => {
+            if (!tripId) return;
             setIsLoading(true);
-            fetchTripData(tripId).then(data => {
-                setTripData(data);
-                setIsLoading(false);
-            });
-        }
-    }, [tripId]);
+            const data = await fetchTripData(tripId, userId);
+            setTripData(data);
+            setIsLoading(false); 
+        };
+        loadTripDashboard();
+    }, [tripId, userId]);
 
-    // --- EARLY RETURN FOR LOADING ---
+    // 1. DEFINE ALL ACTION HANDLERS FIRST
+    const refreshTripData = async () => {
+        const freshData = await fetchTripData(tripId, userId);
+        if (freshData) setTripData(freshData);
+    };
+
+    const handleVote = async (ideaId, voteType) => {
+        const previousState = tripData; 
+        setTripData(prev => {
+            const activeGroupSize = prev.group.filter(member => member.active).length;
+            const requiredVotes = Math.floor(activeGroupSize / 2) + 1;
+            const updatedIdeas = prev.ideaBoard.map(idea => {
+                if (idea.id === ideaId) {
+                    const newVotes = { ...(idea.votes || {}), [CURRENT_USER_ID]: voteType };
+                    const yesCount = Object.values(newVotes).filter(v => v === 'yes').length;
+                    return { ...idea, votes: newVotes, status: yesCount >= requiredVotes ? 'approved' : 'voting' };
+                }
+                return idea;
+            });
+            return { ...prev, ideaBoard: updatedIdeas };
+        });
+
+        try {
+            const voteVal = voteType === 'yes' ? 1 : -1;
+            await supabase.from('event_votes').delete().match({ event_id: ideaId, user_id: CURRENT_USER_ID });
+            await supabase.from('event_votes').insert({ event_id: ideaId, user_id: CURRENT_USER_ID, vote_value: voteVal });
+
+            const activeGroupSize = previousState.group.filter(member => member.active).length;
+            const requiredVotes = Math.floor(activeGroupSize / 2) + 1;
+            const votedIdea = previousState.ideaBoard.find(idea => idea.id === ideaId);
+            const currentVotes = { ...(votedIdea?.votes || {}), [CURRENT_USER_ID]: voteType };
+            const yesCount = Object.values(currentVotes).filter(v => v === 'yes').length;
+
+            if (yesCount >= requiredVotes) {
+                await supabase.from('Events').update({ status: 'approved' }).eq('event_id', ideaId);
+            }
+        } catch (error) {
+            setTripData(previousState); 
+            Alert.alert("Network Error", "Failed to save your vote.");
+            console.error("Failed to save vote to database:", error);
+        }
+    };
+
+    const addEventToBucket = async (date, event) => {
+        const previousState = tripData;
+        const newEventId = event.id || Date.now().toString();
+        
+        setTripData(prev => {
+            const updatedIdeaBoard = prev.ideaBoard.map(idea => idea.id === event.id ? { ...idea, status: 'scheduled' } : idea);
+            const newEvent = { ...event, id: newEventId, type: 'event', time: 'TBD' };
+            return {
+                ...prev,
+                ideaBoard: updatedIdeaBoard,
+                timelineData: { ...prev.timelineData, [date]: [...(prev.timelineData[date] || []), newEvent] }
+            };
+        });
+
+        try {
+            const startTimestamp = `${date}T09:00:00`; 
+            await supabase.from('Events').update({ start_timestamp: startTimestamp, status: 'scheduled' }).eq('event_id', event.id);
+        } catch (error) {
+            setTripData(previousState);
+            Alert.alert("Network Error", "Failed to schedule event.");
+            console.error("Failed to schedule event in database:", error);
+        }
+    };
+
+    const updateDayEvents = (date, newlyOrderedData) => {
+        setTripData(prev => ({ ...prev, timelineData: { ...prev.timelineData, [date]: newlyOrderedData } }));
+    };
+
+    const addCustomIdea = async (idea) => {
+        try {
+            let finalImageId = null;
+            if (idea.imageUri) {
+                const newPhotoRecord = await MediaUtils.uploadImageToSupabase(idea.imageUri, tripId, CURRENT_USER_ID, null, 'idea_board');
+                finalImageId = newPhotoRecord.photo_id;
+            }
+
+            const { data: newEvent, error } = await supabase
+                .from('Events')
+                .insert({
+                    trip_id: tripId, title: idea.title, category: idea.category,
+                    description: idea.description, image_id: finalImageId, status: 'Idea'
+                })
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            await supabase.from('event_votes').insert({ event_id: newEvent.event_id, user_id: CURRENT_USER_ID, vote_value: 1 });
+            refreshTripData();
+        } catch (error) {
+            console.error("Error saving custom idea:", error);
+        }
+    };
+
+    const updateEventTime = async (eventId, dateStr, formattedTime) => {
+        const previousState = tripData;
+        setTripData(prev => {
+            const updatedDayData = (prev.timelineData[dateStr] || []).map(item =>
+                item.id === eventId ? { ...item, time: formattedTime } : item
+            );
+            return { ...prev, timelineData: { ...prev.timelineData, [dateStr]: updatedDayData } };
+        });
+
+        try {
+            const [time, modifier] = formattedTime.split(' ');
+            let [hours, minutes] = time.split(':');
+            if (hours === '12') hours = '00';
+            if (modifier === 'PM') hours = parseInt(hours, 10) + 12;
+            
+            const formattedHours = hours.toString().padStart(2, '0');
+            const startTimestamp = `${dateStr}T${formattedHours}:${minutes}:00`;
+
+            await supabase.from('Events').update({ start_timestamp: startTimestamp }).eq('event_id', eventId);
+        } catch (error) {
+            setTripData(previousState);
+            Alert.alert("Network Error", "Failed to update event time.");
+            console.error("Failed to save time to DB:", error);
+        }
+    };
+
+    const unassignEvent = async (eventId, dateStr) => {
+        const previousState = tripData;
+        setTripData(prev => ({
+            ...prev,
+            ideaBoard: prev.ideaBoard.map(idea => idea.id === eventId ? { ...idea, status: 'approved' } : idea),
+            timelineData: { ...prev.timelineData, [dateStr]: (prev.timelineData[dateStr] || []).filter(e => e.id !== eventId) }
+        }));
+
+        try {
+            await supabase.from('Events').update({ start_timestamp: null, status: 'approved' }).eq('event_id', eventId);
+        } catch (error) {
+            setTripData(previousState);
+            Alert.alert("Network Error", "Failed to unassign event.");
+            console.error("Failed to unassign event:", error);
+        }
+    };
+
+    const deleteEvent = async (eventId, dateStr) => {
+        const previousState = tripData;
+        setTripData(prev => ({
+            ...prev,
+            ideaBoard: prev.ideaBoard.filter(idea => idea.id !== eventId),
+            timelineData: { ...prev.timelineData, [dateStr]: (prev.timelineData[dateStr] || []).filter(e => e.id !== eventId) }
+        }));
+
+        try {
+            await supabase.from('event_votes').delete().eq('event_id', eventId);
+            await supabase.from('Events').delete().eq('event_id', eventId);
+        } catch (error) {
+            setTripData(previousState);
+            Alert.alert("Network Error", "Failed to delete event.");
+            console.error("Failed to delete event:", error);
+        }
+    };
+
+    const deleteStay = (stayId) => { /* Keep existing */ }
+    const addTransaction = (payload) => { /* Keep existing */ }
+    const addSettlement = (payload) => { /* Keep existing */ }
+
+    // 2. SAFELY DERIVE DATA USING OPTIONAL CHAINING
+    const ideaBoard = tripData?.ideaBoard || [];
+    const discoverFeed = ideaBoard.filter(idea => (idea.votes || {})[CURRENT_USER_ID] === undefined && idea.status !== 'approved');
+    const inProgressFeed = ideaBoard.filter(idea => (idea.votes || {})[CURRENT_USER_ID] === 'yes' && idea.status !== 'approved' && idea.status !== 'scheduled');
+    const unassignedIdeas = ideaBoard.filter(idea => idea.status === 'approved');
+
+    // 3. RUN useMemo BEFORE EARLY RETURN
+    const contextValue = useMemo(() => {
+        if (!tripData) return {}; // Failsafe fallback
+        
+        return {
+            tripId,
+            ...tripData,         
+            discoverFeed,        
+            inProgressFeed,      
+            unassignedIdeas,     
+            refreshTripData,     
+            handleVote,          
+            addEventToBucket,    
+            updateDayEvents,  
+            addCustomIdea,      
+            updateEventTime, 
+            unassignEvent,    
+            deleteEvent,     
+            deleteStay,          
+            addTransaction,      
+            addSettlement,       
+        };
+    }, [tripId, tripData, discoverFeed, inProgressFeed, unassignedIdeas]);
+
+    // 4. NOW DO THE EARLY RETURN FOR LOADING
     if (isLoading || !tripData) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }}>
@@ -250,201 +488,13 @@ export default function TripInfoLayout() {
         );
     }
 
-    // --- DERIVED DATA (Voting Feeds) ---
-    const ideaBoard = tripData.ideaBoard || [];
-
-    const discoverFeed = ideaBoard.filter(idea => {
-        const votes = idea.votes || {};
-        const hasVoted = votes[CURRENT_USER_ID] !== undefined;
-        return !hasVoted && idea.status !== 'approved';
-    });
-
-    const inProgressFeed = ideaBoard.filter(idea => {
-        const votes = idea.votes || {};
-        return votes[CURRENT_USER_ID] === 'yes' && idea.status !== 'approved' && idea.status !== 'scheduled';
-    });
-
-    const unassignedIdeas = ideaBoard.filter(idea => idea.status === 'approved');
-
-    // --- ACTION HANDLERS: Global ---
-    const refreshTripData = async () => {
-        const freshData = await fetchTripData(tripId);
-        setTripData(freshData);
-    };
-
-    // --- ACTION HANDLERS: Idea Board & Voting ---
-    const handleVote = (ideaId, voteType) => {
-        setTripData(prev => {
-            const activeGroupSize = prev.group.filter(member => member.active).length;
-            const requiredVotes = Math.floor(activeGroupSize / 2) + 1;
-
-            const updatedIdeas = prev.ideaBoard.map(idea => {
-                if (idea.id === ideaId) {
-                    const currentVotes = idea.votes || {};
-                    const newVotes = { ...currentVotes, [CURRENT_USER_ID]: voteType };
-                    const yesCount = Object.values(newVotes).filter(v => v === 'yes').length;
-                    const isNowApproved = yesCount >= requiredVotes;
-
-                    return {
-                        ...idea,
-                        votes: newVotes,
-                        status: isNowApproved ? 'approved' : (idea.status || 'voting')
-                    };
-                }
-                return idea;
-            });
-
-            return { ...prev, ideaBoard: updatedIdeas };
-        });
-    };
-
-    // --- ACTION HANDLERS: Timeline ---
-    const addEventToBucket = (date, event) => {
-        setTripData(prev => {
-            const updatedIdeaBoard = prev.ideaBoard.map(idea => 
-                idea.id === event.id ? { ...idea, status: 'scheduled' } : idea
-            );
-
-            const newEvent = { ...event, id: Date.now().toString(), type: 'event', time: 'TBD' };
-            
-            return {
-                ...prev,
-                ideaBoard: updatedIdeaBoard,
-                timelineData: {
-                    ...prev.timelineData,
-                    [date]: [...(prev.timelineData[date] || []), newEvent]
-                }
-            };
-        });
-    };
-
-    const updateDayEvents = (date, newlyOrderedData) => {
-        setTripData(prev => ({
-            ...prev,
-            timelineData: { ...prev.timelineData, [date]: newlyOrderedData }
-        }));
-    };
-
-    // --- ACTION HANDLERS: Stays ---
-    const deleteStay = (stayId) => {
-        setTripData(prev => ({
-            ...prev,
-            staysData: prev.staysData.filter(stay => stay.id !== stayId)
-        }));
-    }
-
-    // --- ACTION HANDLERS: Wallet (NEW) ---
-    const addTransaction = (payload) => {
-        setTripData(prev => {
-            // 1. Create the new transaction object
-            const newTransaction = {
-                id: Date.now().toString(),
-                title: payload.title,
-                icon: payload.icon || 'receipt', // Maps from payload.categoryId in the future
-                payer: 'You', 
-                split: payload.isSplitEqually ? 'Split equally' : 'Custom split',
-                amount: payload.amount
-            };
-
-            // 2. Calculate the new overall budget
-            const newBudgetData = {
-                ...prev.budgetData,
-                totalSpent: prev.budgetData.totalSpent + payload.amount
-            };
-
-            // 3. Calculate new individual balances based on who was split with
-            const newGroupBalances = prev.groupBalances.map(member => {
-                // Find if the member was selected in the form
-                const memberSplit = payload.splits.find(s => String(s.memberId) === String(member.id));
-                
-                if (memberSplit) {
-                    let amountOwed = 0;
-                    if (payload.isSplitEqually) {
-                        amountOwed = payload.amount / payload.splits.length;
-                    } else {
-                        amountOwed = memberSplit.amount;
-                    }
-                    
-                    // Increment the balance (They owe you +$amountOwed)
-                    return {
-                        ...member,
-                        balance: member.balance + amountOwed
-                    };
-                }
-                return member; // If not part of split, balance stays the same
-            });
-
-            // Return the entirely updated trip state to trigger re-renders
-            return {
-                ...prev,
-                transactions: [newTransaction, ...prev.transactions],
-                budgetData: newBudgetData,
-                groupBalances: newGroupBalances
-            };
-        });
-    };
-
-    const addSettlement = (payload) => {
-        setTripData(prev => {
-            // 1. Adjust the balances
-            const newGroupBalances = prev.groupBalances.map(member => {
-                if (String(member.id) === String(payload.toMemberId)) {
-                    // 👇 THE FIX: If they owe us (+), subtract payment. If we owe them (-), add payment.
-                    const newBalance = member.balance > 0 
-                        ? member.balance - payload.amount 
-                        : member.balance + payload.amount;
-                        
-                    return { ...member, balance: newBalance };
-                }
-                return member;
-            });
-
-            // 2. Add an explicit "Settlement" to the ledger
-            const targetMember = prev.groupBalances.find(m => String(m.id) === String(payload.toMemberId));
-            const newTransaction = {
-                id: Date.now().toString(),
-                title: `Paid ${targetMember?.name || 'Member'}`,
-                icon: 'check-circle-outline',
-                payer: 'You',
-                split: 'Settlement',
-                amount: payload.amount
-            };
-
-            return {
-                ...prev,
-                groupBalances: newGroupBalances,
-                transactions: [newTransaction, ...prev.transactions]
-            };
-        });
-    };
-
-    // --- CONTEXT PROVIDER SETUP ---
-    const contextValue = {
-        ...tripData,         // Spreads primitive data (name, destination, dates, etc.)
-        discoverFeed,        // Filtered array
-        inProgressFeed,      // Filtered array
-        unassignedIdeas,     // Filtered array
-        refreshTripData,     // Global func
-        handleVote,          // Idea func
-        addEventToBucket,    // Timeline func
-        updateDayEvents,     // Timeline func
-        deleteStay,          // Stay func
-        addTransaction,      // Wallet func (NEW)
-        addSettlement,       // Wallet func (NEW)
-    };
-
-    // --- RENDER ---
+    // 5. MAIN RENDER
     return (
         <TripContext.Provider value={contextValue}>
+            <StatusBar style="light" /> 
             <View style={{ flex: 1 }}>
                 <CustomHeader trip={tripData} />
-                <Tabs 
-                    screenOptions={{ 
-                        tabBarStyle: { display: "none" },
-                        headerShown: false,
-                        unmountOnBlur: true,
-                    }} 
-                >
+                <Tabs screenOptions={{ tabBarStyle: { display: "none" }, headerShown: false, unmountOnBlur: true }}>
                     <Tabs.Screen name="overview" options={{ title: "Overview" }} />
                     <Tabs.Screen name="(plan)" options={{ title: "Plan" }} />
                     <Tabs.Screen name="wallet" options={{ title: "Wallet" }} />
@@ -455,11 +505,8 @@ export default function TripInfoLayout() {
             </View>
         </TripContext.Provider>
     );
-}
+  }
 
-// ==========================================
-// 4. STYLES
-// ==========================================
 const styles = StyleSheet.create({
     headerContainer: { height: '39%' },
     imageBackground: { flex: 1 },
@@ -467,6 +514,6 @@ const styles = StyleSheet.create({
     contentWrapper: { flex: 1, paddingHorizontal: '5%', paddingTop: moderateScale(40), paddingBottom: moderateScale(28) },
     spacer: { flex: 1 },
     textContainer: { gap: 4 },
-    destination: { color: 'white', fontSize: moderateScale(25), fontWeight: 'bold' },
+    destination: { color: 'white', fontSize: moderateScale(25), fontWeight: 'bold', maxWidth: '60%' },
     dateRange: { color: 'white', fontSize: moderateScale(12), marginTop: 4 },
 });

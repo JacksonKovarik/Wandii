@@ -3,7 +3,7 @@ import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 
-const PastTripCard = ({ trip }) => {
+const PastTripCard = ({ trip, onRelivePress }) => {
   return (
     <View style={styles.card}>
 
@@ -46,7 +46,7 @@ const PastTripCard = ({ trip }) => {
       </View>
 
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.reliveButton}>
+        <TouchableOpacity style={styles.reliveButton} onPress={onRelivePress}>
           <Text style={styles.reliveText}>Relive Trip</Text>
         </TouchableOpacity>
 
@@ -194,4 +194,3 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
-
