@@ -1,21 +1,20 @@
-import TripInfoTabBar from "@/src/components/tripInfoTabBar";
 import { Colors } from "@/src/constants/colors";
 import { useAuth } from "@/src/context/AuthContext";
-import { getTripById } from "@/src/lib/trips";
-import DateUtils from "@/src/utils/DateUtils";
 import { TripContext } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
-import { router, Tabs, useLocalSearchParams } from "expo-router";
+import { Tabs, useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
+import TripInfoTabBar from "@/src/components/tripInfoTabBar";
 import { supabase } from "@/src/lib/supabase";
+import DateUtils from "@/src/utils/DateUtils";
 import { MediaUtils } from "@/src/utils/MediaUtils";
+import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 
 // --- TEMPORARY CURRENT USER ---
 const CURRENT_USER_ID = '5b6c11f8-d8d5-45c3-815b-54870bcbb0ad'; 
@@ -74,6 +73,7 @@ const fetchTripNotifications = async (tripId, userId) => {
         console.error("Error fetching notifications:", error);
         return [];
     }
+};
 
 const fetchTripData = async (tripId, userId) => {
     if (!tripId) return null; 
@@ -223,43 +223,55 @@ const HeaderButton = ({ icon, onPress }) => (
 );
 
 const CustomHeader = ({ trip }) => {
-    if (!trip) return null;
-    const imageSource = typeof trip.image === 'string' ? { uri: trip.image } : trip.image;
-
+    const router = useRouter()
+    const navigation = useNavigation();
+    const goBack = () => {
+        // 1. We don't need getParent() because CustomHeader is already at the Stack level!
+        if (navigation.canGoBack()) {
+            // Normal usage: Pop the trip off the stack safely
+            navigation.goBack();
+        } else {
+            // Notification usage: No history exists! 
+            router.replace('/'); 
+        }
+    };
     return (
-        <View style={styles.headerContainer}>
-            <Image source={imageSource} style={styles.gradient} contentFit='cover' cachePolicy='memory-disk' />
-            <LinearGradient style={styles.gradient} colors={['rgba(0,0,0,0)', 'rgba(0,0,0,.2)', 'rgba(0,0,0,.6)', 'rgba(0,0,0,0.8)']} locations={[0, 0.49, 0.78, 1]} />
+    <View style={styles.headerContainer}>
+        <Image source={trip.image} style={styles.gradient} contentFit='cover' cachePolicy='memory-disk' />
+        <LinearGradient style={styles.gradient} colors={['rgba(0,0,0,0)', 'rgba(0,0,0,.2)', 'rgba(0,0,0,.6)', 'rgba(0,0,0,0.8)']} locations={[0, 0.49, 0.78, 1]} />
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: '5%', paddingTop: moderateScale(65) }}>
-                <HeaderButton icon="arrow-back" onPress={() => router.back()}/>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(12) }}>
-                    <HeaderButton icon="search" onPress={() => console.log('search')} />
-                    <HeaderButton icon="settings" onPress={() => router.navigate(`/(trip-info)/${trip.id}/settings`)} />
-                </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: '5%', paddingTop: moderateScale(65) }}>
+            <HeaderButton icon="arrow-back" onPress={() => goBack()}/>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(12) }}>
+                <HeaderButton icon="search" onPress={() => console.log('search')} />
+                <HeaderButton icon="settings" onPress={() => router.navigate(`/(trip-info)/${trip.id}/settings`)} />
             </View>
-            
-            <View style={ styles.contentWrapper }>
-                <View style={ styles.spacer } />
-                <View style={ styles.textContainer }>
-                    <Text style={ styles.destination }>{ trip.name }</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(6) }}>
-                        <MaterialIcons name="calendar-today" size={moderateScale(12)} color="white" />
-                        <Text style={ styles.dateRange }>{ DateUtils.formatRange(DateUtils.parseYYYYMMDDToDate(trip.startDate), DateUtils.parseYYYYMMDDToDate(trip.endDate)) }</Text>
-                    </View>
-                </View>
-            </View>
-            <TripInfoTabBar tripId={ trip.id }/>
         </View>
+        
+        <View style={ styles.contentWrapper }>
+            <View style={ styles.spacer } />
+            <View style={ styles.textContainer }>
+                <Text style={ styles.destination }>{ trip.destination }</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(6) }}>
+                    <MaterialIcons name="calendar-today" size={moderateScale(12)} color="white" />
+                    <Text style={ styles.dateRange }>{ DateUtils.formatRange(DateUtils.parseYYYYMMDDToDate(trip.startDate), DateUtils.parseYYYYMMDDToDate(trip.endDate)) }</Text>
+                </View>
+            </View>
+        </View>
+        <TripInfoTabBar tripId={ trip.id }/>
+    </View>
     );
-}
+};
 
 // ==========================================
 // MAIN LAYOUT COMPONENT
 // ==========================================
 export default function TripInfoLayout() {
     const { tripId } = useLocalSearchParams();
+    const { user } = useAuth();
+    // const userId = user?.id;
     const userId = CURRENT_USER_ID;
+
 
     const [tripData, setTripData] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -494,46 +506,6 @@ export default function TripInfoLayout() {
         </TripContext.Provider>
     );
   }
-
-  const contextValue = {
-    ...tripData,
-    discoverFeed,
-    inProgressFeed,
-    unassignedIdeas,
-    refreshTripData,
-    handleVote,
-    addEventToBucket,
-    updateDayEvents,
-    deleteStay,
-    addTransaction,
-    addSettlement,
-  };
-
-  return (
-    <TripContext.Provider value={contextValue}>
-      <StatusBar style="light" />
-      <View style={{ flex: 1 }}>
-        <CustomHeader trip={tripData} />
-        <Tabs
-          screenOptions={{
-            tabBarStyle: { display: "none" },
-            headerShown: false,
-            unmountOnBlur: true,
-          }}
-        >
-          <Tabs.Screen name="overview" options={{ title: "Overview" }} />
-          <Tabs.Screen name="(plan)" options={{ title: "Plan" }} />
-          <Tabs.Screen name="wallet" options={{ title: "Wallet" }} />
-          <Tabs.Screen name="docs" options={{ title: "Docs" }} />
-          <Tabs.Screen name="chat" options={{ title: "Chat" }} />
-          <Tabs.Screen name="memories" options={{ title: "Memories" }} />
-          <Tabs.Screen name="album" options={{ headerShown: false }} />
-          <Tabs.Screen name="settings" options={{ headerShown: false }} />
-        </Tabs>
-      </View>
-    </TripContext.Provider>
-  );
-}
 
 const styles = StyleSheet.create({
     headerContainer: { height: '39%' },

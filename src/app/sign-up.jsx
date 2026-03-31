@@ -22,8 +22,8 @@ export default function Index() {
   const router = useRouter();
 
   // which mode we are in (sign in or sign up)
-  const [showLogin, setShowLogin] = useState(false);
-  const [mode, setMode] = useState("sign-in");
+  const [showLogin, setShowLogin] = useState(true);
+  const [mode, setMode] = useState("sign-up");
 
   // input fields
   const [email, setEmail] = useState("");
@@ -43,9 +43,10 @@ export default function Index() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   // animations
-  const imageSlide = useRef(new Animated.Value(0)).current;
-  const panelSlide = useRef(new Animated.Value(200)).current;
-  const panelFade = useRef(new Animated.Value(0)).current;
+  // animations
+const imageSlide = useRef(new Animated.Value(-40)).current; // Shifts the logo up
+const panelSlide = useRef(new Animated.Value(0)).current;   // Puts the panel in its final position
+const panelFade = useRef(new Animated.Value(1)).current;    // Makes the panel fully visible (opacity 1)
 
   // moves the whole screen up when typing
   const screenShift = useRef(new Animated.Value(0)).current;
@@ -248,7 +249,6 @@ export default function Index() {
                 },
               ]}
             >
-              // email
               <TextInput
                 style={[styles.input, errors.email && styles.errorInput]}
                 placeholder="Email"
@@ -262,7 +262,6 @@ export default function Index() {
                 }}
               />
 
-              // password
               <View
                 style={[
                   styles.passwordRow,
@@ -291,7 +290,6 @@ export default function Index() {
                 </TouchableOpacity>
               </View>
 
-              // confirm password (only in sign-up mode)
               {mode === "sign-up" && (
                 <View
                   style={[
@@ -324,7 +322,6 @@ export default function Index() {
                 </View>
               )}
 
-              // sign in / sign up button
               <TouchableOpacity
                 style={styles.signInButton}
                 onPress={mode === "sign-in" ? onSignIn : onSignUp}
@@ -341,7 +338,6 @@ export default function Index() {
                 </Text>
               </TouchableOpacity>
 
-              // toggle between sign in and sign up
               {mode === "sign-in" ? (
                 <TouchableOpacity
                   onPress={() => {

@@ -1,4 +1,3 @@
-import AddTripButton from "@/src/components/addTripButton";
 import { GroupDisplay } from "@/src/components/GroupDisplay";
 import ProgressBar from "@/src/components/progressBar";
 import { Colors } from "@/src/constants/colors";
@@ -8,14 +7,13 @@ import DateUtils from "@/src/utils/DateUtils";
 import { MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { Link, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from "react-native-popup-menu";
 import { moderateScale, verticalScale } from "react-native-size-matters";
 
 // IMPORT YOUR SUPABASE CLIENT HERE (Adjust path as needed)
-import { supabase } from "@/src/lib/supabase";
 
 
 // const MOCK_TRIP_DATA = [
@@ -186,6 +184,8 @@ export default function Upcoming() {
     );
   }
 
+  const tripId = '77777777-7777-7777-7777-777777777777';
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {trips.length > 0 ? (
@@ -196,6 +196,9 @@ export default function Upcoming() {
           <MaterialCommunityIcons name="airplane-takeoff" size={40} color={Colors.textSecondary} />
         </View>
       )}
+      <Link href={`/(trip-info)/${tripId}/overview`} style={{ marginTop: 20, alignSelf: 'center' }} >
+        <Text style={{ color: Colors.primary, fontWeight: '600' }}>View Trip Details</Text>
+      </Link>
     </ScrollView>
   );
 }

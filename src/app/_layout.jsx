@@ -2,6 +2,7 @@ import { AuthProvider, useAuth } from "@/src/context/AuthContext";
 import { TripDraftProvider } from "@/src/context/TripDraftContext";
 import { Stack } from "expo-router";
 import React from "react";
+import { MenuProvider } from "react-native-popup-menu";
 
 function RootNavigator() {
   // 1. Consume the context here, inside the provider!
@@ -39,10 +40,12 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     // 3. RootLayout solely handles wrapping the app in Providers now
-    <AuthProvider>
-      <TripDraftProvider>
-        <RootNavigator />
-      </TripDraftProvider>
-    </AuthProvider>
+    <MenuProvider>
+      <AuthProvider>
+        <TripDraftProvider>
+          <RootNavigator />
+        </TripDraftProvider>
+      </AuthProvider>
+    </MenuProvider>
   );
 }
