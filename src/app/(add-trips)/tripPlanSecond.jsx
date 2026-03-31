@@ -68,6 +68,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     flex: 1,
     justifyContent: 'space-between',
-    paddingTop: 15,
+    paddingTop: verticalScale(15),
+    paddingHorizontal: moderateScale(10),
   },
 });
+
