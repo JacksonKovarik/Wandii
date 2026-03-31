@@ -4,8 +4,10 @@ import { Stack } from "expo-router";
 import React from "react";
 
 function RootNavigator() {
+  // 1. Consume the context here, inside the provider!
   const { user, loading } = useAuth();
 
+  // 2. Handle the loading state here before rendering the Stack
   if (loading) return null;
 
   const isLoggedIn = !!user;
@@ -35,14 +37,9 @@ function RootNavigator() {
   );
 }
 
-function RootNavigator() {
-  const { user, loading } = useAuth();
-
-  if (loading) return null;
-
-  const isLoggedIn = !!user;
-
+export default function RootLayout() {
   return (
+    // 3. RootLayout solely handles wrapping the app in Providers now
     <AuthProvider>
       <TripDraftProvider>
         <RootNavigator />
