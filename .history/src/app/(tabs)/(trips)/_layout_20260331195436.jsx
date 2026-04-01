@@ -58,7 +58,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         marginHorizontal: '5%',
         alignItems: 'flex-end',
-        justifyContent: 'space-between',
     },
 
     title: {
