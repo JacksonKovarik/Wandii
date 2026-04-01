@@ -26,52 +26,57 @@ import {
 } from "react-native-popup-menu";
 import { moderateScale, verticalScale } from "react-native-size-matters";
 
-// mockup data
-const MOCK_TRIP_DATA = [
-  {
-    id: "trip-123",
-    title: "Japan 2026",
-    destinations: "Kyoto, Japan",
-    start_date: "2024-10-12",
-    end_date: "2024-10-24",
-    image: require("../../../../assets/images/Kyoto.jpg"),
-    readinessPercent: 60,
-    group: [
-      { id: 1, name: "Alice B.", initials: "AB", profileColor: "#1E90FF", active: false },
-      { id: 2, name: "Hunter S.", initials: "HS", profileColor: "#32CD32", active: true },
-      { id: 3, name: "Maria K.", initials: "MK", profileColor: "#FFA500", active: true },
-    ],
-  },
-  {
-    id: "trip-456",
-    title: "Miami Bachelor Party",
-    destinations: "Miami, Florida",
-    start_date: "2026-05-08",
-    end_date: "2026-05-11",
-    image: require("../../../../assets/images/Miami.jpg"),
-    readinessPercent: 90,
-    group: [
-      { id: 2, name: "Hunter S.", initials: "HS", profileColor: "#32CD32", active: true },
-      { id: 4, name: "David L.", initials: "DL", profileColor: "#FF4500", active: true },
-      { id: 5, name: "Chris T.", initials: "CT", profileColor: "#8A2BE2", active: false },
-    ],
-  },
-  {
-    id: "trip-789",
-    title: "Euro Trip",
-    destinations: "Paris & Rome",
-    start_date: "2026-07-01",
-    end_date: "2026-07-15",
-    image: require("../../../../assets/images/paris.png"),
-    readinessPercent: 20,
-    group: [
-      { id: 1, name: "Alice B.", initials: "AB", profileColor: "#1E90FF", active: true },
-      { id: 3, name: "Maria K.", initials: "MK", profileColor: "#FFA500", active: true },
-    ],
-  },
-];
+// ⭐ Needed for the circular plus button
+import AddTripButton from "@/src/components/addTripButton";
 
-// trip card
+// ------------------------------------------------------
+// ⭐ MOCKUP DATA (kept exactly as you had it)
+// ------------------------------------------------------
+// const MOCK_TRIP_DATA = [
+//   {
+//     id: 'trip-123',
+//     name: 'Japan 2026',
+//     takeoffDays: 12,
+//     destinations: 'Kyoto, Japan',
+//     startDate: '2024-10-12',
+//     endDate: '2024-10-24',
+//     image: require('../../../../assets/images/Kyoto.jpg'),
+//     readinessPercent: 60,
+//     group: [
+//         { id: 1, name: "Alice B.", initials: "AB", profileColor: '#1E90FF', profilePic: null, active: false },
+//         { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', profilePic: null, active: true },
+//         { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', profilePic: null, active: true },
+//     ],
+//   },
+//   {
+//     id: 'trip-456',
+//     name: 'Miami Bachelor Party',
+//     destinations: 'Miami, Florida',
+//     startDate: '2026-05-08',
+//     endDate: '2026-05-11',
+//     image: require('../../../../assets/images/Miami.jpg'),
+//     readinessPercent: 90,
+//     group: [
+//         { id: 2, name: "Hunter S.", initials: "HS", profileColor: '#32CD32', active: true },
+//         { id: 4, name: "David L.", initials: "DL", profileColor: '#FF4500', active: true },
+//         { id: 5, name: "Chris T.", initials: "CT", profileColor: '#8A2BE2', active: false },
+//     ],
+//   },
+//   {
+//     id: 'trip-789',
+//     name: 'Euro Trip',
+//     destinations: 'Paris & Rome',
+//     startDate: '2026-07-01',
+//     endDate: '2026-07-15',
+//     image: require('../../../../assets/images/paris.png'),
+//     readinessPercent: 20,
+//     group: [
+//         { id: 1, name: "Alice B.", initials: "AB", profileColor: '#1E90FF', active: true },
+//         { id: 3, name: "Maria K.", initials: "MK", profileColor: '#FFA500', active: true },
+//     ],
+//   }
+// ];
+
 const UpcomingTripCard = ({ trip, onDelete }) => {
   const router = useRouter();
 
@@ -96,8 +101,12 @@ const UpcomingTripCard = ({ trip, onDelete }) => {
         style={styles.cardImage}
       />
 
-      {/* location tag */}
-      <View style={[styles.subtitleRow, { position: "absolute", top: 10, right: 10 }]}>
+      <View
+        style={[
+          styles.subtitleRow,
+          { position: "absolute", top: 10, right: 10 },
+        ]}
+      >
         <BlurView
           intensity={20}
           tint="default"
@@ -108,20 +117,21 @@ const UpcomingTripCard = ({ trip, onDelete }) => {
             left: 0,
             bottom: 0,
             borderRadius: 20,
-            backgroundColor: "rgba(255,255,255,0.38)",
+            backgroundColor: "rgba(255, 255, 255, 0.38)",
             overflow: "hidden",
           }}
         />
+
         <MaterialCommunityIcons
           name="map-marker-outline"
           size={moderateScale(14)}
-          color="white"
+          color={"white"}
         />
         <Text style={styles.cardSubtitle}>{trip.destinations}</Text>
       </View>
 
-      {/* card content */}
       <View style={styles.cardContent}>
+        {/* title */}
         <Text style={styles.cardTitle}>{trip.title}</Text>
 
         {/* date range */}
@@ -147,7 +157,9 @@ const UpcomingTripCard = ({ trip, onDelete }) => {
           <Text style={[styles.progressText, { color: Colors.primary }]}>
             {takeoffDays === 0
               ? "Trip is starting"
-              : `Takeoff in ${takeoffDays} day${takeoffDays === 1 ? "" : "s"}`}
+              : `Takeoff in ${takeoffDays} day${
+                  takeoffDays === 1 ? "" : "s"
+                }`}
           </Text>
         </View>
 
@@ -168,9 +180,15 @@ const UpcomingTripCard = ({ trip, onDelete }) => {
         <View style={styles.menuWrap}>
           <Menu>
             <MenuTrigger style={{ padding: 10 }}>
-              <MaterialIcons name="more-vert" size={moderateScale(20)} color="grey" />
+              <MaterialIcons
+                name="more-vert"
+                size={moderateScale(20)}
+                color="grey"
+              />
             </MenuTrigger>
-            <MenuOptions customStyles={{ optionsContainer: styles.menuOptionsContainer }}>
+            <MenuOptions
+              customStyles={{ optionsContainer: styles.menuOptionsContainer }}
+            >
               <MenuOption
                 onSelect={() => onDelete(trip.id)}
                 customStyles={{
@@ -178,12 +196,23 @@ const UpcomingTripCard = ({ trip, onDelete }) => {
                     padding: 10,
                     flexDirection: "row",
                     gap: 6,
+                    padding: 6,
                     alignItems: "center",
                   },
                 }}
               >
-                <MaterialIcons name="delete-outline" size={20} color="red" />
-                <Text style={{ fontSize: moderateScale(14), color: "red", fontWeight: "600" }}>
+                <MaterialIcons
+                  name="delete-outline"
+                  size={20}
+                  color="red"
+                />
+                <Text
+                  style={{
+                    fontSize: moderateScale(14),
+                    color: "red",
+                    fontWeight: "600",
+                  }}
+                >
                   Delete
                 </Text>
               </MenuOption>
@@ -195,13 +224,12 @@ const UpcomingTripCard = ({ trip, onDelete }) => {
   );
 };
 
-// main screen
+
 export default function Upcoming() {
   const { user } = useAuth();
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // load trips
   const loadTrips = useCallback(async () => {
     if (!user) {
       setTrips([]);
@@ -224,7 +252,6 @@ export default function Upcoming() {
     loadTrips();
   }, [loadTrips]);
 
-  // delete trip
   const handleDeleteTrip = (tripId) => {
     Alert.alert("Delete Trip", "Are you sure you want to delete this upcoming trip?", [
       { text: "Cancel", style: "cancel" },
@@ -243,7 +270,6 @@ export default function Upcoming() {
     ]);
   };
 
-  // loading state
   if (loading) {
     return (
       <View style={[styles.container, { flex: 1, justifyContent: "center" }]}>
@@ -258,31 +284,27 @@ export default function Upcoming() {
     <ScrollView contentContainerStyle={styles.container}>
       {trips.length > 0 ? (
         trips.map((trip) => (
-          <UpcomingTripCard key={trip.id} trip={trip} onDelete={handleDeleteTrip} />
+          <UpcomingTripCard
+            key={trip.id}
+            trip={trip}
+            onDelete={handleDeleteTrip}
+          />
         ))
       ) : (
         <View style={styles.emptyBox}>
           <Text style={styles.emptyText}>Plan a New Adventure</Text>
 
-          {/* lighter add button with navigation */}
-          <Link href={"/(add-trips)/tripPlanFirst"} push asChild>
-            <TouchableOpacity
-              style={{
-                height: 50,
-                width: 50,
-                justifyContent: "center",
-                alignItems: "center",
-                backgroundColor: "#E5E7EB",
-                borderRadius: 25,
-              }}
-            >
-              <MaterialIcons name="add" size={30} color="#6B7280" />
-            </TouchableOpacity>
-          </Link>
+          <View style={{ alignItems: "center" }}>
+            <AddTripButton
+              bgColor="#D1D5DB"     // darker gray circle
+              iconColor="#4B5563"   // darker plus icon
+              size={60}
+              centered
+            />
+          </View>
         </View>
       )}
 
-      {/* view trip details link */}
       <Link
         href={`/(trip-info)/${tripId}/overview`}
         style={{ marginTop: 20, alignSelf: "center" }}
@@ -295,7 +317,7 @@ export default function Upcoming() {
   );
 }
 
-// styles
+
 const styles = StyleSheet.create({
   container: {
     paddingTop: 20,
@@ -304,6 +326,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
 
+  // ⭐ empty state box
   emptyBox: {
     width: "100%",
     borderWidth: 2,
@@ -343,13 +366,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
-    backgroundColor: "rgba(0,0,0,0.43)",
+    backgroundColor: "rgba(0, 0, 0, 0.43)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.45)",
+    borderColor: "rgba(255, 255, 255, 0.45)",
     borderRadius: 20,
     paddingHorizontal: moderateScale(5),
     paddingVertical: moderateScale(4),
     gap: moderateScale(4),
+    marginTop: 3,
+    marginBottom: -2,
   },
 
   cardSubtitle: {
