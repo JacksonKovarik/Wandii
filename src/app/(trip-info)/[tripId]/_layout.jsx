@@ -25,53 +25,75 @@ const CURRENT_USER_ID = '5b6c11f8-d8d5-45c3-815b-54870bcbb0ad';
 
 const fetchTripNotifications = async (tripId, userId) => {
     try {
-        const activeNotifications = [];
-        const [walletResponse, ideasResponse] = await Promise.all([
-            // ADDED expense_id to the select so we can use it as a unique key
-            supabase.from('Expense_Splits').select('amount_owed, Expenses!inner(expense_id, title, trip_id)').eq('user_id', userId).eq('Expenses.trip_id', tripId),
-            supabase.from('Events').select('event_id, title, event_votes(user_id, vote_value)').eq('trip_id', tripId).is('start_timestamp', null)
+        const notificationsList = [];
+
+        const [walletResponse, ideasResponse, unscheduledResponse] = await Promise.all([
+            // 1. Debts
+            supabase.from('Expense_Splits')
+                .select('amount_owed, Expenses!inner(expense_id, description, trip_id)')
+                .eq('user_id', userId)
+                .eq('Expenses.trip_id', tripId)
+                .gt('amount_owed', 0),
+            
+            // 2. Ideas
+            supabase.from('Events')
+                .select('*', { count: 'exact', head: true })
+                .eq('trip_id', tripId)
+                .eq('status', 'Idea'),
+            
+            // 3. Unscheduled Events (Events that are NOT ideas, but lack a start time)
+            supabase.from('Events')
+                .select('*', { count: 'exact', head: true })
+                .eq('trip_id', tripId)
+                .neq('status', 'Idea') // Prevent double-counting items that are still just ideas
+                .is('start_timestamp', null) 
         ]);
 
-        // 1. Process Wallet Notifications (Unpaid expenses)
-        if (walletResponse.data) {
-            walletResponse.data.forEach(split => {
-                // If the user owes money on this split, trigger a notification
-                if (split.amount_owed > 0) {
-                    activeNotifications.push({
-                        id: `wallet-${split.Expenses.expense_id}`,
-                        type: 'urgent', 
-                        icon: 'account-balance-wallet',
-                        title: 'Payment Due',
-                        subtitle: `You owe $${split.amount_owed} for ${split.Expenses.title}`,
-                        actionRoute: `/(trip-info)/${tripId}/wallet`
-                    });
-                }
+        // --- BUILD THE NOTIFICATIONS LIST ---
+
+        if (walletResponse.data?.length > 0) {
+            notificationsList.push({
+                id: 'wallet_debt',
+                type: 'wallet',
+                title: 'Pending Debts',
+                message: `You have ${walletResponse.data.length} unsettled expense(s).`,
+                count: walletResponse.data.length
             });
         }
 
-        // 2. Process Idea Board Notifications (Needs Vote)
-        if (ideasResponse.data) {
-            ideasResponse.data.forEach(idea => {
-                // Check if the current user's ID exists in the votes array
-                const hasVoted = idea.event_votes?.some(vote => vote.user_id === userId);
-                
-                if (!hasVoted) {
-                    activeNotifications.push({
-                        id: `vote-${idea.event_id}`,
-                        type: 'action', 
-                        icon: 'how-to-vote',
-                        title: 'Vote Required',
-                        subtitle: `New idea: ${idea.title}`,
-                        actionRoute: `/(trip-info)/${tripId}/(plan)`
-                    });
-                }
+        if (ideasResponse.count > 0) {
+            notificationsList.push({
+                id: 'new_ideas',
+                type: 'plan', // Ties into your Tab Bar name
+                title: 'New Ideas to Explore',
+                message: `There are ${ideasResponse.count} idea(s) on the board.`,
+                count: ideasResponse.count
+            });
+        }
+        
+        if (unscheduledResponse.count > 0) {
+            notificationsList.push({
+                id: 'unscheduled_events',
+                type: 'plan', // Ties into your Tab Bar name
+                title: 'Ready to Schedule',
+                message: `There are ${unscheduledResponse.count} event(s) ready to be scheduled.`,
+                count: unscheduledResponse.count
             });
         }
 
-        return activeNotifications;
+        // Extract just the types for your TabBar badges (e.g., ['wallet', 'plan', 'plan'])
+        // Using Set() removes duplicates so the 'plan' tab doesn't get two red dots
+        const activeBadges = [...new Set(notificationsList.map(n => n.type))];
+
+        return {
+            list: notificationsList,     // Use this for UI banners/lists
+            badges: activeBadges,        // Use this for the ReusableTabBar
+            unscheduledCount: unscheduledResponse.count || 0
+        };
+
     } catch (error) {
         console.error("Error fetching notifications:", error);
-        return [];
+        return { list: [], badges: [], unscheduledCount: 0 };
     }
 };
 
@@ -157,7 +179,7 @@ const fetchTripData = async (tripId, userId) => {
         const primaryDestination = destinations[0] || null;
         const destinationsStr = destinations.map(cd => `${cd.city}, ${cd.country}`).join(' & ') || 'TBD';
         const activeNotifications = await fetchTripNotifications(tripId, userId);
-
+        console.log("Active notifications for trip:", activeNotifications);
         return {
             id: trip.trip_id,
             name: trip.trip_name,
@@ -178,6 +200,7 @@ const fetchTripData = async (tripId, userId) => {
                 } : null
             },
             notifications: activeNotifications, 
+            notificationList: activeNotifications.list,
             ideaBoard,      
             timelineData,   
             group: trip.Trip_Members?.map((member, index) => {

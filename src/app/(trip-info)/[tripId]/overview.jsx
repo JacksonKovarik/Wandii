@@ -35,22 +35,9 @@ const CACHE_LIMIT_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 export default function Overview() {
   const tripData = useTrip();
-  const { takeoffDays, weather: defaultWeather, readinessPercent, notifications, group, refreshTripData } = tripData;
+  const { takeoffDays, weather: defaultWeather, readinessPercent, notifications, notificationList, group, refreshTripData } = tripData;
 
   const router = useRouter();
-
-  // 2. PUT THE HELPER FUNCTION HERE (Before the return statement)
-  const getNotificationStyle = (type) => {
-    switch (type) {
-      case 'urgent': 
-        return { color: '#ef4444', lightColor: '#fee2e2' };
-      case 'action': 
-        return { color: '#10b981', lightColor: '#d1fae5' };
-      case 'info':   
-      default:
-        return { color: '#3b82f6', lightColor: '#dbeafe' };
-    }
-  };
 
   // Set up state for our live weather UI, using the default data initially
   const [liveWeather, setLiveWeather] = useState({
@@ -59,6 +46,15 @@ export default function Overview() {
     icon: defaultWeather?.icon || 'wb-sunny'
   });
   
+  const notificationAction = (title) => {
+    if (title === "Ready to Schedule") {
+        return {theme: 'action', icon: 'calendar-today', onPress: () => router.navigate("/(plan)/timeline")};
+    } else if (title === "Payment Due") {
+        return {theme: 'urgent', icon: 'payment', onPress: () => router.navigate("/payments")};
+    } else if (title === "New Ideas to Explore") {
+        return {theme: 'info', icon: 'lightbulb', onPress: () => router.navigate("/(plan)/idea-board")};
+    } 
+  }
 
   useEffect(() => {
     const fetchWeather = async () => {
@@ -133,7 +129,6 @@ export default function Overview() {
         console.error("Failed to fetch live weather:", error);
       }
     };
-
     fetchWeather();
   }, [takeoffDays, defaultWeather]); // Re-run if these change
 
@@ -174,19 +169,18 @@ export default function Overview() {
       {/* Action Required */}
       <View style={styles.actionSection}>
         <Text style={styles.sectionTitle}>Action Required</Text>
-        {notifications && notifications.length > 0 ? (
+        {notifications && notificationList.length > 0 ? (
           <View style={styles.notificationsContainer}>
-            {notifications.map((notif) => {
-              const theme = getNotificationStyle(notif.type);
+            {notificationList.map((notif) => {
+              const action = notificationAction(notif.title);
               return (
                 <InAppNotification 
                   key={notif.id}
-                  icon={notif.icon}
+                  icon={action.icon}
                   title={notif.title}
-                  description={notif.subtitle}
-                  color={theme.color}          
-                  lightColor={theme.lightColor}
-                  onPress={() => router.push(notif.actionRoute)}
+                  description={notif.message}
+                  type={action.theme}
+                  onPress={action.onPress}
                 />
             )})}
           </View>

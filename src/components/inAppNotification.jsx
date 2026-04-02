@@ -1,10 +1,7 @@
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 import { Colors } from "../constants/colors";
-
-const router = useRouter();
 
 // Helper to map our notification "types" to your UI colors
 const getNotificationStyle = (type) => {
@@ -14,16 +11,18 @@ const getNotificationStyle = (type) => {
         case 'action': // Ready to schedule
         return { color: '#10b981', lightColor: '#d1fae5' }; // Green theme
         case 'info':   // New ideas to discover
-        default:
         return { color: '#3b82f6', lightColor: '#dbeafe' }; // Blue theme
+        default:
+        return { color: Colors.primary, lightColor: Colors.primaryLight }; // Default to your primary theme
     }
 };
 
 const InAppNotification = (props) => {
+    const theme = getNotificationStyle(props.type);
     return (
-        <View style={[styles.container, { borderLeftColor: props.color }]}>
-            <View style={[styles.iconContainer, { backgroundColor: props.lightColor }]}>
-                <MaterialIcons name={props.icon} size={moderateScale(20)} color={props.color} />
+        <View style={[styles.container, { borderLeftColor: theme.color }]}>
+            <View style={[styles.iconContainer, { backgroundColor: theme.lightColor }]}>
+                <MaterialIcons name={props.icon} size={moderateScale(20)} color={theme.color} />
             </View>
             <View style={styles.textContainer}>
                 <Text style={styles.title}>{props.title}</Text>
