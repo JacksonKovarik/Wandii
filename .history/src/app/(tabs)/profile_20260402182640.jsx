@@ -1,24 +1,15 @@
 import FriendsList from "@/src/components/friendsList";
 import ProfileHeader from "@/src/components/profileHeader";
-import RecentDestinations from "@/src/components/recentDestinations";
+import RecentDestinations from "@/src/components/RecentDestinations";
 import { supabase } from "@/src/lib/supabase";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Profile() {
   const router = useRouter();
   const [photo, setPhoto] = useState(null);
-  const [loggingOut, setLoggingOut] = useState(false);
 
-  // temporary user data
   const user = {
     name: "Shelby Wood",
     username: "shelbywood",
@@ -54,38 +45,22 @@ export default function Profile() {
     .toUpperCase();
 
   const handleLogout = async () => {
-    try {
-      setLoggingOut(true);
-
-      await supabase.auth.signOut();
-
-      // Delay so UI updates before navigating
-      setTimeout(() => {
-        router.replace("/");
-      }, 500);
-
-    } catch (error) {
-      console.error("Logout error:", error);
-      setLoggingOut(false);
-    }
+    await supabase.auth.signOut();
+    router.replace("/");
   };
 
   return (
     <View style={styles.screen}>
-
-      {/* Header stays fixed */}
-      <ProfileHeader
-        user={user}
-        photo={photo}
-        initials={initials}
-        onPressSettings={() => router.push("/settings")}
-      />
-
-      {/* Scrollable content */}
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 80 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
+        <ProfileHeader
+          user={user}
+          photo={photo}
+          initials={initials}
+          onPressSettings={() => router.push("/settings")}
+        />
 
         {/* Travel Buddies */}
         <View style={{ marginTop: 30, paddingHorizontal: 20 }}>
@@ -95,32 +70,22 @@ export default function Profile() {
           />
         </View>
 
-        {/* Recent Destinations — moved lower */}
-        <View style={{ marginTop: 50, paddingHorizontal: 20 }}>
+        {/* Recent Destinations */}
+        <View style={{ marginTop: 30, paddingHorizontal: 20 }}>
           <RecentDestinations
             destinations={recentDestinations}
             onPressMore={() => router.push("/destinations")}
           />
         </View>
 
-        {/* Logout Button */}
-        <View style={styles.logoutContainer}>
-          <TouchableOpacity
-            onPress={handleLogout}
-            style={[styles.logoutButton, loggingOut && { opacity: 0.7 }]}
-            disabled={loggingOut}
-          >
-            {loggingOut ? (
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.logoutText}>Logging out...</Text>
-              </View>
-            ) : (
-              <Text style={styles.logoutText}>Logout</Text>
-            )}
+        {/* Logout */}
+        <View style={{ marginTop: 40, paddingHorizontal: 20 }}>
+          <TouchableOpacity onPress={handleLogout} style={{ paddingVertical: 14 }}>
+            <Text style={{ fontSize: 18, fontWeight: "600", color: "#D9534F" }}>
+              Logout
+            </Text>
           </TouchableOpacity>
         </View>
-
       </ScrollView>
     </View>
   );
@@ -130,26 +95,5 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: "#F3F4F6",
-  },
-
-  logoutContainer: {
-    marginTop: 50,
-    paddingHorizontal: 20,
-    alignItems: "center",
-  },
-
-  logoutButton: {
-    backgroundColor: "#FF3B30",
-    paddingVertical: 16,
-    paddingHorizontal: 60,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  logoutText: {
-    color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "700",
   },
 });

@@ -5,17 +5,18 @@ export default function ProfileHeader({
   user,
   photo,
   initials,
+  pickImage,
   onPressSettings,
 }) {
   return (
     <View style={styles.container}>
-      {/* top row */}
+      {/* Top row */}
       <View style={styles.headerRow}>
         <View style={styles.sideWrapperLeft} />
 
         <View style={styles.middleWrapper} />
 
-        {/* settings button */}
+        {/* Settings button */}
         <View style={styles.sideWrapperRight}>
           <TouchableOpacity onPress={onPressSettings} style={styles.settingsButton}>
             <Text style={styles.settingsIcon}>⋯</Text>
@@ -23,22 +24,23 @@ export default function ProfileHeader({
         </View>
       </View>
 
-      {/* main profile content */}
+      {/* Main profile content */}
       <View style={styles.profileContent}>
-        {/* avatar and name */}
+        {/* Avatar + Name + Username */}
         <View style={styles.avatarRow}>
-          {/* avatar is no longer a button */}
+          {/* Avatar */}
           <View>
-            {photo ? (
-              <Image source={{ uri: photo }} style={styles.avatar} />
-            ) : (
-              <View style={styles.initialsAvatar}>
-                <Text style={styles.initialsText}>{initials}</Text>
-              </View>
-            )}
-          </View>
+          {photo ? (
+            <Image source={{ uri: photo }} style={styles.avatar} />
+          ) : (
+            <View style={styles.initialsAvatar}>
+              <Text style={styles.initialsText}>{initials}</Text>
+            </View>
+          )}
+        </View>
 
-          {/* name and username */}
+
+          {/* Name + Username */}
           <View style={styles.infoContainer}>
             <Text style={styles.name}>{user?.name || ""}</Text>
 
@@ -48,10 +50,10 @@ export default function ProfileHeader({
           </View>
         </View>
 
-        {/* divider */}
+        {/* Divider */}
         <View style={styles.innerDivider} />
 
-        {/* counters */}
+        {/* Counters */}
         <View style={styles.countersRow}>
           <View style={styles.counterBox}>
             <Text style={styles.counterNumber}>{user?.trips ?? 0}</Text>

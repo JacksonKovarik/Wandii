@@ -56,16 +56,11 @@ export default function Profile() {
   const handleLogout = async () => {
     try {
       setLoggingOut(true);
-
       await supabase.auth.signOut();
-
-      // Delay so UI updates before navigating
-      setTimeout(() => {
-        router.replace("/");
-      }, 500);
-
+      router.replace("/");
     } catch (error) {
       console.error("Logout error:", error);
+    } finally {
       setLoggingOut(false);
     }
   };
@@ -141,7 +136,7 @@ const styles = StyleSheet.create({
   logoutButton: {
     backgroundColor: "#FF3B30",
     paddingVertical: 16,
-    paddingHorizontal: 60,
+    paddingHorizontal: 50,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",

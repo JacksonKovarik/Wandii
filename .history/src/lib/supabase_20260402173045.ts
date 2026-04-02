@@ -1,36 +1,31 @@
 import { createClient } from '@supabase/supabase-js';
 
-// get values from your .env file
+// 1. Your live Supabase project details
+// Find these in your Supabase Dashboard -> Project Settings -> API
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
-const localIp = process.env.LOCAL_IP;
 
-// warn if something is missing
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Missing Supabase env values. Check your .env file.');
-}
-
-// create the Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false, // react native does not use URL session detection
+    persistSession: false, 
   },
   global: {
     headers: {
-      Authorization: `Bearer ${supabaseAnonKey}`, // send anon key with requests
+      Authorization: `Bearer ${supabaseAnonKey}`,
     },
-
-    // custom fetch to support local edge function testing
+    // ⚡️ THE FIX: Intercept the network request!
     fetch: (url, options) => {
       let targetUrl = url.toString();
+      const localIp = process.env.LOCAL_IP;
 
-      // if calling an edge function and LOCAL_IP is set, rewrite the URL
+      // If a local IP is set AND the app is trying to call an Edge Function,
+      // rewrite the URL to point to your local machine's terminal.
       if (localIp && targetUrl.includes('/functions/v1/')) {
         targetUrl = targetUrl.replace(supabaseUrl, `http://${localIp}:54321`);
       }
 
-      // send the request
+      // Execute the request
       return fetch(targetUrl, options);
-    },
+    }
   },
 });
