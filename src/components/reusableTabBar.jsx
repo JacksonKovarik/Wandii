@@ -50,11 +50,12 @@ const styles = StyleSheet.create({
         maxWidth: '90%'
     },
     tab: {
-        flex: 1,
-        paddingHorizontal: moderateScale(4),
+        flexGrow: 1, 
+        paddingHorizontal: moderateScale(10), 
         paddingVertical: moderateScale(8),
         borderRadius: moderateScale(5),
         alignItems: "center",
+        justifyContent: "center", 
     },
     tabActive: {
         backgroundColor: "white",

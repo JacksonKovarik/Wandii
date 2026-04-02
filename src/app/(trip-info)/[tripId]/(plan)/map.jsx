@@ -64,15 +64,16 @@ export default function Map() {
         event.longitude
     );
 
-    // 4. Auto-Focus Map logic
-    const focusMap = () => {
-        if (!mapRef.current) return;
-        
         // Map everything to strict numeric coordinates
         const stayCoords = staysData.map(s => ({ latitude: Number(s.latitude), longitude: Number(s.longitude) }));
         const eventCoords = scheduledEvents.map(e => ({ latitude: Number(e.latitude), longitude: Number(e.longitude) }));
         const allCoords = [...stayCoords, ...eventCoords];
 
+
+    // 4. Auto-Focus Map logic
+    const focusMap = () => {
+        if (!mapRef.current) return;
+        
         if (allCoords.length > 0) {
             mapRef.current.fitToCoordinates(allCoords, {
                 edgePadding: { top: 150, right: 50, bottom: 50, left: 50 },
@@ -114,6 +115,12 @@ export default function Map() {
                     ref={mapRef}
                     style={styles.map} 
                     showsUserLocation={hasLocationPermission}
+                    initialRegion={allCoords.length > 0 ? {
+                        latitude: allCoords[0].latitude,
+                        longitude: allCoords[0].longitude,
+                        latitudeDelta: 0.5, // 0.5 is a good default city-level zoom
+                        longitudeDelta: 0.5,
+                    } : undefined}
                 >
                     {/* Render Accommodations (Blue Bed Icon) */}
                     {staysData.map((stay) => (

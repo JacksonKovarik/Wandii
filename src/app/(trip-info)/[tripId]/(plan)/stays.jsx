@@ -13,7 +13,7 @@ import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
 // FIX: Added KeyboardAvoidingView and Platform to imports
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from 'react-native-popup-menu';
 import { moderateScale } from "react-native-size-matters";
@@ -315,8 +315,6 @@ export default function Stays() {
 
       {/* FIX: Moved Bottom Sheet as a sibling to the ScrollView to prevent gesture capture issues */}
       <AnimatedBottomSheet visible={isModalVisible} onClose={() => setModalVisible(false)}>
-        {/* FIX: Added KeyboardAvoidingView to ensure inputs don't get covered by the keyboard */}
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>
               {stayForm.id ? 'Edit Accommodation' : 'Add Accommodation'}
@@ -380,8 +378,6 @@ export default function Stays() {
               </Text>
             </TouchableOpacity>
           </ScrollView>
-        </KeyboardAvoidingView>
-
         <DateTimePickerModal
           isVisible={isDatePickerVisible}
           mode="datetime"

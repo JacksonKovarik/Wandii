@@ -2,18 +2,55 @@ import AnimatedBottomSheet from "@/src/components/AnimatedBottomSheet";
 import ReusableTabBar from "@/src/components/reusableTabBar";
 import { Colors } from "@/src/constants/colors";
 import { getCategoryFallback } from "@/src/constants/eventCategoryStyles";
+import { supabase } from "@/src/lib/supabase";
 import DateUtils from "@/src/utils/DateUtils";
+import { getCoordinatesForAddress } from "@/src/utils/LocationUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Haptics from 'expo-haptics';
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import ReorderableList, { reorderItems, useIsActive, useReorderableDrag } from 'react-native-reorderable-list';
 import { moderateScale } from "react-native-size-matters";
 
+// ==========================================
+// UTILITY FUNCTIONS
+// ==========================================
+const parseTimeToMinutes = (timeStr) => {
+    const [time, period] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+    if (period === 'PM' && hours !== 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+};
+
+// ==========================================
+// 1. DATE BADGE COMPONENT
+// ==========================================
+const DateBadge = ({ dateStr, isSelected, onPress }) => {
+    const dateObj = DateUtils.parseYYYYMMDDToDate(dateStr);
+    
+    return (
+        <TouchableOpacity 
+            style={[styles.dateBadge, isSelected ? styles.dateBadgeSelected : styles.dateBadgeUnselected]} 
+            onPress={() => onPress(dateObj)}
+        >
+            <Text style={[styles.dateBadgeDayText, isSelected ? styles.dateBadgeTextSelected : styles.dateBadgeTextUnselected]}>
+                {dateObj.getDate()}
+            </Text>
+            <Text style={[styles.dateBadgeDayOfWeekText, isSelected ? styles.dateBadgeTextSelected : styles.dateBadgeDayOfWeekTextUnselected]}>
+                {dateObj.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })}
+            </Text>
+        </TouchableOpacity>
+    );
+};
+
+// ==========================================
+// 2. ANYTIME EVENT CARD
+// ==========================================
 const AnytimeEventCard = ({ item, onSetTime, onRemove }) => {
     const drag = useReorderableDrag();
     const isActive = useIsActive();
@@ -30,7 +67,6 @@ const AnytimeEventCard = ({ item, onSetTime, onRemove }) => {
                     <View style={styles.cardHeaderRow}>
                         <View style={styles.cardMainInfo}>
                             <View style={[styles.cardImageContainer, styles.anytimeCardImageContainer]}>
-                                {/* FIX: Changed item.image to item.image_url */}
                                 {item.image_url ? (
                                     <Image source={item.image_url} style={styles.fullImage} contentFit="cover" />
                                 ) : (
@@ -60,7 +96,10 @@ const AnytimeEventCard = ({ item, onSetTime, onRemove }) => {
     );
 };
 
-const ScheduledEventCard = ({ item, isLast, onSetTime, onRemove, onDelete }) => {
+// ==========================================
+// 3. SCHEDULED EVENT CARD
+// ==========================================
+const ScheduledEventCard = ({ item, isLast, onSetTime, onRemove, onDelete, onViewDetails }) => {
     const [isVisuallyPressed, setVisuallyPressed] = useState(false);
     const pressInTimer = useRef(null);
     const PRESS_DELAY = 200; 
@@ -99,6 +138,7 @@ const ScheduledEventCard = ({ item, isLast, onSetTime, onRemove, onDelete }) => 
 
             <View style={styles.contentContainer}>
                 <Pressable 
+                    onPress={() => onViewDetails(item)}
                     onLongPress={handleLongPress}
                     delayLongPress={250} 
                     onPressIn={handlePressIn}
@@ -111,17 +151,24 @@ const ScheduledEventCard = ({ item, isLast, onSetTime, onRemove, onDelete }) => 
                     <View style={styles.card}>
                         <View style={styles.cardHeaderRow}>
                             <View style={styles.cardTextContent}>
-                                <TouchableOpacity style={styles.timeBadge} onPress={() => onSetTime(item.id)}>
-                                    <Text style={styles.timeText}>{item.time}</Text>
-                                </TouchableOpacity>
-                                <Text style={styles.title}>{item.title}</Text>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <TouchableOpacity style={styles.timeBadge} onPress={() => onSetTime(item.id)}>
+                                        <Text style={styles.timeText}>{item.time}</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
                                 <Text style={styles.category}>{item.category}</Text>
                             </View>
                             
                             <View style={{ alignItems: 'flex-end', justifyContent: 'space-between' }}>
                                 <View style={styles.cardImageContainer}>
-                                    {/* FIX: Changed item.image to item.image_url */}
-                                    {item.image_url && <Image source={item.image_url} style={styles.fullImage} contentFit="cover" />}
+                                    {item.image_url ? (
+                                        <Image source={item.image_url} style={styles.fullImage} contentFit="cover" />
+                                    ) : (
+                                        <LinearGradient colors={getCategoryFallback(item.category).colors} style={styles.fallbackGradient}>
+                                            <MaterialIcons name={getCategoryFallback(item.category).icon} size={24} color="rgba(255,255,255,0.9)" />
+                                        </LinearGradient>
+                                    )}
                                 </View>
                             </View>
                         </View>
@@ -132,26 +179,75 @@ const ScheduledEventCard = ({ item, isLast, onSetTime, onRemove, onDelete }) => 
     );
 };
 
+// ==========================================
+// 4. MAIN SCREEN
+// ==========================================
 export default function Timeline() {
     const tripData = useTrip();
     const { timelineData = {}, addEventToBucket, updateDayEvents, unassignedIdeas = [], updateEventTime, unassignEvent, deleteEvent } = tripData;
+    
     const [selectedDate, setSelectedDate] = useState(null);
     const [isTimePickerVisible, setTimePickerVisibility] = useState(false);
     const [selectedItemId, setSelectedItemId] = useState(null);
     const [isIdeaBankVisible, setIdeaBankVisible] = useState(false); 
+    const [selectedEventDetails, setSelectedEventDetails] = useState(null);
+    const [isEditingEvent, setIsEditingEvent] = useState(false);
+    const [eventEditForm, setEventEditForm] = useState({});
 
     const activeDateStr = selectedDate ? DateUtils.formatDateToYYYYMMDD(selectedDate) : null;
     const dateList = DateUtils.getDatesBetween(tripData.startDate, tripData.endDate);
 
-    // FIX: Corrected dependency from snake_case to camelCase
     useEffect(() => {
         if (tripData?.startDate) {
-            setInitialSelectedDate(tripData.startDate);
+            setSelectedDate(DateUtils.parseYYYYMMDDToDate(tripData.startDate));
         }
     }, [tripData?.startDate]);
 
-    const setInitialSelectedDate = (dateStr) => {
-        setSelectedDate(DateUtils.parseYYYYMMDDToDate(dateStr));
+    const handleViewDetails = (item) => {
+        setSelectedEventDetails(item);
+        setEventEditForm(item); 
+        setIsEditingEvent(false); 
+    };
+
+    const handleSaveEventDetails = async () => {
+        try {
+            const hasTitleChanged = eventEditForm.title !== selectedEventDetails.title;
+            const hasDescChanged = eventEditForm.description !== selectedEventDetails.description;
+            const hasAddressChanged = eventEditForm.address !== selectedEventDetails.address;
+
+            if (!hasTitleChanged && !hasDescChanged && !hasAddressChanged) {
+                setIsEditingEvent(false);
+                return; 
+            }
+            
+            const { latitude, longitude } = await getCoordinatesForAddress(eventEditForm.address, tripData.destinations);
+            const updatedData = {
+                title: eventEditForm.title,
+                description: eventEditForm.description,
+                address: eventEditForm.address,
+                latitude: latitude || null,
+                longitude: longitude || null
+            };
+
+            const { error } = await supabase
+                .from('Events')
+                .update(updatedData)
+                .eq('event_id', eventEditForm.event_id || eventEditForm.id); 
+
+            if (error) throw error;
+
+            const finalizedEvent = { ...eventEditForm, ...updatedData };
+            setSelectedEventDetails(finalizedEvent);
+            setIsEditingEvent(false); 
+            
+            if (tripData.updateEventDetails) {
+                tripData.updateEventDetails(finalizedEvent, activeDateStr);
+            }
+            
+        } catch (error) {
+            console.error("Failed to save event details:", error);
+            alert("Could not save changes. Please try again.");
+        }
     };
 
     const showTimePicker = (itemId) => {
@@ -159,7 +255,7 @@ export default function Timeline() {
         setTimePickerVisibility(true);
     };
 
-   const handleConfirmTime = (date) => {
+    const handleConfirmTime = (date) => {
         if (!selectedItemId || !activeDateStr) return;
 
         let hours = date.getHours();
@@ -183,14 +279,6 @@ export default function Timeline() {
         deleteEvent(item.id, activeDateStr); 
     };
 
-    const parseTimeToMinutes = (timeStr) => {
-        const [time, period] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-        if (period === 'PM' && hours !== 12) hours += 12;
-        if (period === 'AM' && hours === 12) hours = 0;
-        return hours * 60 + minutes;
-    };
-
     const currentDayData = activeDateStr ? (timelineData[activeDateStr] || []) : [];
     const flexibleBucket = currentDayData.filter(e => !e.time || e.time === 'TBD' || e.time === 'All Day');
     const anchoredTimeline = currentDayData
@@ -202,27 +290,8 @@ export default function Timeline() {
         const reorderedAnytime = reorderItems(flexibleBucket, from, to);
         updateDayEvents(activeDateStr, [...reorderedAnytime, ...anchoredTimeline]);
     };
-    
-    const DateBadge = ({ date }) => {
-        const dateObj = DateUtils.parseYYYYMMDDToDate(date);
-        const isSelected = selectedDate?.getTime() === dateObj.getTime();
 
-        return (
-            <TouchableOpacity 
-                style={[styles.dateBadge, isSelected ? styles.dateBadgeSelected : styles.dateBadgeUnselected]} 
-                onPress={() => setSelectedDate(dateObj)}
-            >
-                <Text style={[styles.dateBadgeDayText, isSelected ? styles.dateBadgeTextSelected : styles.dateBadgeTextUnselected]}>
-                    {dateObj.getDate()}
-                </Text>
-                <Text style={[styles.dateBadgeDayOfWeekText, isSelected ? styles.dateBadgeTextSelected : styles.dateBadgeDayOfWeekTextUnselected]}>
-                    {dateObj.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })}
-                </Text>
-            </TouchableOpacity>
-        );
-    };
-
-    const ListHeader = () => (
+    const listHeader = (
         <View>
             <View style={styles.tabBarOuterContainer}>
                 <View style={styles.tabBarInnerContainer}>
@@ -239,9 +308,18 @@ export default function Timeline() {
 
             <View style={styles.dateScrollerContainer}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dateScroller} contentContainerStyle={styles.dateScrollerContent}>
-                    {dateList.map(d => (
-                        <DateBadge key={d} date={d} />
-                    ))}
+                    {dateList.map(d => {
+                        const dateObj = DateUtils.parseYYYYMMDDToDate(d);
+                        const isSelected = selectedDate?.getTime() === dateObj.getTime();
+                        return (
+                            <DateBadge 
+                                key={d} 
+                                dateStr={d} 
+                                isSelected={isSelected} 
+                                onPress={setSelectedDate} 
+                            />
+                        );
+                    })}
                 </ScrollView>
             </View>
 
@@ -253,7 +331,7 @@ export default function Timeline() {
         </View>
     );
 
-    const ListFooter = () => (
+    const listFooter = (
         <View style={{ marginTop: 20 }}>
             <View style={{ flexDirection: 'row', paddingHorizontal: '5%' }}>
                 <View style={styles.timelineContainer}>
@@ -276,12 +354,12 @@ export default function Timeline() {
                     onSetTime={showTimePicker}
                     onRemove={handleRemoveEvent}
                     onDelete={handleDeleteEvent}
+                    onViewDetails={handleViewDetails}
                 />
             ))}
         </View>
     );
 
-    // FIX: Removed GestureHandlerRootView to prevent nested gesture conflicts
     return (
         <View style={styles.screen}>
             <ReorderableList
@@ -289,8 +367,8 @@ export default function Timeline() {
                 onReorder={reorderBucket}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => <AnytimeEventCard item={item} onSetTime={showTimePicker} onRemove={handleRemoveEvent} />}
-                ListHeaderComponent={ListHeader}
-                ListFooterComponent={ListFooter}
+                ListHeaderComponent={listHeader}
+                ListFooterComponent={listFooter}
                 contentContainerStyle={{ paddingBottom: 150 }} 
             />
 
@@ -301,15 +379,16 @@ export default function Timeline() {
                 </TouchableOpacity>
             )}
 
+            {/* --- IDEA BANK BOTTOM SHEET --- */}
             <AnimatedBottomSheet visible={isIdeaBankVisible} onClose={() => setIdeaBankVisible(false)}>
                 <View style={styles.sheetHeader}>
-                <View>
-                    <Text style={styles.sheetTitle}>Itinerary Bank</Text>
-                    <Text style={styles.sheetSubtitle}>Ideas ready to be scheduled</Text>
-                </View>
-                <TouchableOpacity onPress={() => setIdeaBankVisible(false)} style={styles.closeButton}>
-                    <MaterialIcons name="close" size={22} color="#0f172a" />
-                </TouchableOpacity>
+                    <View>
+                        <Text style={styles.sheetTitle}>Itinerary Bank</Text>
+                        <Text style={styles.sheetSubtitle}>Ideas ready to be scheduled</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setIdeaBankVisible(false)} style={styles.closeButton}>
+                        <MaterialIcons name="close" size={22} color="#0f172a" />
+                    </TouchableOpacity>
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }} contentContainerStyle={{ paddingBottom: 20 }}>
@@ -340,7 +419,6 @@ export default function Timeline() {
                                     style={styles.bankAddButton}
                                     onPress={() => {
                                         if (activeDateStr) {
-                                            // FIX: Added Haptic feedback for better UX
                                             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                                             addEventToBucket(activeDateStr, item);
                                         }
@@ -352,6 +430,111 @@ export default function Timeline() {
                         );
                     })}
                 </ScrollView>
+            </AnimatedBottomSheet>
+
+            <AnimatedBottomSheet visible={!!selectedEventDetails} onClose={() => setSelectedEventDetails(null)}>
+                {selectedEventDetails && (
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, keyboardShouldPersistTaps: 'handled' }}>
+                        
+                        {/* Header Image */}
+                        <View style={styles.detailsImageContainer}>
+                            {selectedEventDetails.image_url ? (
+                                <Image source={selectedEventDetails.image_url} style={styles.fullImage} contentFit="cover" />
+                            ) : (
+                                <LinearGradient colors={getCategoryFallback(selectedEventDetails.category).colors} style={styles.fallbackGradient}>
+                                    <MaterialIcons name={getCategoryFallback(selectedEventDetails.category).icon} size={60} color="rgba(255,255,255,0.9)" />
+                                </LinearGradient>
+                            )}
+                            <TouchableOpacity onPress={() => setSelectedEventDetails(null)} style={styles.detailsCloseBtn}>
+                                <MaterialIcons name="close" size={24} color="#0f172a" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.detailsContent}>
+                            
+                            {/* Header Row & Edit Button */}
+                            <View style={styles.detailsHeaderRow}>
+                                <View style={{ flex: 1, paddingRight: 10 }}>
+                                    {isEditingEvent ? (
+                                        <TextInput 
+                                            style={[styles.detailsTitle, styles.activeInput]} 
+                                            value={eventEditForm.title}
+                                            onChangeText={(text) => setEventEditForm({...eventEditForm, title: text})}
+                                            placeholder="Event Title"
+                                        />
+                                    ) : (
+                                        <Text style={styles.detailsTitle}>{selectedEventDetails.title}</Text>
+                                    )}
+                                    <Text style={styles.detailsCategory}>{selectedEventDetails.category}</Text>
+                                </View>
+
+                                {/* Edit / Save Button Toggle */}
+                                {isEditingEvent ? (
+                                    <TouchableOpacity onPress={handleSaveEventDetails} style={styles.saveButton}>
+                                        <Text style={styles.saveButtonText}>Save</Text>
+                                    </TouchableOpacity>
+                                ) : (
+                                    <TouchableOpacity onPress={() => setIsEditingEvent(true)} style={styles.editButton}>
+                                        <MaterialIcons name="edit" size={20} color={Colors.primary} />
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+
+                            {/* Time Row */}
+                            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                                {selectedEventDetails.time && selectedEventDetails.time !== 'TBD' && selectedEventDetails.time !== 'All Day' && (
+                                    <View style={styles.detailsTimeBadge}>
+                                        <Text style={styles.detailsTimeText}>{selectedEventDetails.time}</Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* DESCRIPTION */}
+                            <View style={styles.detailsSection}>
+                                <Text style={styles.detailsSectionLabel}>DESCRIPTION</Text>
+                                {isEditingEvent ? (
+                                    <TextInput 
+                                        style={[styles.detailsDescription, styles.activeInput, { minHeight: 80 }]}
+                                        value={eventEditForm.description}
+                                        onChangeText={(text) => setEventEditForm({...eventEditForm, description: text})}
+                                        placeholder="What are the details?"
+                                        placeholderTextColor="#94a3b8"
+                                        multiline
+                                        textAlignVertical="top"
+                                    />
+                                ) : (
+                                    <Text style={[styles.detailsDescription, !selectedEventDetails.description && styles.emptyText]}>
+                                        {selectedEventDetails.description || "Add a description for this event..."}
+                                    </Text>
+                                )}
+                            </View>
+
+                            {/* LOCATION */}
+                            <View style={styles.detailsSection}>
+                                <Text style={styles.detailsSectionLabel}>LOCATION</Text>
+                                <View style={[styles.actionRow, isEditingEvent && styles.activeInputRow]}>
+                                    <View style={styles.actionIconCircle}>
+                                        <MaterialIcons name="place" size={20} color="#64748b" />
+                                    </View>
+                                    {isEditingEvent ? (
+                                        <TextInput 
+                                            style={styles.rowTextInput}
+                                            value={eventEditForm.address}
+                                            onChangeText={(text) => setEventEditForm({...eventEditForm, address: text})}
+                                            placeholder="Where is it?"
+                                            placeholderTextColor="#94a3b8"
+                                        />
+                                    ) : (
+                                        <Text style={[styles.actionRowText, !selectedEventDetails.address && styles.emptyText]}>
+                                            {selectedEventDetails.address || 'Add an address...'}
+                                        </Text>
+                                    )}
+                                </View>
+                            </View>
+
+                        </View>
+                    </ScrollView>
+                )}
             </AnimatedBottomSheet>
 
             <DateTimePickerModal
@@ -388,7 +571,7 @@ const styles = StyleSheet.create({
     cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between' },
     cardMainInfo: { flex: 1, flexDirection: 'row', alignItems: 'center' },
     cardTextContent: { flex: 1, paddingRight: 10 },
-    cardImageContainer: { width: 80, height: 80, borderRadius: 10, backgroundColor: Colors.lightGray, overflow: 'hidden' },
+    cardImageContainer: { width: 80, height: '100%', borderRadius: 10, backgroundColor: Colors.lightGray, overflow: 'hidden' },
     anytimeCardImageContainer: { width: 65, height: 65, marginRight: 12 },
     cardActions: { alignItems: 'flex-end', justifyContent: 'space-between' },
     
@@ -423,7 +606,7 @@ const styles = StyleSheet.create({
     floatingBankButton: { position: 'absolute', bottom: 30, alignSelf: 'center', backgroundColor: '#0f172a', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderRadius: 30, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 8, gap: 8 },
     floatingBankText: { color: 'white', fontWeight: '700', fontSize: 14 },
     
-    // --- BOTTOM SHEET ---
+    // --- BOTTOM SHEET & DETAILS ---
     sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     sheetTitle: { fontSize: 20, fontWeight: '800', color: '#0f172a' },
     sheetSubtitle: { fontSize: 13, color: '#64748b', fontWeight: '500', marginTop: 2 },
@@ -433,5 +616,30 @@ const styles = StyleSheet.create({
     bankItemInfo: { flex: 1, paddingHorizontal: 14 },
     bankItemTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 4 },
     bankItemCategory: { fontSize: 13, color: '#64748b', fontWeight: '500' },
-    bankAddButton: { backgroundColor: '#0f172a', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }
+    bankAddButton: { backgroundColor: '#0f172a', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+
+    detailsImageContainer: { width: '100%', height: 200, borderRadius: 16, overflow: 'hidden', backgroundColor: '#f1f5f9', marginBottom: 20 },
+    detailsCloseBtn: { position: 'absolute', top: 12, right: 12, backgroundColor: 'rgba(255,255,255,0.9)', padding: 8, borderRadius: 20 },
+    detailsContent: { paddingHorizontal: 10 },
+    detailsTitle: { fontSize: 24, fontWeight: '800', color: '#0f172a', marginBottom: 6 },
+    detailsCategory: { fontSize: 16, color: Colors.primary, fontWeight: '600' },
+    detailsTimeBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+    detailsTimeText: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
+    detailsSection: { marginTop: 24 },
+    detailsSectionLabel: { fontSize: 12, fontWeight: '700', color: '#64748b', letterSpacing: 1, marginBottom: 8 },
+    detailsDescription: { fontSize: 16, color: '#334155', lineHeight: 24 },
+
+    detailsHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+    editButton: { backgroundColor: '#f1f5f9', padding: 8, borderRadius: 20 },
+    saveButton: { backgroundColor: Colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+    saveButtonText: { color: 'white', fontWeight: '700', fontSize: 14 },
+    
+    actionRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#f1f5f9' },
+    actionIconCircle: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    actionRowText: { flex: 1, fontSize: 15, color: '#334155', fontWeight: '500' },
+    rowTextInput: { flex: 1, fontSize: 15, color: '#0f172a', fontWeight: '500', padding: 0 },
+    
+    emptyText: { color: '#94a3b8', fontStyle: 'italic', fontWeight: '400' },
+    activeInput: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10 },
+    activeInputRow: { backgroundColor: '#ffffff', borderColor: Colors.primary },
 });
