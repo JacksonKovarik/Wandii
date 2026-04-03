@@ -55,9 +55,9 @@ const styles = StyleSheet.create({
     },
 
     tab: {
-        flex: 1,  
+        flex: 1,  // ⭐ FIX: equal width tabs
         paddingHorizontal: moderateScale(10),
-        paddingVertical: moderateScale(10),
+        paddingVertical: moderateScale(8),
         borderRadius: moderateScale(5),
         alignItems: "center",
         justifyContent: "center",

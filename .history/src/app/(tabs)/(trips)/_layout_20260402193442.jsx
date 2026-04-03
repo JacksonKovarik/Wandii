@@ -1,7 +1,6 @@
 import AddTripButton from "@/src/components/addTripButton";
 import ReusableTabBar from "@/src/components/reusableTabBar";
-import { Tabs, useRouter, useSegments } from "expo-router";
-import { useEffect } from "react";
+import { Tabs } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
@@ -16,8 +15,8 @@ const customHeader = () => (
             <View style={styles.tabBarContainer}>
                 <ReusableTabBar
                     tabs={[
-                        { label: "Upcoming", name: "upcoming", route: "/(tabs)/(trips)/upcoming" },
-                        { label: "Past", name: "past", route: "/(tabs)/(trips)/past" },
+                        { label: "Upcoming", name: "upcoming", route: `/(tabs)/(trips)/upcoming` },
+                        { label: "Past", name: "past", route: `/(tabs)/(trips)/past` },
                     ]}
                 />
             </View>
@@ -26,16 +25,6 @@ const customHeader = () => (
 );
 
 export default function TripsLayout() {
-    const router = useRouter();
-    const segments = useSegments();
-
-    useEffect(() => {
-        const last = segments[segments.length - 1];
-        if (last === "trips" || last === "(trips)") {
-            router.replace("/(tabs)/(trips)/upcoming");
-        }
-    }, [segments]);
-
     return (
         <Tabs
             screenOptions={{
@@ -60,21 +49,25 @@ const styles = StyleSheet.create({
         shadowRadius: 0.8,
         shadowOffset: { width: 0, height: 2 },
     },
+
     headerContent: {
         marginTop: 60,
         marginBottom: 10,
     },
+
     titleRow: {
         flexDirection: "row",
         marginHorizontal: "5%",
         alignItems: "flex-end",
         justifyContent: "space-between",
     },
+
     title: {
         fontSize: moderateScale(34),
         fontWeight: "bold",
         marginBottom: 5,
     },
+
     tabBarContainer: {
         width: "100%",
         alignItems: "center",

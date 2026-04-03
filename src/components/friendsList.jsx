@@ -12,7 +12,7 @@ export default function FriendsList({ buddies, onPressMore }) {
         <Text style={styles.title}>Travel Buddies</Text>
 
         <TouchableOpacity onPress={onPressMore}>
-          <Text style={styles.seeAll}>See All ›</Text>
+          <Text style={styles.seeAll}>View All ›</Text>
         </TouchableOpacity>
       </View>
 

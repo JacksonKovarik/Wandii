@@ -15,7 +15,7 @@ export default function ReusableTabBar({ tabs, extraBgStyles, extraTabStyles, ex
             {tabs.map((tab) => (
                 <TouchableOpacity
                     key={tab.route}
-                    onPress={() => router.navigate(tab.route)}
+                    onPress={() => router.push(tab.route)}
                     style={[
                         styles.tab,
                         extraTabStyles,

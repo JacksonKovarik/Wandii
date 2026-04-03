@@ -26,11 +26,7 @@ export default function ReusableTabBar({ tabs, extraBgStyles, extraTabStyles, ex
                         style={[
                             styles.tabText,
                             extraTextStyles,
-                            isActive(tab.name)
-                                ? styles.tabTextActive
-                                : extraTextStyles
-                                ? extraTextStyles
-                                : styles.tabTextInactive,
+                            isActive(tab.name) ? styles.tabTextActive : extraTextStyles ? extraTextStyles : styles.tabTextInactive,
                         ]}
                         numberOfLines={1}
                     >
@@ -44,42 +40,36 @@ export default function ReusableTabBar({ tabs, extraBgStyles, extraTabStyles, ex
 
 const styles = StyleSheet.create({
     container: {
-        display: "flex",
+        display: 'flex',
         flexDirection: "row",
         marginTop: moderateScale(10),
         padding: moderateScale(5),
         borderRadius: moderateScale(10),
-        backgroundColor: "#E0E0E0",
+        backgroundColor: '#E0E0E0',
         gap: moderateScale(10),
-        maxWidth: "90%",
+        maxWidth: '90%'
     },
-
     tab: {
-        flex: 1,  
-        paddingHorizontal: moderateScale(10),
-        paddingVertical: moderateScale(10),
+        flexGrow: 1, 
+        paddingHorizontal: moderateScale(10), 
+        paddingVertical: moderateScale(8),
         borderRadius: moderateScale(5),
         alignItems: "center",
-        justifyContent: "center",
+        justifyContent: "center", 
     },
-
     tabActive: {
         backgroundColor: "white",
     },
-
     tabInactive: {
         backgroundColor: "transparent",
     },
-
     tabText: {
-        fontWeight: "bold",
+        fontWeight: 'bold',
         fontSize: moderateScale(14),
     },
-
     tabTextActive: {
         color: "black",
     },
-
     tabTextInactive: {
         color: Colors.textSecondary,
     },

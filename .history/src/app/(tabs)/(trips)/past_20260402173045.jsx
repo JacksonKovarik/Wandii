@@ -1,6 +1,6 @@
-import PastTripCard from "@/src/components/pastTripCard";
-import { useFocusEffect } from "@react-navigation/native";
-import React, { useCallback, useRef } from "react";
+
+import PastTripCard from "@/src/components/pastTripCard"; // or rename to TripCard
+import React from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 import { moderateScale, scale, verticalScale } from "react-native-size-matters";
 
@@ -21,37 +21,38 @@ function formatShortRange(startDate, endDate) {
 }
 
 export default function Past() {
+//   const trips = [
+//   {
+//     location: "Kyoto, Japan",
+//     dates: "Apr 3 - Apr 12, 2026",
+//     photos: 42,
+//     journals: 5,
+//     image: JapanImage,
+//   },
+
+//   {
+//     location: "Paris, France",
+//     dates: "Mar 10 - Mar 18, 2025",
+//     photos: 87,
+//     journals: 3,
+//     image: ParisImage,
+//   },
+// ];
   const trips = []; // REPLACE WITH REAL DATA
   const loading = false; // REPLACE WITH REAL LOADING STATE
-
-  const listRef = useRef(null);
-
-  // Reset scroll when returning to this screen
-  useFocusEffect(
-    useCallback(() => {
-      if (listRef.current) {
-        listRef.current.scrollToOffset({ offset: 0, animated: false });
-      }
-    }, [])
-  );
-
+  
   return (
     <View style={styles.container}>
       <FlatList
-        ref={listRef}
         data={trips}
         keyExtractor={(item, index) => index.toString()}
         renderItem={({ item }) => <PastTripCard trip={item} />}
         ListEmptyComponent={() => (
           <View style={styles.emptyContent}>
-            <Text style={styles.emptyTrips}>
-              {loading ? "Loading..." : "No Trips Found..."}
-            </Text>
+            <Text style={styles.emptyTrips}>{loading ? "Loading..." : "No Trips Found..."}</Text>
           </View>
         )}
-        contentContainerStyle={
-          trips.length === 0 ? styles.emptyContainer : styles.listContainer
-        }
+        contentContainerStyle={trips.length === 0 ? styles.emptyContainer : styles.listContainer}
       />
     </View>
   );

@@ -31,6 +31,7 @@ export default function TripsLayout() {
 
     useEffect(() => {
         const last = segments[segments.length - 1];
+
         if (last === "trips" || last === "(trips)") {
             router.replace("/(tabs)/(trips)/upcoming");
         }

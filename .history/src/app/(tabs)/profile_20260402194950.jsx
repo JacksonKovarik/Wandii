@@ -2,9 +2,8 @@ import FriendsList from "@/src/components/friendsList";
 import ProfileHeader from "@/src/components/profileHeader";
 import RecentDestinations from "@/src/components/recentDestinations";
 import { supabase } from "@/src/lib/supabase";
-import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -18,17 +17,6 @@ export default function Profile() {
   const router = useRouter();
   const [photo, setPhoto] = useState(null);
   const [loggingOut, setLoggingOut] = useState(false);
-
-  const scrollRef = useRef(null);
-
-  // Reset scroll when returning to this screen
-  useFocusEffect(
-    useCallback(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTo({ y: 0, animated: false });
-      }
-    }, [])
-  );
 
   // temporary user data
   const user = {
@@ -71,9 +59,11 @@ export default function Profile() {
 
       await supabase.auth.signOut();
 
+      // Delay so UI updates before navigating
       setTimeout(() => {
         router.replace("/");
       }, 500);
+
     } catch (error) {
       console.error("Logout error:", error);
       setLoggingOut(false);
@@ -82,6 +72,7 @@ export default function Profile() {
 
   return (
     <View style={styles.screen}>
+
       <ProfileHeader
         user={user}
         photo={photo}
@@ -89,11 +80,13 @@ export default function Profile() {
         onPressSettings={() => router.push("/settings")}
       />
 
+      {/* Scrollable content */}
       <ScrollView
-        ref={scrollRef}
         contentContainerStyle={{ paddingBottom: 80 }}
         showsVerticalScrollIndicator={false}
       >
+
+        {/* Travel Buddies */}
         <View style={{ marginTop: 30, paddingHorizontal: 20 }}>
           <FriendsList
             buddies={travelBuddies}
@@ -101,6 +94,7 @@ export default function Profile() {
           />
         </View>
 
+        {/* Recent Destinations*/}
         <View style={{ marginTop: 50, paddingHorizontal: 20 }}>
           <RecentDestinations
             destinations={recentDestinations}
@@ -108,6 +102,7 @@ export default function Profile() {
           />
         </View>
 
+        {/* Logout Button */}
         <View style={styles.logoutContainer}>
           <TouchableOpacity
             onPress={handleLogout}
@@ -124,6 +119,7 @@ export default function Profile() {
             )}
           </TouchableOpacity>
         </View>
+
       </ScrollView>
     </View>
   );

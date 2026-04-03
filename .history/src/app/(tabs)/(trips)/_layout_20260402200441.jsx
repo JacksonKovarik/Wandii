@@ -16,8 +16,8 @@ const customHeader = () => (
             <View style={styles.tabBarContainer}>
                 <ReusableTabBar
                     tabs={[
-                        { label: "Upcoming", name: "upcoming", route: "/(tabs)/(trips)/upcoming" },
-                        { label: "Past", name: "past", route: "/(tabs)/(trips)/past" },
+                        { label: "Upcoming", name: "upcoming", route: `/(tabs)/(trips)/upcoming` },
+                        { label: "Past", name: "past", route: `/(tabs)/(trips)/past` },
                     ]}
                 />
             </View>
@@ -30,8 +30,7 @@ export default function TripsLayout() {
     const segments = useSegments();
 
     useEffect(() => {
-        const last = segments[segments.length - 1];
-        if (last === "trips" || last === "(trips)") {
+        if (segments[segments.length - 1] === "(trips)") {
             router.replace("/(tabs)/(trips)/upcoming");
         }
     }, [segments]);
