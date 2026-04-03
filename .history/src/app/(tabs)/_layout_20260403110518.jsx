@@ -25,11 +25,11 @@ export default function Layout() {
       />
 
       <Tabs.Screen
-        name="connections"
+        name="network"
         options={{
           headerShown: false,
-          title: "Connections",
-          tabBarIcon: ({ color }) => <MaterialIcons name="public" size={24} color={color} />
+          title: "Network",
+          tabBarIcon: ({ color }) => <MaterialIcons name="group" size={24} color={color} />
         }}
       />
 
