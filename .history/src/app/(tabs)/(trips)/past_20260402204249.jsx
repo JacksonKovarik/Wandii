@@ -1,12 +1,12 @@
 import PastTripCard from "@/src/components/pastTripCard";
-import { fakePastTrips } from "@/src/data/fakePastTrips";
+import { tripCards } from "@/src/data/tripCards";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useRef } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 import { moderateScale, scale, verticalScale } from "react-native-size-matters";
 
 export default function Past() {
-  const trips = fakePastTrips;
+  const trips = tripCards;
   const loading = false;
   const listRef = useRef(null);
 

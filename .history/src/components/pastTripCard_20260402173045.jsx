@@ -6,6 +6,7 @@ import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 const PastTripCard = ({ trip, onRelivePress }) => {
   return (
     <View style={styles.card}>
+
       <View style={styles.topRow}>
         <Image source={trip.image} style={styles.coverImage} />
 
@@ -22,26 +23,14 @@ const PastTripCard = ({ trip, onRelivePress }) => {
             <Text style={styles.dates}>{trip.dates}</Text>
           </View>
 
-          <View style={styles.infoColumn}>
+          <View style={styles.infoRow}>
             <View style={[styles.details, styles.photoDetails]}>
-              <Ionicons
-                name="image-outline"
-                size={moderateScale(12)}
-                color="#9900FF"
-                style={{ marginRight: scale(4) }}
-              />
               <Text style={[styles.detailText, { color: '#9900FF' }]}>
                 {trip.photos} Photos
               </Text>
             </View>
 
             <View style={[styles.details, styles.journalDetails]}>
-              <Ionicons
-                name="book-outline"
-                size={moderateScale(12)}
-                color="#FF5900"
-                style={{ marginRight: scale(4) }}
-              />
               <Text style={[styles.detailText, { color: '#FF5900' }]}>
                 {trip.journals} Journals
               </Text>
@@ -49,12 +38,6 @@ const PastTripCard = ({ trip, onRelivePress }) => {
           </View>
 
           <View style={styles.routeDetails}>
-            <Ionicons
-              name="map-outline"
-              size={moderateScale(12)}
-              color="#0051FF"
-              style={{ marginRight: scale(4) }}
-            />
             <Text style={[styles.detailText, { color: '#0051FF' }]}>
               Route Map
             </Text>
@@ -79,6 +62,7 @@ const PastTripCard = ({ trip, onRelivePress }) => {
           </View>
         </TouchableOpacity>
       </View>
+
     </View>
   );
 };
@@ -136,19 +120,16 @@ const styles = StyleSheet.create({
     color: '#9d9d9d',
   },
 
-  infoColumn: {
-    flexDirection: 'column',
-    gap: verticalScale(6),
+  infoRow: {
+    flexDirection: 'row',
     marginBottom: verticalScale(6),
   },
 
   details: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingVertical: verticalScale(4),
     paddingHorizontal: scale(10),
     borderRadius: scale(8),
-    alignSelf: 'flex-start',
+    marginRight: scale(8), 
   },
 
   photoDetails: {
@@ -160,13 +141,12 @@ const styles = StyleSheet.create({
   },
 
   routeDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingVertical: verticalScale(4),
     paddingHorizontal: scale(10),
     borderRadius: scale(8),
     backgroundColor: '#BFD9FF',
     alignSelf: 'flex-start',
+    marginTop: verticalScale(2),
   },
 
   detailText: {
@@ -184,7 +164,7 @@ const styles = StyleSheet.create({
     paddingVertical: verticalScale(12),
     borderRadius: scale(10),
     alignItems: 'center',
-    marginRight: scale(12),
+    marginRight: scale(12), // replaces gap
   },
 
   reliveText: {

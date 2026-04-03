@@ -3,15 +3,25 @@ import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 
+// Card component for showing a past trip
 const PastTripCard = ({ trip, onRelivePress }) => {
   return (
+    // Outer card container
     <View style={styles.card}>
+
+      // Top section: image + trip info
       <View style={styles.topRow}>
+
+        // Trip cover image
         <Image source={trip.image} style={styles.coverImage} />
 
+        // Right side text column
         <View style={styles.textColumn}>
+
+          // Trip location
           <Text style={styles.location}>{trip.location}</Text>
 
+          // Trip dates with calendar icon
           <View style={styles.dateRow}>
             <Ionicons
               name="calendar-outline"
@@ -22,7 +32,10 @@ const PastTripCard = ({ trip, onRelivePress }) => {
             <Text style={styles.dates}>{trip.dates}</Text>
           </View>
 
+          // Photos + Journals stacked vertically
           <View style={styles.infoColumn}>
+
+            // Photos pill
             <View style={[styles.details, styles.photoDetails]}>
               <Ionicons
                 name="image-outline"
@@ -35,6 +48,7 @@ const PastTripCard = ({ trip, onRelivePress }) => {
               </Text>
             </View>
 
+            // Journals pill
             <View style={[styles.details, styles.journalDetails]}>
               <Ionicons
                 name="book-outline"
@@ -48,6 +62,7 @@ const PastTripCard = ({ trip, onRelivePress }) => {
             </View>
           </View>
 
+          // Route Map pill
           <View style={styles.routeDetails}>
             <Ionicons
               name="map-outline"
@@ -59,14 +74,19 @@ const PastTripCard = ({ trip, onRelivePress }) => {
               Route Map
             </Text>
           </View>
+
         </View>
       </View>
 
+      // Bottom buttons: Relive Trip + Share
       <View style={styles.buttonRow}>
+
+        // Relive Trip button
         <TouchableOpacity style={styles.reliveButton} onPress={onRelivePress}>
           <Text style={styles.reliveText}>Relive Trip</Text>
         </TouchableOpacity>
 
+        // Share button
         <TouchableOpacity style={styles.shareButton}>
           <View style={styles.shareContent}>
             <Ionicons
@@ -78,7 +98,9 @@ const PastTripCard = ({ trip, onRelivePress }) => {
             <Text style={styles.shareText}>Share</Text>
           </View>
         </TouchableOpacity>
+
       </View>
+
     </View>
   );
 };

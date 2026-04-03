@@ -3,15 +3,25 @@ import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 
+// Card component for showing a past trip
 const PastTripCard = ({ trip, onRelivePress }) => {
   return (
+    // Outer card container
     <View style={styles.card}>
+
+      // Top section: image + trip info
       <View style={styles.topRow}>
+
+        // Trip cover image
         <Image source={trip.image} style={styles.coverImage} />
 
+        // Right side text column
         <View style={styles.textColumn}>
+
+          // Trip location
           <Text style={styles.location}>{trip.location}</Text>
 
+          // Trip dates with calendar icon
           <View style={styles.dateRow}>
             <Ionicons
               name="calendar-outline"
@@ -22,7 +32,10 @@ const PastTripCard = ({ trip, onRelivePress }) => {
             <Text style={styles.dates}>{trip.dates}</Text>
           </View>
 
+          // Photos + Journals stacked vertically
           <View style={styles.infoColumn}>
+
+            // Photos pill
             <View style={[styles.details, styles.photoDetails]}>
               <Ionicons
                 name="image-outline"
@@ -35,6 +48,7 @@ const PastTripCard = ({ trip, onRelivePress }) => {
               </Text>
             </View>
 
+            // Journals pill
             <View style={[styles.details, styles.journalDetails]}>
               <Ionicons
                 name="book-outline"
@@ -48,6 +62,7 @@ const PastTripCard = ({ trip, onRelivePress }) => {
             </View>
           </View>
 
+          // Route Map pill
           <View style={styles.routeDetails}>
             <Ionicons
               name="map-outline"
@@ -59,14 +74,19 @@ const PastTripCard = ({ trip, onRelivePress }) => {
               Route Map
             </Text>
           </View>
+
         </View>
       </View>
 
+      // Bottom buttons: Relive Trip + Share
       <View style={styles.buttonRow}>
+
+        // Relive Trip button
         <TouchableOpacity style={styles.reliveButton} onPress={onRelivePress}>
           <Text style={styles.reliveText}>Relive Trip</Text>
         </TouchableOpacity>
 
+        // Share button
         <TouchableOpacity style={styles.shareButton}>
           <View style={styles.shareContent}>
             <Ionicons
@@ -78,7 +98,9 @@ const PastTripCard = ({ trip, onRelivePress }) => {
             <Text style={styles.shareText}>Share</Text>
           </View>
         </TouchableOpacity>
+
       </View>
+
     </View>
   );
 };
@@ -86,6 +108,7 @@ const PastTripCard = ({ trip, onRelivePress }) => {
 export default PastTripCard;
 
 const styles = StyleSheet.create({
+  // Main card container
   card: {
     width: '100%',
     backgroundColor: 'white',
@@ -101,12 +124,14 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
+  // Row: image + text column
   topRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     marginBottom: verticalScale(20),
   },
 
+  // Trip image
   coverImage: {
     width: scale(100),
     height: verticalScale(130),
@@ -114,34 +139,40 @@ const styles = StyleSheet.create({
     marginRight: scale(16),
   },
 
+  // Right side text container
   textColumn: {
     flex: 1,
   },
 
+  // Location text
   location: {
     fontSize: moderateScale(20),
     fontWeight: '700',
     marginBottom: verticalScale(6),
   },
 
+  // Date row with icon
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: verticalScale(10),
   },
 
+  // Date text
   dates: {
     fontSize: moderateScale(13),
     fontWeight: '600',
     color: '#9d9d9d',
   },
 
+  // Column for Photos + Journals
   infoColumn: {
     flexDirection: 'column',
     gap: verticalScale(6),
     marginBottom: verticalScale(6),
   },
 
+  // Pill base style
   details: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -151,14 +182,17 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
 
+  // Purple Photos pill
   photoDetails: {
     backgroundColor: '#EDD9FF',
   },
 
+  // Orange Journals pill
   journalDetails: {
     backgroundColor: '#FFE6C4',
   },
 
+  // Blue Route Map pill
   routeDetails: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -169,15 +203,18 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
 
+  // Text inside pills
   detailText: {
     fontSize: moderateScale(11),
     fontWeight: '700',
   },
 
+  // Row for bottom buttons
   buttonRow: {
     flexDirection: 'row',
   },
 
+  // Relive Trip button
   reliveButton: {
     flex: 1,
     backgroundColor: '#f3f4f6',
@@ -193,6 +230,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
 
+  // Share button
   shareButton: {
     flex: 1,
     backgroundColor: '#6193FF',
@@ -202,12 +240,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  // Share button text
   shareText: {
     fontSize: moderateScale(13),
     fontWeight: '700',
     color: 'white',
   },
 
+  // Share button inner layout
   shareContent: {
     flexDirection: 'row',
     alignItems: 'center',

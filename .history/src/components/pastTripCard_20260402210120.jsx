@@ -6,6 +6,7 @@ import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 const PastTripCard = ({ trip, onRelivePress }) => {
   return (
     <View style={styles.card}>
+
       <View style={styles.topRow}>
         <Image source={trip.image} style={styles.coverImage} />
 
@@ -22,6 +23,7 @@ const PastTripCard = ({ trip, onRelivePress }) => {
             <Text style={styles.dates}>{trip.dates}</Text>
           </View>
 
+          {/* PHOTOS + JOURNALS (STACKED EVENLY) */}
           <View style={styles.infoColumn}>
             <View style={[styles.details, styles.photoDetails]}>
               <Ionicons
@@ -48,6 +50,7 @@ const PastTripCard = ({ trip, onRelivePress }) => {
             </View>
           </View>
 
+          {/* ROUTE MAP */}
           <View style={styles.routeDetails}>
             <Ionicons
               name="map-outline"
@@ -79,6 +82,7 @@ const PastTripCard = ({ trip, onRelivePress }) => {
           </View>
         </TouchableOpacity>
       </View>
+
     </View>
   );
 };
@@ -136,8 +140,10 @@ const styles = StyleSheet.create({
     color: '#9d9d9d',
   },
 
+  /* ⭐ EVENLY SPACED COLUMN FOR PHOTOS + JOURNALS */
   infoColumn: {
     flexDirection: 'column',
+    justifyContent: 'space-between',
     gap: verticalScale(6),
     marginBottom: verticalScale(6),
   },
@@ -167,6 +173,7 @@ const styles = StyleSheet.create({
     borderRadius: scale(8),
     backgroundColor: '#BFD9FF',
     alignSelf: 'flex-start',
+    marginTop: verticalScale(4),
   },
 
   detailText: {
