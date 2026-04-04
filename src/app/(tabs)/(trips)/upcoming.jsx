@@ -1,18 +1,17 @@
 import { UpcomingTripCard } from "@/src/components/upcomingTripCard";
 import { Colors } from "@/src/constants/colors";
 import { useAuth } from "@/src/context/AuthContext";
-import { deleteTrip, getUpcomingTrips } from "@/src/lib/trips";
+import { getUpcomingTrips } from "@/src/lib/trips";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Link } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { moderateScale, verticalScale } from "react-native-size-matters";
 
@@ -45,25 +44,6 @@ export default function Upcoming() {
     loadTrips();
   }, [loadTrips]);
 
-  // delete trip
-  const handleDeleteTrip = (tripId) => {
-    Alert.alert("Delete Trip", "Are you sure you want to delete this upcoming trip?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          const { error } = await deleteTrip(user.id, tripId);
-          if (error) {
-            Alert.alert("Could not delete trip", error.message);
-            return;
-          }
-          loadTrips();
-        },
-      },
-    ]);
-  };
-
   // loading state
   if (loading) {
     return (
@@ -73,13 +53,11 @@ export default function Upcoming() {
     );
   }
 
-  const tripId = "77777777-7777-7777-7777-777777777777";
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {trips.length > 0 ? (
         trips.map((trip) => (
-          <UpcomingTripCard key={trip.id} trip={trip} onDelete={handleDeleteTrip} />
+          <UpcomingTripCard key={trip.id} trip={trip} userId={user.id} />
         ))
       ) : (
         <View style={styles.emptyBox}>

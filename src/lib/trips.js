@@ -294,3 +294,7 @@ export async function deleteTrip(userId, tripId) {
 
   return supabase.from(TRIPS_TABLE).delete().eq("trip_id", tripId).eq("creator_id", userId);
 }
+
+export async function leaveTrip(userId, tripId, updates) {
+  return supabase.from(TRIP_MEMBERS_TABLE).delete().eq("user_id", userId).eq("trip_id", tripId);
+}

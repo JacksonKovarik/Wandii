@@ -7,16 +7,16 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import {
-    Menu,
-    MenuOption,
-    MenuOptions,
-    MenuTrigger,
+  Menu,
+  MenuOption,
+  MenuOptions,
+  MenuTrigger,
 } from "react-native-popup-menu";
 import { moderateScale, scale, verticalScale } from "react-native-size-matters";
 import { Colors } from "../constants/colors";
 
 
-export const UpcomingTripCard = ({ trip, onDelete }) => {
+export const UpcomingTripCard = ({ trip, userId }) => {
   const router = useRouter();
   const imageSource =
     typeof trip.cover_photo_url === "string" ? { uri: trip.cover_photo_url } : trip.cover_photo_url;
@@ -26,6 +26,44 @@ export const UpcomingTripCard = ({ trip, onDelete }) => {
   );
   const group = trip.Trip_Members
   const percent = trip.readinessPercent ?? 60;
+
+  const isCreator = trip.creator_id === userId;
+
+  const handleDeleteTrip = (tripId) => {
+    Alert.alert("Delete Trip", "Are you sure you want to delete this upcoming trip?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          const { error } = await deleteTrip(user.id, tripId);
+          if (error) {
+            Alert.alert("Could not delete trip", error.message);
+            return;
+          }
+          loadTrips();
+        },
+      },
+    ]);
+  };
+
+  const handleLeaveTrip = (tripId) => {
+    Alert.alert("Leave Trip", "Are you sure you want to leave this upcoming trip?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Leave",
+        style: "destructive",
+        onPress: async () => {
+          const { error } = await leaveTrip(user.id, tripId);
+          if (error) {
+            Alert.alert("Could not leave trip", error.message);
+            return;
+          }
+          loadTrips();
+        },
+      },
+    ]);
+  };
 
   return (
     <TouchableOpacity
@@ -132,16 +170,25 @@ export const UpcomingTripCard = ({ trip, onDelete }) => {
                 customStyles={{
                   optionWrapper: {
                     padding: 10,
-                    flexDirection: "row",
-                    gap: 6,
-                    alignItems: "center",
                   },
                 }}
               >
-                <MaterialIcons name="delete-outline" size={20} color="red" />
-                <Text style={{ fontSize: moderateScale(14), color: "red", fontWeight: "600" }}>
-                  Delete
-                </Text>
+                {isCreator ? (
+                  <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <MaterialIcons name="delete-outline" size={20} color="red" />
+                    <Text style={{ fontSize: moderateScale(14), color: "red", fontWeight: "600" }}>
+                      Delete
+                    </Text>
+                  </View>
+                ): (
+                  <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <MaterialIcons name="exit-to-app" size={20} color="red" />
+                    <Text style={{ fontSize: moderateScale(14), color: "red", fontWeight: "600" }}>
+                      Leave
+                    </Text>
+                  </View>
+                )}
+                
               </MenuOption>
             </MenuOptions>
           </Menu>
