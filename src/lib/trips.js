@@ -152,14 +152,38 @@ async function attachDestinationLabels(trips) {
 }
 
 async function readAllTripsForUser(userId) {
-  const { data, error } = await supabase
-    .from(TRIPS_TABLE)
-    .select("*")
-    .eq("creator_id", userId)
-    .order("start_date", { ascending: true, nullsFirst: false });
+  // Step 1: Get the list of trip_ids this user is a part of
+  const { data: userMemberships, error: memberError } = await supabase
+    .from("Trip_Members")
+    .select("trip_id")
+    .eq("user_id", userId);
 
-  if (error) throw error;
-  return attachDestinationLabels(data ?? []);
+  if (!userMemberships || userMemberships.length === 0) {
+    return attachDestinationLabels([]);
+  }
+
+  // Get the trip IDs
+  const tripIds = userMemberships.map((m) => m.trip_id);
+
+  // Step 2: Fetch those specific trips, grab ALL members, AND their profile data
+  const { data: tripsData, error: tripsError } = await supabase
+    .from(TRIPS_TABLE)
+    .select(`
+      *, 
+      Trip_Members (
+        user_id,
+        Users (
+          first_name,
+          last_name,
+          avatar_url
+        )
+      )
+    `) 
+    .in("trip_id", tripIds)
+    .order("start_date", { ascending: true, nullsFirst: false });
+  if (tripsError) throw tripsError;
+
+  return attachDestinationLabels(tripsData ?? []);
 }
 
 async function createTripDestinationLink(tripId, destination, startDate, endDate) {

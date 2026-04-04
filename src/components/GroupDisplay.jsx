@@ -1,13 +1,33 @@
+import { Image } from "expo-image";
 import { StyleSheet, Text, View } from "react-native";
 
 // 1. Pass the index so we know which items need to overlap
 const MemberIdentifier = ({ member, index }) => {
+    member = member.Users
+    const firstInitial = member.first_name[0] || "?";
+    const lastInitial = member.last_name[0] || "?";
+
     return (
-        <View style={[
-            styles.circleBase, 
-            index > 0 && styles.overlap // Don't apply negative margin to the very first item
-        ]}>
-            <Text style={styles.text}>{member.id}</Text>
+        <View>
+            {member.avatar_url ? (
+                <Image 
+                    source={{ uri: member.avatar_url }}
+                    style={[ 
+                        styles.circleBase, 
+                        index > 0 && styles.overlap
+                    ]}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                />
+            ) : (
+                <View style={[
+                    styles.circleBase, 
+                    styles.noAvatarBackground,
+                    index > 0 && styles.overlap // Don't apply negative margin to the very first item
+                ]}>
+                    <Text style={styles.text}>{firstInitial}{lastInitial}</Text>
+                </View>
+            )}
         </View>
     );
 };
@@ -17,12 +37,11 @@ export const GroupDisplay = ({ members }) => {
     const MAX_DISPLAY = 4;
     const visibleMembers = members.slice(0, MAX_DISPLAY);
     const remainingCount = members.length - MAX_DISPLAY;
-
     return (
         <View style={styles.container}>
             {/* Render the visible members */}
             {visibleMembers.map((member, index) => (
-                <MemberIdentifier key={member.id} member={member} index={index} />
+                <MemberIdentifier key={member.user_id} member={member} index={index} />
             ))}
 
             {/* Render the "+X" indicator if there are left over members */}
@@ -46,6 +65,8 @@ const styles = StyleSheet.create({
         borderRadius: 20, 
         borderWidth: 2, // Bumped to 2 for a more distinct separator
         borderColor: 'white', 
+    },
+    noAvatarBackground: {
         backgroundColor: 'grey',
         justifyContent: 'center',
         alignItems: 'center',

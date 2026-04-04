@@ -26,62 +26,16 @@ import {
 } from "react-native-popup-menu";
 import { moderateScale, verticalScale } from "react-native-size-matters";
 
-// mockup data
-const MOCK_TRIP_DATA = [
-  {
-    id: "trip-123",
-    title: "Japan 2026",
-    destinations: "Kyoto, Japan",
-    start_date: "2024-10-12",
-    end_date: "2024-10-24",
-    image: require("../../../../assets/images/Kyoto.jpg"),
-    readinessPercent: 60,
-    group: [
-      { id: 1, name: "Alice B.", initials: "AB", profileColor: "#1E90FF", active: false },
-      { id: 2, name: "Hunter S.", initials: "HS", profileColor: "#32CD32", active: true },
-      { id: 3, name: "Maria K.", initials: "MK", profileColor: "#FFA500", active: true },
-    ],
-  },
-  {
-    id: "trip-456",
-    title: "Miami Bachelor Party",
-    destinations: "Miami, Florida",
-    start_date: "2026-05-08",
-    end_date: "2026-05-11",
-    image: require("../../../../assets/images/Miami.jpg"),
-    readinessPercent: 90,
-    group: [
-      { id: 2, name: "Hunter S.", initials: "HS", profileColor: "#32CD32", active: true },
-      { id: 4, name: "David L.", initials: "DL", profileColor: "#FF4500", active: true },
-      { id: 5, name: "Chris T.", initials: "CT", profileColor: "#8A2BE2", active: false },
-    ],
-  },
-  {
-    id: "trip-789",
-    title: "Euro Trip",
-    destinations: "Paris & Rome",
-    start_date: "2026-07-01",
-    end_date: "2026-07-15",
-    image: require("../../../../assets/images/paris.png"),
-    readinessPercent: 20,
-    group: [
-      { id: 1, name: "Alice B.", initials: "AB", profileColor: "#1E90FF", active: true },
-      { id: 3, name: "Maria K.", initials: "MK", profileColor: "#FFA500", active: true },
-    ],
-  },
-];
-
 // trip card
 const UpcomingTripCard = ({ trip, onDelete }) => {
   const router = useRouter();
-
   const imageSource =
-    typeof trip.image === "string" ? { uri: trip.image } : trip.image;
+    typeof trip.cover_photo_url === "string" ? { uri: trip.cover_photo_url } : trip.cover_photo_url;
 
-  const takeoffDays = DateUtils.daysUntil(
+  const takeoffDays = DateUtils.calculateDaysUntil(
     DateUtils.parseYYYYMMDDToDate(trip.start_date)
   );
-
+  const group = trip.Trip_Members
   const percent = trip.readinessPercent ?? 60;
 
   return (
@@ -162,7 +116,7 @@ const UpcomingTripCard = ({ trip, onDelete }) => {
         <View style={styles.divider} />
 
         {/* group avatars */}
-        <GroupDisplay members={trip.group || []} />
+        <GroupDisplay members={group || []} />
 
         {/* menu */}
         <View style={styles.menuWrap}>
@@ -281,16 +235,6 @@ export default function Upcoming() {
           </Link>
         </View>
       )}
-
-      {/* view trip details link */}
-      <Link
-        href={`/(trip-info)/${tripId}/overview`}
-        style={{ marginTop: 20, alignSelf: "center" }}
-      >
-        <Text style={{ color: Colors.primary, fontWeight: "600" }}>
-          View Trip Details
-        </Text>
-      </Link>
     </ScrollView>
   );
 }
