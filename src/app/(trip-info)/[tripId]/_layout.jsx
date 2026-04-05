@@ -96,7 +96,7 @@ const fetchTripData = async (tripId, userId) => {
         const { data: trip, error } = await supabase
             .from('Trips')
             .select(`
-                trip_id, trip_name, start_date, end_date, cover_photo_url, target_budget,
+                trip_id, trip_name, start_date, end_date, cover_photo_url, target_budget, default_currency,
                 Trip_Destinations ( cached_destinations ( city, country, cover_image_url, longitude, latitude ) ),
                 Trip_Members ( user_id, role, Users ( first_name, last_name, avatar_url ) )
             `)
@@ -171,7 +171,7 @@ const fetchTripData = async (tripId, userId) => {
         const primaryDestination = destinations[0] || null;
         const destinationsStr = destinations.map(cd => `${cd.city}, ${cd.country}`).join(' & ') || 'TBD';
         const activeNotifications = await fetchTripNotifications(tripId, userId);
-        console.log("Active notifications for trip:", activeNotifications);
+
         return {
             id: trip.trip_id,
             name: trip.trip_name,
@@ -181,6 +181,7 @@ const fetchTripData = async (tripId, userId) => {
             image: trip.cover_photo_url || primaryDestination?.cover_image_url,
             takeoffDays: takeoffDays,
             targetBudget: trip.target_budget,
+            defaultCurrency: trip.default_currency || 'USD',
             readinessPercent: readinessPercent, // Calculated dynamically!
             weather: { 
                 temp: '--', 
@@ -410,6 +411,13 @@ export default function TripInfoLayout() {
         setTripData(prev => ({ ...prev, [key]: value }));
     };
 
+    const updateTripContext = (newData) => {
+        setTripData((prevData) => ({
+            ...prevData,
+            ...newData,
+        }));
+    };
+
     // 3. RUN useMemo BEFORE EARLY RETURN
     const contextValue = useMemo(() => {
         if (!tripData) return {}; // Failsafe fallback
@@ -431,7 +439,8 @@ export default function TripInfoLayout() {
             deleteStay,          
             addTransaction,      
             addSettlement,
-            updateTripField       
+            updateTripField,
+            updateTripContext    
         };
     }, [tripId, tripData, discoverFeed, inProgressFeed, unassignedIdeas]);
 

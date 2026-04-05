@@ -63,7 +63,7 @@ const CustomHeader = ({ trip }) => {
             <View style={ styles.contentWrapper }>
                 <View style={ styles.spacer } />
                 <View style={ styles.textContainer }>
-                    <Text style={ styles.destination }>{ trip.destination }</Text>
+                    <Text style={ styles.destination } numberOfLines={2}>{ trip.name }</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(6) }}>
                         <MaterialIcons name="calendar-today" size={moderateScale(12)} color="white" />
                         <Text style={ styles.dateRange }>{ DateUtils.formatRange(DateUtils.parseYYYYMMDDToDate(trip.startDate), DateUtils.parseYYYYMMDDToDate(trip.endDate)) }</Text>

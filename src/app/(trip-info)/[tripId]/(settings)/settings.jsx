@@ -1,9 +1,10 @@
 import { Colors } from "@/src/constants/colors";
+import { MediaUtils } from "@/src/utils/MediaUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
-import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 const SettingRow = ({ icon, title, value, type = 'link', onPress, isDestructive = false }) => (
@@ -21,7 +22,7 @@ const SettingRow = ({ icon, title, value, type = 'link', onPress, isDestructive 
     <View style={styles.rowRight}>
       {type === 'link' && (
         <>
-          {value && <Text style={styles.rowValue}>{value}</Text>}
+          {value && <Text style={styles.rowValue} numberOfLines={1}>{value}</Text>}
           <MaterialIcons name="chevron-right" size={24} color={Colors.textSecondaryLight} />
         </>
       )}
@@ -40,141 +41,155 @@ const SettingRow = ({ icon, title, value, type = 'link', onPress, isDestructive 
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { tripId, destination, trip_name, image } = useTrip();
+  const { tripId, destination, trip_name, name, image, defaultCurrency, default_currency } = useTrip();
   
-  const [isModalVisible, setIsModalVisible] = useState(true);
-  // Mock Settings State
-  const [muteNotifications, setMuteNotifications] = useState(false);
   const [requireApprovals, setRequireApprovals] = useState(true);
-
-  useFocusEffect(
-    useCallback(() => {
-      setIsModalVisible(true);
-    }, [])
-  );
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const handleClose = () => {
-    setIsModalVisible(false);
     setTimeout(() => {
       if (router.canGoBack()) router.back();
       else router.navigate(`/(trip-info)/${tripId}/overview`);
     }, 300);
   };
 
+  const handleCoverPhotoPress = () => {
+    Alert.alert(
+      "Update Cover Photo",
+      "Choose a photo source",
+      [
+        {
+          text: "Take Photo",
+          onPress: async () => {
+            const uri = await MediaUtils.takePhoto();
+            if (uri) processCoverPhotoUpload(uri);
+          }
+        },
+        {
+          text: "Choose from Gallery",
+          onPress: async () => {
+            const uri = await MediaUtils.pickImage();
+            if (uri) processCoverPhotoUpload(uri);
+          }
+        },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
+
+  const processCoverPhotoUpload = async (uri) => {
+    setIsUploadingPhoto(true);
+    try {
+      const newUrl = await MediaUtils.uploadTripCover(uri, tripId);
+      
+      if (updateTripContext) {
+        updateTripContext({ image: newUrl }); 
+      }
+      
+      Alert.alert("Success", "Cover photo updated!");
+    } catch (error) {
+      Alert.alert("Upload Failed", "There was an error updating your cover photo.");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
   return (
-    // <Modal
-    //   visible={isModalVisible}
-    //   animationType="slide"
-    //   presentationStyle="pageSheet"
-    //   onRequestClose={handleClose}
-    // >
-      <View style={styles.container}>
+    <View style={styles.container}>
+      
+      {/* --- Minimal Header --- */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
+          <MaterialIcons name="close" size={26} color={Colors.darkBlue} />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         
-        {/* --- Minimal Header --- */}
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
-            <MaterialIcons name="close" size={26} color={Colors.darkBlue} />
-          </TouchableOpacity>
+        <Text style={styles.pageTitle}>Trip Settings</Text>
+        {/* SECTION: Trip Details */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Details</Text>
+          <SettingRow 
+            icon="edit" 
+            title="Trip Name" 
+            value={trip_name && trip_name !== undefined ? trip_name : name} 
+            onPress={() => {
+              router.push({
+                pathname: `/(trip-info)/${tripId}/(settings)/editField`,
+                params: { 
+                  fieldKey: 'trip_name', 
+                  fieldLabel: 'Trip Name', 
+                  currentValue: trip_name && trip_name !== undefined ? trip_name : name
+                }
+              });
+            }} 
+          />
+          {/* MAKE SURE FOR OPTIMISTIC UPDATES */}
+          <SettingRow 
+            icon="place" 
+            title="Destination" 
+            value={destination} 
+            onPress={() => router.push(`/(trip-info)/${tripId}/(settings)/editDestination`)}
+          />
+          {/* ADD PHOTO PICKING HERE */}
+          <SettingRow 
+            icon="image" 
+            title="Cover Photo" 
+            value={isUploadingPhoto ? "Uploading..." : (image ? "Change Photo" : "Add Photo")}
+            onPress={isUploadingPhoto ? null : handleCoverPhotoPress} // Disable clicking while uploading          
+          />
         </View>
 
-        <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          
-          <Text style={styles.pageTitle}>Trip Settings</Text>
-          {/* SECTION: Trip Details */}
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Details</Text>
-            <SettingRow 
-              icon="edit" 
-              title="Trip Name" 
-              value={trip_name} 
-              onPress={() => {
-                router.push({
-                  pathname: `/(trip-info)/${tripId}/(settings)/editField`,
-                  params: { 
-                    fieldKey: 'trip_name', // Must match your database column name!
-                    fieldLabel: 'Trip Name', 
-                    currentValue: trip_name 
-                  }
-                });
-              }} 
-            />
-            {/* MAKE SURE FOR OPTIMISTIC UPDATES */}
-            <SettingRow 
-              icon="place" 
-              title="Destination" 
-              value={destination} 
-              onPress={() => router.push(`/(trip-info)/${tripId}/(settings)/editDestination`)}
-            />
-            {/* ADD PHOTO PICKING HERE */}
-            <SettingRow 
-              icon="image" 
-              title="Cover Photo" 
-              value={image ? "Change Photo" : "Add Photo"}
-              onPress={() => {
-                router.push({
-                  pathname: `/(trip-info)/${tripId}/(settings)/editField`,
-                  params: { 
-                    fieldKey: 'cover_photo', // Must match your database column name!
-                    fieldLabel: 'Cover Photo', 
-                    currentValue: image 
-                  }
-                });
-              }} 
-            />
-          </View>
+        {/* SECTION: Group & Permissions */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Group</Text>
+          <SettingRow 
+            icon="people" 
+            title="Manage Members" 
+            value="3 People" 
+            onPress={() => router.push(`/(trip-info)/${tripId}/(settings)/manageMembers`)} />
+          <SettingRow 
+            icon="link" 
+            title="Share Invite Link" 
+            onPress={() => console.log('Share')} />
+          <SettingRow 
+            type="switch" 
+            icon="security" 
+            title="Require Join Approval" 
+            value={requireApprovals} 
+            onPress={() => setRequireApprovals(!requireApprovals)} 
+          />
+        </View>
 
-          {/* SECTION: Group & Permissions */}
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Group</Text>
-            <SettingRow 
-              icon="people" 
-              title="Manage Members" 
-              value="3 People" 
-              onPress={() => console.log('Members')} />
-            <SettingRow 
-              icon="link" 
-              title="Share Invite Link" 
-              onPress={() => console.log('Share')} />
-            <SettingRow 
-              type="switch" 
-              icon="security" 
-              title="Require Join Approval" 
-              value={requireApprovals} 
-              onPress={() => setRequireApprovals(!requireApprovals)} 
-            />
-          </View>
+        {/* SECTION: Preferences */}
+        <View style={styles.section}>
+          <Text style={styles.sectionHeader}>Preferences</Text>
+          <SettingRow 
+            icon="payments" 
+            title="Default Currency" 
+            value={default_currency && default_currency !== undefined ? default_currency : defaultCurrency} 
+            onPress={() => router.push(`/(trip-info)/${tripId}/(settings)/editCurrency`)} 
+          />
+        </View>
 
-          {/* SECTION: Preferences */}
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Preferences</Text>
-            <SettingRow icon="payments" title="Default Currency" value="USD ($)" onPress={() => console.log('Currency')} />
-            <SettingRow 
-              type="switch" 
-              icon="notifications-off" 
-              title="Mute Notifications" 
-              value={muteNotifications} 
-              onPress={() => setMuteNotifications(!muteNotifications)} 
-            />
-          </View>
+        {/* SECTION: Danger Zone */}
+        <View style={[styles.section, { borderBottomWidth: 0, marginBottom: 0 }]}>
+          <SettingRow icon="exit-to-app" title="Leave Trip" isDestructive onPress={() => console.log('Leave')} />
+          <SettingRow icon="delete-forever" title="Delete Trip" isDestructive onPress={() => console.log('Delete')} />
+        </View>
 
-          {/* SECTION: Danger Zone */}
-          <View style={[styles.section, { borderBottomWidth: 0, marginBottom: 0 }]}>
-            <SettingRow icon="exit-to-app" title="Leave Trip" isDestructive onPress={() => console.log('Leave')} />
-            <SettingRow icon="delete-forever" title="Delete Trip" isDestructive onPress={() => console.log('Delete')} />
-          </View>
+        <Text style={styles.footerText}>Wandii App Version 1.0.0</Text>
 
-          <Text style={styles.footerText}>Wandii App Version 1.0.0</Text>
-
-        </ScrollView>
-      </View>
-    // </Modal>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF', // Pure white for a cleaner look
+    backgroundColor: '#FFFFFF',
   },
   header: {
     flexDirection: 'row',
@@ -195,7 +210,7 @@ const styles = StyleSheet.create({
     color: Colors.darkBlue,
     paddingHorizontal: moderateScale(24),
     marginBottom: moderateScale(30),
-    letterSpacing: -0.5, // Tighter tracking for a modern typographic feel
+    letterSpacing: -0.5,
   },
   section: {
     marginBottom: moderateScale(32),
@@ -214,7 +229,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: moderateScale(14), // Lots of breathing room
+    paddingVertical: moderateScale(14), 
   },
   rowLeft: {
     flexDirection: 'row',
@@ -229,11 +244,15 @@ const styles = StyleSheet.create({
   rowRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: moderateScale(8),
+    maxWidth: '50%', 
   },
   rowValue: {
     fontSize: moderateScale(15),
-    color: Colors.textSecondary, // Softer color so it doesn't compete with the title
+    color: Colors.textSecondary, 
+    flexShrink: 1, 
+    textAlign: 'right', 
   },
   footerText: {
     textAlign: 'center',
