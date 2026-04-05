@@ -149,15 +149,27 @@ export default function WalletScreen() {
   const [expandedTxId, setExpandedTxId] = useState(null);
   
   const fetchWalletData = async () => {
-    if (!tripId || !userId) return; 
+    if (!tripId ) return; 
     setIsFetchingWallet(true);
     
     try {
+      // 1. Manually grab the current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        console.error("No active session found!");
+        return;
+      }
+
+      // 2. Force the token into the headers of the invoke call
       const { data, error } = await supabase.functions.invoke('get-trip-wallet', {
-        body: { tripId, userId } 
+        body: { tripId },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Wallet Error:", error);
+        return;
+      }     
 
       setWalletState({
         otherMembers: data.otherMembers || [],

@@ -10,13 +10,26 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { tripId, userId } = await req.json();
-    if (!tripId || !userId) throw new Error("Missing tripId or userId");
+    // 1. Grab the user's authentication token from the request headers
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) throw new Error("Missing Authorization header");
 
+    // 2. Initialize Supabase using the ANON key, but attach the User's Auth Header.
+    // This forces the function to strictly obey your RLS policies!
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '' 
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
     );
+
+    // 3. Securely get the userId directly from the Supabase Auth system
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) throw new Error("Unauthorized user");
+    const userId = user.id;
+
+    // 4. We now only need the tripId from the frontend body
+    const { tripId } = await req.json();
+    if (!tripId) throw new Error("Missing tripId");
 
     const [tripResponse, expensesResponse] = await Promise.all([
       supabase.from('Trips').select(`target_budget, Trip_Members (user_id, Users (user_id, first_name, last_name, avatar_url))`).eq('trip_id', tripId).single(),
@@ -26,13 +39,16 @@ serve(async (req) => {
     if (tripResponse.error) throw tripResponse.error;
     if (expensesResponse.error) throw expensesResponse.error;
 
+    // Safety net: If RLS blocked the query, data will be null
+    if (!tripResponse.data) throw new Error("Trip not found or access denied by RLS");
+
     const trip = tripResponse.data;
     const expenses = expensesResponse.data || [];
 
     const totalSpent = expenses.reduce((sum, exp) => sum + Number(exp.total_amount), 0);
     const budgetData = { totalBudget: Number(trip.target_budget) || 0, totalSpent };
 
-    const transactions = expenses.map(exp => {
+    const transactions = expenses.map((exp: any) => {
       const payerName = exp.Users ? `${exp.Users.first_name} ${exp.Users.last_name}`.trim() : 'Unknown';
       return {
         id: exp.expense_id,
@@ -45,51 +61,40 @@ serve(async (req) => {
       };
     });
 
-// --- UPDATED: STRICT 1-ON-1 LEDGER LOGIC ---
+    // --- STRICT 1-ON-1 LEDGER LOGIC ---
     const userRelationships: Record<string, { id: string, name: string, avatar: string, balance: number }> = {};
     
-    // 1. Setup a ledger for all other members relative to YOU
-    trip.Trip_Members.forEach(member => {
+    trip.Trip_Members.forEach((member: any) => {
       if (member.user_id !== userId) {
         userRelationships[member.user_id] = {
           id: member.user_id,
-          name: `${member.Users.first_name} ${member.Users.last_name}`.trim(),
-          avatar: member.Users.avatar_url,
-          balance: 0 // POSITIVE = They owe you. NEGATIVE = You owe them.
+          // Added a fallback check here just in case RLS hides a user's profile
+          name: member.Users ? `${member.Users.first_name} ${member.Users.last_name}`.trim() : 'Unknown User',
+          avatar: member.Users?.avatar_url || '',
+          balance: 0 
         };
       }
     });
 
-    // 2. Process expenses based on your exact database rules
-    expenses.forEach(exp => {
+    expenses.forEach((exp: any) => {
       const payerId = exp.paid_by;
       const splits = exp.Expense_Splits || [];
 
       if (payerId === userId) {
-        // SCENARIO A: YOU paid the expense.
-        // Everyone in the Expense_Splits table owes YOU money.
         splits.forEach((split: any) => {
           if (userRelationships[split.user_id]) {
-            // Add the exact amount they owe you to their ledger
             userRelationships[split.user_id].balance += Number(split.amount_owed || 0);
           }
         });
       } else {
-        // SCENARIO B: SOMEONE ELSE paid the expense.
-        // Check if YOU are in the Expense_Splits table for this expense.
         const mySplit = splits.find((s: any) => s.user_id === userId);
-        
         if (mySplit && userRelationships[payerId]) {
-          // You owe the payer this exact amount.
-          // Subtract from the payer's ledger (Negative means you owe them)
           userRelationships[payerId].balance -= Number(mySplit.amount_owed || 0);
         }
       }
     });
 
     const otherMembers = Object.values(userRelationships);
-    
-    // Your Net Standing is the sum of your 1-on-1 balances
     const myBalance = otherMembers.reduce((sum, member) => sum + member.balance, 0);
     
     return new Response(
@@ -97,7 +102,7 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Wallet Fetch Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400,

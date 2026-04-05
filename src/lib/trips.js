@@ -151,6 +151,13 @@ async function attachDestinationLabels(trips) {
   });
 }
 
+/**
+ * A helper function to read all trips for a user, including their associated destinations and normalized fields. 
+ * This is used internally by the getUpcomingTrips and getPastTrips functions to fetch the relevant trips before filtering and sorting them.
+ * 
+ * @param userId - The ID of the user whose trips we want to retrieve.
+ * @returns - A promise that resolves to an array of trip objects that the user is a member of, with normalized fields and attached destination labels if available.
+ */
 async function readAllTripsForUser(userId) {
   // Step 1: Get the list of trip_ids this user is a part of
   const { data: userMemberships, error: memberError } = await supabase
@@ -235,6 +242,21 @@ async function ensureCreatorMembership(userId, tripId) {
   }
 }
 
+/**
+ * Creates a new trip with the provided values and inserts it into the database. 
+ * Also handles creating the associated destination link and ensuring the creator is a member of the trip.
+ * 
+ * @param values - An object containing the following properties:
+ *   - userId: The ID of the user creating the trip (required)
+ *   - title: The name of the trip (required)
+ *   - destination: The destination of the trip (optional)
+ *   - startDate: The start date of the trip (optional, should be in a format recognized by JavaScript's Date)
+ *   - endDate: The end date of the trip (optional, should be in a format recognized by JavaScript's Date)
+ *   - coverPhotoUrl: A URL for the trip's cover photo (optional)
+ *   - budgetEstimate: A numeric estimate for the trip's budget (optional)
+ *   - vibe: A string representing the vibe or theme of the trip (optional, defaults to "Relaxing")
+ * @returns - An object containing either an `error` property (if the operation failed) or a `trip` property with the newly created trip data (if successful).
+ */
 export async function createTrip(values) {
   const payload = {
     creator_id: values.userId,
@@ -263,6 +285,14 @@ export async function createTrip(values) {
   return { error: null, trip: normalizeTripRow(data, values.destination) };
 }
 
+/**
+ * Fetches upcoming trips for a given user, sorted by start date with the soonest trips first. 
+ * Trips without a start date are treated as far in the future.
+ * 
+ * @param userId - The ID of the user whose trips we want to retrieve.
+ * @returns - A promise that resolves to an array of upcoming trips for the specified user, sorted by start date (soonest first). 
+ *            Each trip object includes normalized fields and an attached destination label if available.
+ */
 export async function getUpcomingTrips(userId) {
   const today = new Date().toISOString().split("T")[0];
   const rows = await readAllTripsForUser(userId);
@@ -271,6 +301,13 @@ export async function getUpcomingTrips(userId) {
     .sort((a, b) => String(a.start_date || "9999-12-31").localeCompare(String(b.start_date || "9999-12-31")));
 }
 
+/**
+ * Fetches past trips for a given user, sorted by end date with the most recent trips first.
+ * 
+ * @param userId - The ID of the user whose trips we want to retrieve.
+ * @returns - A promise that resolves to an array of past trips for the specified user, sorted by end date (most recent first).
+ *            Each trip object includes normalized fields and an attached destination label if available.
+ */
 export async function getPastTrips(userId) {
   const today = new Date().toISOString().split("T")[0];
   const rows = await readAllTripsForUser(userId);
@@ -284,6 +321,13 @@ export async function getTripById(userId, tripId) {
   return rows.find((row) => String(row.id) === String(tripId)) ?? null;
 }
 
+/**
+ * Deletes a trip and all its associated data (destinations, memberships) from the database. Only the trip creator can perform this action.
+ * 
+ * @param userId - The ID of the user who wants to delete the trip - must be the trip creator.
+ * @param tripId - The ID of the trip to delete.
+ * @returns - A promise that resolves to the result of the delete operation.
+ */
 export async function deleteTrip(userId, tripId) {
   const cleanupTasks = [
     supabase.from(DESTINATIONS_TABLE).delete().eq("trip_id", tripId),
@@ -295,6 +339,13 @@ export async function deleteTrip(userId, tripId) {
   return supabase.from(TRIPS_TABLE).delete().eq("trip_id", tripId).eq("creator_id", userId);
 }
 
-export async function leaveTrip(userId, tripId, updates) {
+/**
+ * Removes a user from a trip by deleting their membership record.
+ * 
+ * @param userId - The ID of the user who wants to leave the trip.
+ * @param tripId - The ID of the trip the user wants to leave.
+ * @returns 
+ */
+export async function leaveTrip(userId, tripId) {
   return supabase.from(TRIP_MEMBERS_TABLE).delete().eq("user_id", userId).eq("trip_id", tripId);
 }

@@ -3,7 +3,7 @@ import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Modal, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 const SettingRow = ({ icon, title, value, type = 'link', onPress, isDestructive = false }) => (
@@ -40,10 +40,9 @@ const SettingRow = ({ icon, title, value, type = 'link', onPress, isDestructive 
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { tripId, name, destination } = useTrip();
-
-  const [isModalVisible, setIsModalVisible] = useState(true);
+  const { tripId, destination, trip_name, image } = useTrip();
   
+  const [isModalVisible, setIsModalVisible] = useState(true);
   // Mock Settings State
   const [muteNotifications, setMuteNotifications] = useState(false);
   const [requireApprovals, setRequireApprovals] = useState(true);
@@ -63,12 +62,12 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Modal
-      visible={isModalVisible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={handleClose}
-    >
+    // <Modal
+    //   visible={isModalVisible}
+    //   animationType="slide"
+    //   presentationStyle="pageSheet"
+    //   onRequestClose={handleClose}
+    // >
       <View style={styles.container}>
         
         {/* --- Minimal Header --- */}
@@ -81,20 +80,61 @@ export default function SettingsScreen() {
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
           
           <Text style={styles.pageTitle}>Trip Settings</Text>
-
           {/* SECTION: Trip Details */}
           <View style={styles.section}>
             <Text style={styles.sectionHeader}>Details</Text>
-            <SettingRow icon="edit" title="Trip Name" value={name} onPress={() => console.log('Edit Name')} />
-            <SettingRow icon="place" title="Destination" value={destination} onPress={() => console.log('Edit Dest')} />
-            <SettingRow icon="image" title="Cover Photo" onPress={() => console.log('Change Photo')} />
+            <SettingRow 
+              icon="edit" 
+              title="Trip Name" 
+              value={trip_name} 
+              onPress={() => {
+                router.push({
+                  pathname: `/(trip-info)/${tripId}/(settings)/editField`,
+                  params: { 
+                    fieldKey: 'trip_name', // Must match your database column name!
+                    fieldLabel: 'Trip Name', 
+                    currentValue: trip_name 
+                  }
+                });
+              }} 
+            />
+            {/* MAKE SURE FOR OPTIMISTIC UPDATES */}
+            <SettingRow 
+              icon="place" 
+              title="Destination" 
+              value={destination} 
+              onPress={() => router.push(`/(trip-info)/${tripId}/(settings)/editDestination`)}
+            />
+            {/* ADD PHOTO PICKING HERE */}
+            <SettingRow 
+              icon="image" 
+              title="Cover Photo" 
+              value={image ? "Change Photo" : "Add Photo"}
+              onPress={() => {
+                router.push({
+                  pathname: `/(trip-info)/${tripId}/(settings)/editField`,
+                  params: { 
+                    fieldKey: 'cover_photo', // Must match your database column name!
+                    fieldLabel: 'Cover Photo', 
+                    currentValue: image 
+                  }
+                });
+              }} 
+            />
           </View>
 
           {/* SECTION: Group & Permissions */}
           <View style={styles.section}>
             <Text style={styles.sectionHeader}>Group</Text>
-            <SettingRow icon="people" title="Manage Members" value="3 People" onPress={() => console.log('Members')} />
-            <SettingRow icon="link" title="Share Invite Link" onPress={() => console.log('Share')} />
+            <SettingRow 
+              icon="people" 
+              title="Manage Members" 
+              value="3 People" 
+              onPress={() => console.log('Members')} />
+            <SettingRow 
+              icon="link" 
+              title="Share Invite Link" 
+              onPress={() => console.log('Share')} />
             <SettingRow 
               type="switch" 
               icon="security" 
@@ -127,7 +167,7 @@ export default function SettingsScreen() {
 
         </ScrollView>
       </View>
-    </Modal>
+    // </Modal>
   );
 }
 

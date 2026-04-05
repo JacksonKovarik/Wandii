@@ -8,7 +8,7 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
-    "Missing SUPABASE_URL / SUPABASE_ANON_KEY. Add them to app.json -> expo.extra"
+    "Missing SUPABASE_URL / SUPABASE_ANON_KEY. Please set these environment variables in your .env file."
   );
 }
 
