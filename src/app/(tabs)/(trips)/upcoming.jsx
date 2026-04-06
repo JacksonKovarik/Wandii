@@ -1,10 +1,9 @@
 import { UpcomingTripCard } from "@/src/components/upcomingTripCard";
 import { Colors } from "@/src/constants/colors";
-import { useAuth } from "@/src/context/AuthContext";
-import { getUpcomingTrips } from "@/src/lib/trips";
+import { useUpcomingTrips } from "@/src/hooks/useUpcomingTrips";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Link } from "expo-router";
-import React, { useCallback, useEffect, useState, useRef } from "react";
+import React from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -14,20 +13,22 @@ import {
   View
 } from "react-native";
 import { moderateScale, verticalScale } from "react-native-size-matters";
-
 // import { fakeUpcomingTrips } from "@/src/data/fakeUpcomingTrips";
+
 
 // main screen
 export default function Upcoming() {
-  const { user } = useAuth();
-  const scrollRef = useRef(null);
-  const [trips, setTrips] = useState([]);
+  const { trips, loading, user, handleDeleteTrip, handleLeaveTrip } =
+    useUpcomingTrips();
 
-  useEffect(() => {
-    setTrips(fakeUpcomingTrips);
-  }, []);
 
-  // loading state
+  // FAKE TRIPS FOR TESTING  
+  // const trips = fakeTrips;
+  // useEffect(() => {
+  //   setFakeTrips(fakeUpcomingTrips);
+  // }, []);
+
+
   if (loading) {
     return (
       <View style={[styles.container, { flex: 1, justifyContent: "center" }]}>
@@ -37,12 +38,19 @@ export default function Upcoming() {
   }
 
   return (
-    <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
-
-      {trips.length > 0 ? (
-        trips.map((trip) => (
-          <UpcomingTripCard key={trip.id} trip={trip} userId={user.id} />
-        ))
+    <ScrollView contentContainerStyle={styles.container}>
+      {trips && trips.length > 0 ? (
+        trips.map((trip) => {
+          const isCreator = trip.creator_id === user?.id;
+          return (
+            <UpcomingTripCard
+              key={trip.id}
+              trip={trip}
+              onDelete={isCreator ? handleDeleteTrip : handleLeaveTrip}
+              isCreator={isCreator}
+            />
+          );
+        })
       ) : (
         <View style={styles.emptyBox}>
           <Text style={styles.emptyText}>Plan a New Adventure</Text>

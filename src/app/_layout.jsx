@@ -27,7 +27,7 @@ function RootNavigator() {
         />
 
         <Stack.Screen name="(trip-info)/[tripId]" />
-        <Stack.Screen name="settings" />
+        <Stack.Screen name="(settings)" />
       </Stack.Protected>
 
       <Stack.Protected guard={!isLoggedIn}>

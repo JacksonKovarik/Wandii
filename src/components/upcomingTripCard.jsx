@@ -16,7 +16,7 @@ import {
 import { moderateScale, scale, verticalScale } from "react-native-size-matters";
 
 
-export const UpcomingTripCard = ({ trip, userId }) => {
+export const UpcomingTripCard = ({ trip, onDelete, isCreator }) => {
   const router = useRouter();
   const imageSource =
     typeof trip.cover_photo_url === "string" ? { uri: trip.cover_photo_url } : trip.cover_photo_url;
@@ -26,44 +26,6 @@ export const UpcomingTripCard = ({ trip, userId }) => {
   );
   const group = trip.Trip_Members
   const percent = trip.readinessPercent ?? 60;
-
-  const isCreator = trip.creator_id === userId;
-
-  const handleDeleteTrip = (tripId) => {
-    Alert.alert("Delete Trip", "Are you sure you want to delete this upcoming trip?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          const { error } = await deleteTrip(user.id, tripId);
-          if (error) {
-            Alert.alert("Could not delete trip", error.message);
-            return;
-          }
-          loadTrips();
-        },
-      },
-    ]);
-  };
-
-  const handleLeaveTrip = (tripId) => {
-    Alert.alert("Leave Trip", "Are you sure you want to leave this upcoming trip?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Leave",
-        style: "destructive",
-        onPress: async () => {
-          const { error } = await leaveTrip(user.id, tripId);
-          if (error) {
-            Alert.alert("Could not leave trip", error.message);
-            return;
-          }
-          loadTrips();
-        },
-      },
-    ]);
-  };
 
   return (
     <TouchableOpacity
