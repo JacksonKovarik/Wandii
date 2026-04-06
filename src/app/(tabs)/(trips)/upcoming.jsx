@@ -4,7 +4,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { getUpcomingTrips } from "@/src/lib/trips";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Link } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -15,34 +15,17 @@ import {
 } from "react-native";
 import { moderateScale, verticalScale } from "react-native-size-matters";
 
+// import { fakeUpcomingTrips } from "@/src/data/fakeUpcomingTrips";
+
 // main screen
 export default function Upcoming() {
   const { user } = useAuth();
+  const scrollRef = useRef(null);
   const [trips, setTrips] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // load trips
-  const loadTrips = useCallback(async () => {
-    if (!user) {
-      setTrips([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const data = await getUpcomingTrips(user.id);
-      setTrips(data ?? []);
-    } catch (error) {
-      console.warn(error?.message || "Could not load trips");
-      setTrips([]);
-    }
-    setLoading(false);
-  }, [user]);
 
   useEffect(() => {
-    loadTrips();
-  }, [loadTrips]);
+    setTrips(fakeUpcomingTrips);
+  }, []);
 
   // loading state
   if (loading) {
@@ -54,7 +37,8 @@ export default function Upcoming() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
+
       {trips.length > 0 ? (
         trips.map((trip) => (
           <UpcomingTripCard key={trip.id} trip={trip} userId={user.id} />
@@ -63,7 +47,6 @@ export default function Upcoming() {
         <View style={styles.emptyBox}>
           <Text style={styles.emptyText}>Plan a New Adventure</Text>
 
-          {/* lighter add button with navigation */}
           <Link href={"/(add-trips)/tripPlanFirst"} push asChild>
             <TouchableOpacity
               style={{
@@ -84,7 +67,6 @@ export default function Upcoming() {
   );
 }
 
-// styles
 const styles = StyleSheet.create({
   container: {
     paddingTop: 20,

@@ -1,7 +1,6 @@
 import { Image } from "expo-image";
 import { StyleSheet, Text, View } from "react-native";
 
-// 1. Pass the index so we know which items need to overlap
 const MemberIdentifier = ({ member, index }) => {
     member = member.Users
     const firstInitial = member.first_name[0] || "?";
@@ -44,14 +43,24 @@ export const GroupDisplay = ({ members }) => {
                 <MemberIdentifier key={member.user_id} member={member} index={index} />
             ))}
 
-            {/* Render the "+X" indicator if there are left over members */}
-            {remainingCount > 0 && (
-                <View style={[styles.circleBase, styles.overlap, styles.overflowBackground]}>
-                    <Text style={styles.overflowText}>+{remainingCount}</Text>
-                </View>
-            )}
+      {/* 5th spot logic */}
+      {members.length <= MAX_DISPLAY ? (
+        // If 5 or fewer members → show the 5th normally
+        visibleMembers[4] && (
+          <MemberIdentifier
+            member={visibleMembers[4]}
+            index={4}
+          />
+        )
+      ) : (
+        // If more than 5 → show +X circle
+        <View style={[styles.circleBase, styles.overlap, styles.overflowBackground]}>
+          <Text style={styles.overflowText}>+{remainingCount}</Text>
         </View>
-    );
+      )}
+
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({

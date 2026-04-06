@@ -1,5 +1,6 @@
 import { GroupDisplay } from "@/src/components/GroupDisplay";
 import ProgressBar from "@/src/components/progressBar";
+import { Colors } from "@/src/constants/colors";
 import DateUtils from "@/src/utils/DateUtils";
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -13,7 +14,6 @@ import {
   MenuTrigger,
 } from "react-native-popup-menu";
 import { moderateScale, scale, verticalScale } from "react-native-size-matters";
-import { Colors } from "../constants/colors";
 
 
 export const UpcomingTripCard = ({ trip, userId }) => {
