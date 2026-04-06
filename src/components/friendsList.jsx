@@ -2,34 +2,34 @@
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function FriendsList({ buddies, onPressMore }) {
-  // show only the first 4 buddies
   const visible = buddies.slice(0, 4);
-
-  // how many buddies remain
   const remaining = buddies.length - visible.length;
 
   return (
     <View>
-      {/* section title */}
-      <Text style={styles.title}>Travel Buddies</Text>
+      {/* title + see all button */}
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Travel Buddies</Text>
 
-      {/* avatar row */}
+        <TouchableOpacity onPress={onPressMore}>
+          <Text style={styles.seeAll}>View All ›</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* avatars */}
       <View style={styles.row}>
-        {visible.map((buddy) => (
+        {visible.map((buddy, index) => (
           <Image
             key={buddy.id}
             source={{ uri: buddy.avatar }}
-            style={styles.avatar}
+            style={[styles.avatar, index === 0 && styles.firstAvatar]}
           />
         ))}
 
-        {/* +X circle */}
         {remaining > 0 && (
-          <TouchableOpacity onPress={onPressMore}>
-            <View style={styles.moreCircle}>
-              <Text style={styles.moreText}>+{remaining}</Text>
-            </View>
-          </TouchableOpacity>
+          <View style={styles.moreCircle}>
+            <Text style={styles.moreText}>+{remaining}</Text>
+          </View>
         )}
       </View>
     </View>
@@ -37,23 +37,43 @@ export default function FriendsList({ buddies, onPressMore }) {
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 18,          
-    fontWeight: "600",
-    color: "#4B5563",      
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
-    fontStyle:"bold",
   },
+
+  title: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#4B5563",
+  },
+
+  seeAll: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FF8820",
+  },
+
   row: {
     flexDirection: "row",
     alignItems: "center",
   },
+
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    marginRight: 12,
+    borderWidth: 2,
+    borderColor: "#fff",
+    marginLeft: -18,
   },
+
+  firstAvatar: {
+    marginLeft: 0,
+  },
+
   moreCircle: {
     width: 50,
     height: 50,
@@ -61,7 +81,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#D1D5DB",
     justifyContent: "center",
     alignItems: "center",
+    marginLeft: -18,
+    borderWidth: 2,
+    borderColor: "#fff",
   },
+
   moreText: {
     fontWeight: "700",
     color: "#4B5563",
