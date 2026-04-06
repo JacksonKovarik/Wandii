@@ -9,7 +9,7 @@ import { BlurView } from 'expo-blur';
 import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
 
-import TripInfoScrollView from "@/src/components/tripInfoScrollView";
+import TripInfoScrollView from "@/src/components/trip-info/tripInfoScrollView";
 import { useTrip } from "@/src/utils/TripContext";
 import { useRouter } from "expo-router";
 
@@ -193,7 +193,7 @@ export default function Overview() {
       <View style={styles.groupSection}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={styles.sectionTitle}>The Group</Text>
-          <TouchableOpacity onPress={() => console.log('Manage group pressed')}>
+          <TouchableOpacity onPress={() => router.push(`/(trip-info)/${tripData.tripId}/(settings)/manageMembers`)}>
             <Text style={styles.manageButton}>Manage</Text>
           </TouchableOpacity>
         </View>

@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     },
 
     tab: {
-        flex: 1,  
+        flexGrow: 1, 
         paddingHorizontal: moderateScale(10),
         paddingVertical: moderateScale(10),
         borderRadius: moderateScale(5),

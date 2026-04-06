@@ -1,295 +1,52 @@
 import AnimatedBottomSheet from "@/src/components/AnimatedBottomSheet";
 import ReusableTabBar from "@/src/components/reusableTabBar";
+import AnytimeEventCard from "@/src/components/trip-info/timeline/anytimeEventCard";
+import DateBadge from "@/src/components/trip-info/timeline/dateBadge";
+import ScheduledEventCard from "@/src/components/trip-info/timeline/scheduledEventCard";
 import { Colors } from "@/src/constants/colors";
-import { getCategoryFallback } from "@/src/constants/eventCategoryStyles";
-import { supabase } from "@/src/lib/supabase";
+import { getCategoryFallback } from "@/src/constants/TripConstants";
+import { useTimeline } from "@/src/hooks/useTimeline";
 import DateUtils from "@/src/utils/DateUtils";
-import { getCoordinatesForAddress } from "@/src/utils/LocationUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
-import * as Haptics from 'expo-haptics';
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { useEffect, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
-import ReorderableList, { reorderItems, useIsActive, useReorderableDrag } from 'react-native-reorderable-list';
+import ReorderableList from 'react-native-reorderable-list';
 import { moderateScale } from "react-native-size-matters";
-
-// ==========================================
-// UTILITY FUNCTIONS
-// ==========================================
-const parseTimeToMinutes = (timeStr) => {
-    const [time, period] = timeStr.split(' ');
-    let [hours, minutes] = time.split(':').map(Number);
-    if (period === 'PM' && hours !== 12) hours += 12;
-    if (period === 'AM' && hours === 12) hours = 0;
-    return hours * 60 + minutes;
-};
-
-// ==========================================
-// 1. DATE BADGE COMPONENT
-// ==========================================
-const DateBadge = ({ dateStr, isSelected, onPress }) => {
-    const dateObj = DateUtils.parseYYYYMMDDToDate(dateStr);
-    
-    return (
-        <TouchableOpacity 
-            style={[styles.dateBadge, isSelected ? styles.dateBadgeSelected : styles.dateBadgeUnselected]} 
-            onPress={() => onPress(dateObj)}
-        >
-            <Text style={[styles.dateBadgeDayText, isSelected ? styles.dateBadgeTextSelected : styles.dateBadgeTextUnselected]}>
-                {dateObj.getDate()}
-            </Text>
-            <Text style={[styles.dateBadgeDayOfWeekText, isSelected ? styles.dateBadgeTextSelected : styles.dateBadgeDayOfWeekTextUnselected]}>
-                {dateObj.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })}
-            </Text>
-        </TouchableOpacity>
-    );
-};
-
-// ==========================================
-// 2. ANYTIME EVENT CARD
-// ==========================================
-const AnytimeEventCard = ({ item, onSetTime, onRemove }) => {
-    const drag = useReorderableDrag();
-    const isActive = useIsActive();
-    const fallback = getCategoryFallback(item.category);
-
-    return (
-        <Pressable 
-            onLongPress={drag}
-            delayLongPress={150}
-            style={[styles.itemContainer, isActive && { opacity: 0.7, transform: [{ scale: 1.02 }] }]}
-        >
-            <View style={[styles.contentContainer, { paddingLeft: 0, width: '100%' }]}>
-                <View style={[styles.card, isActive && styles.cardActive]}>    
-                    <View style={styles.cardHeaderRow}>
-                        <View style={styles.cardMainInfo}>
-                            <View style={[styles.cardImageContainer, styles.anytimeCardImageContainer]}>
-                                {item.image_url ? (
-                                    <Image source={item.image_url} style={styles.fullImage} contentFit="cover" />
-                                ) : (
-                                    <LinearGradient colors={fallback.colors} style={styles.fallbackGradient}>
-                                        <MaterialIcons name={fallback.icon} size={24} color="rgba(255,255,255,0.9)" />
-                                    </LinearGradient>
-                                )}
-                            </View>
-                            <View style={styles.cardTextContent}>
-                                <Text style={styles.title}>{item.title}</Text>
-                                <Text style={styles.category}>{item.category}</Text>
-                            </View>
-                        </View>
-                        
-                        <View style={styles.cardActions}>
-                            <TouchableOpacity style={styles.setTimeButton} onPress={() => onSetTime(item.id)}>
-                                <Text style={styles.setTimeText}>Set Time</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.removeButton} onPress={() => onRemove(item)}>
-                                <MaterialIcons name="close" size={16} color="#64748b" />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </View>
-        </Pressable>
-    );
-};
-
-// ==========================================
-// 3. SCHEDULED EVENT CARD
-// ==========================================
-const ScheduledEventCard = ({ item, isLast, onSetTime, onRemove, onDelete, onViewDetails }) => {
-    const [isVisuallyPressed, setVisuallyPressed] = useState(false);
-    const pressInTimer = useRef(null);
-    const PRESS_DELAY = 200; 
-
-    const handleLongPress = () => {
-        Alert.alert(
-            "Manage Event",
-            `What would you like to do with "${item.title}"?`,
-            [
-                { text: "Cancel", style: "cancel" },
-                { text: "Unassign (Back to Bank)", onPress: () => onRemove(item) },
-                { text: "Delete Permanently", style: "destructive", onPress: () => onDelete(item) }
-            ],
-            { cancelable: true } 
-        );
-    };
-
-    const handlePressIn = () => {
-        pressInTimer.current = setTimeout(() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            setVisuallyPressed(true);
-        }, PRESS_DELAY);
-    };
-
-    const handlePressOut = () => {
-        clearTimeout(pressInTimer.current);
-        setVisuallyPressed(false);
-    };
-
-    return (
-        <View style={styles.itemContainer}>
-            <View style={styles.timelineContainer}>
-                <View style={[styles.line, isLast && styles.lastLine]} />
-                <View style={[styles.dot]} />
-            </View>
-
-            <View style={styles.contentContainer}>
-                <Pressable 
-                    onPress={() => onViewDetails(item)}
-                    onLongPress={handleLongPress}
-                    delayLongPress={250} 
-                    onPressIn={handlePressIn}
-                    onPressOut={handlePressOut}
-                    style={[
-                        styles.contentContainer, 
-                        isVisuallyPressed && { opacity: 0.8, transform: [{ scale: 1.03 }] }
-                    ]}
-                >
-                    <View style={styles.card}>
-                        <View style={styles.cardHeaderRow}>
-                            <View style={styles.cardTextContent}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <TouchableOpacity style={styles.timeBadge} onPress={() => onSetTime(item.id)}>
-                                        <Text style={styles.timeText}>{item.time}</Text>
-                                    </TouchableOpacity>
-                                </View>
-                                <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
-                                <Text style={styles.category}>{item.category}</Text>
-                            </View>
-                            
-                            <View style={{ alignItems: 'flex-end', justifyContent: 'space-between' }}>
-                                <View style={styles.cardImageContainer}>
-                                    {item.image_url ? (
-                                        <Image source={item.image_url} style={styles.fullImage} contentFit="cover" />
-                                    ) : (
-                                        <LinearGradient colors={getCategoryFallback(item.category).colors} style={styles.fallbackGradient}>
-                                            <MaterialIcons name={getCategoryFallback(item.category).icon} size={24} color="rgba(255,255,255,0.9)" />
-                                        </LinearGradient>
-                                    )}
-                                </View>
-                            </View>
-                        </View>
-                    </View>
-                </Pressable>
-            </View>
-        </View>
-    );
-};
 
 // ==========================================
 // 4. MAIN SCREEN
 // ==========================================
 export default function Timeline() {
     const tripData = useTrip();
-    const { timelineData = {}, addEventToBucket, updateDayEvents, unassignedIdeas = [], updateEventTime, unassignEvent, deleteEvent } = tripData;
-    
-    const [selectedDate, setSelectedDate] = useState(null);
-    const [isTimePickerVisible, setTimePickerVisibility] = useState(false);
-    const [selectedItemId, setSelectedItemId] = useState(null);
-    const [isIdeaBankVisible, setIdeaBankVisible] = useState(false); 
-    const [selectedEventDetails, setSelectedEventDetails] = useState(null);
-    const [isEditingEvent, setIsEditingEvent] = useState(false);
-    const [eventEditForm, setEventEditForm] = useState({});
-
-    const activeDateStr = selectedDate ? DateUtils.formatDateToYYYYMMDD(selectedDate) : null;
-    const dateList = DateUtils.getDatesBetween(tripData.startDate, tripData.endDate);
-
-    useEffect(() => {
-        if (tripData?.startDate) {
-            setSelectedDate(DateUtils.parseYYYYMMDDToDate(tripData.startDate));
-        }
-    }, [tripData?.startDate]);
-
-    const handleViewDetails = (item) => {
-        setSelectedEventDetails(item);
-        setEventEditForm(item); 
-        setIsEditingEvent(false); 
-    };
-
-    const handleSaveEventDetails = async () => {
-        try {
-            const hasTitleChanged = eventEditForm.title !== selectedEventDetails.title;
-            const hasDescChanged = eventEditForm.description !== selectedEventDetails.description;
-            const hasAddressChanged = eventEditForm.address !== selectedEventDetails.address;
-
-            if (!hasTitleChanged && !hasDescChanged && !hasAddressChanged) {
-                setIsEditingEvent(false);
-                return; 
-            }
-            
-            const { latitude, longitude } = await getCoordinatesForAddress(eventEditForm.address, tripData.destinations);
-            const updatedData = {
-                title: eventEditForm.title,
-                description: eventEditForm.description,
-                address: eventEditForm.address,
-                latitude: latitude || null,
-                longitude: longitude || null
-            };
-
-            const { error } = await supabase
-                .from('Events')
-                .update(updatedData)
-                .eq('event_id', eventEditForm.event_id || eventEditForm.id); 
-
-            if (error) throw error;
-
-            const finalizedEvent = { ...eventEditForm, ...updatedData };
-            setSelectedEventDetails(finalizedEvent);
-            setIsEditingEvent(false); 
-            
-            if (tripData.updateEventDetails) {
-                tripData.updateEventDetails(finalizedEvent, activeDateStr);
-            }
-            
-        } catch (error) {
-            console.error("Failed to save event details:", error);
-            alert("Could not save changes. Please try again.");
-        }
-    };
-
-    const showTimePicker = (itemId) => {
-        setSelectedItemId(itemId);
-        setTimePickerVisibility(true);
-    };
-
-    const handleConfirmTime = (date) => {
-        if (!selectedItemId || !activeDateStr) return;
-
-        let hours = date.getHours();
-        let minutes = date.getMinutes();
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12 || 12; 
-        const formattedTime = `${hours}:${minutes < 10 ? `0${minutes}` : minutes} ${ampm}`;
-
-        updateEventTime(selectedItemId, activeDateStr, formattedTime); 
-        setTimePickerVisibility(false);
-        setSelectedItemId(null);
-    };
-
-    const handleRemoveEvent = (item) => {
-        if (!activeDateStr) return;
-        unassignEvent(item.id, activeDateStr); 
-    };
-
-    const handleDeleteEvent = (item) => {
-        if (!activeDateStr) return;
-        deleteEvent(item.id, activeDateStr); 
-    };
-
-    const currentDayData = activeDateStr ? (timelineData[activeDateStr] || []) : [];
-    const flexibleBucket = currentDayData.filter(e => !e.time || e.time === 'TBD' || e.time === 'All Day');
-    const anchoredTimeline = currentDayData
-        .filter(e => e.time && e.time !== 'TBD' && e.time !== 'All Day')
-        .sort((a, b) => parseTimeToMinutes(a.time) - parseTimeToMinutes(b.time));
-
-    const reorderBucket = ({ from, to }) => {
-        if (!activeDateStr) return;
-        const reorderedAnytime = reorderItems(flexibleBucket, from, to);
-        updateDayEvents(activeDateStr, [...reorderedAnytime, ...anchoredTimeline]);
-    };
+    const {
+        selectedDate,
+        isTimePickerVisible,
+        isIdeaBankVisible,
+        selectedEventDetails,
+        isEditingEvent,
+        eventEditForm,
+        dateList,
+        flexibleBucket,
+        anchoredTimeline,
+        unassignedIdeas,
+        setSelectedDate,
+        setIdeaBankVisible,
+        setIsEditingEvent,
+        setEventEditForm,
+        showTimePicker,
+        hideTimePicker,
+        handleConfirmTime,
+        handleViewDetails,
+        handleCloseDetails,
+        handleSaveEventDetails,
+        handleRemoveEvent,
+        handleDeleteEvent,
+        reorderBucket,
+        handleAddEventToBucket,
+    } = useTimeline();
 
     const listHeader = (
         <View>
@@ -363,7 +120,7 @@ export default function Timeline() {
     return (
         <View style={styles.screen}>
             <ReorderableList
-                data={flexibleBucket}
+                data={flexibleBucket} 
                 onReorder={reorderBucket}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => <AnytimeEventCard item={item} onSetTime={showTimePicker} onRemove={handleRemoveEvent} />}
@@ -418,10 +175,7 @@ export default function Timeline() {
                                 <TouchableOpacity 
                                     style={styles.bankAddButton}
                                     onPress={() => {
-                                        if (activeDateStr) {
-                                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                                            addEventToBucket(activeDateStr, item);
-                                        }
+                                        handleAddEventToBucket(item);
                                     }}
                                 >
                                     <MaterialIcons name="add" size={22} color="#ffffff" />
@@ -432,7 +186,7 @@ export default function Timeline() {
                 </ScrollView>
             </AnimatedBottomSheet>
 
-            <AnimatedBottomSheet visible={!!selectedEventDetails} onClose={() => setSelectedEventDetails(null)}>
+            <AnimatedBottomSheet visible={!!selectedEventDetails} onClose={handleCloseDetails}>
                 {selectedEventDetails && (
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, keyboardShouldPersistTaps: 'handled' }}>
                         
@@ -445,7 +199,7 @@ export default function Timeline() {
                                     <MaterialIcons name={getCategoryFallback(selectedEventDetails.category).icon} size={60} color="rgba(255,255,255,0.9)" />
                                 </LinearGradient>
                             )}
-                            <TouchableOpacity onPress={() => setSelectedEventDetails(null)} style={styles.detailsCloseBtn}>
+                            <TouchableOpacity onPress={handleCloseDetails} style={styles.detailsCloseBtn}>
                                 <MaterialIcons name="close" size={24} color="#0f172a" />
                             </TouchableOpacity>
                         </View>
@@ -459,7 +213,7 @@ export default function Timeline() {
                                         <TextInput 
                                             style={[styles.detailsTitle, styles.activeInput]} 
                                             value={eventEditForm.title}
-                                            onChangeText={(text) => setEventEditForm({...eventEditForm, title: text})}
+                                            onChangeText={(text) => setEventEditForm(prev => ({...prev, title: text}))}
                                             placeholder="Event Title"
                                         />
                                     ) : (
@@ -496,7 +250,7 @@ export default function Timeline() {
                                     <TextInput 
                                         style={[styles.detailsDescription, styles.activeInput, { minHeight: 80 }]}
                                         value={eventEditForm.description}
-                                        onChangeText={(text) => setEventEditForm({...eventEditForm, description: text})}
+                                        onChangeText={(text) => setEventEditForm(prev => ({...prev, description: text}))}
                                         placeholder="What are the details?"
                                         placeholderTextColor="#94a3b8"
                                         multiline
@@ -520,7 +274,7 @@ export default function Timeline() {
                                         <TextInput 
                                             style={styles.rowTextInput}
                                             value={eventEditForm.address}
-                                            onChangeText={(text) => setEventEditForm({...eventEditForm, address: text})}
+                                            onChangeText={(text) => setEventEditForm(prev => ({...prev, address: text}))}
                                             placeholder="Where is it?"
                                             placeholderTextColor="#94a3b8"
                                         />
@@ -541,7 +295,7 @@ export default function Timeline() {
                 isVisible={isTimePickerVisible}
                 mode="time"
                 onConfirm={handleConfirmTime}
-                onCancel={() => setTimePickerVisibility(false)}
+                onCancel={hideTimePicker}
                 themeVariant="dark" 
             />
         </View>
@@ -590,14 +344,6 @@ const styles = StyleSheet.create({
     // --- SCROLLER ---
     dateScrollerContainer: { borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingBottom: 15 },
     dateScrollerContent: { paddingHorizontal: '5%', gap: 10 },
-    dateBadge: { alignItems: 'center', paddingVertical: 12, paddingHorizontal: 18, borderRadius: 16, borderWidth: 1 },
-    dateBadgeSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-    dateBadgeUnselected: { backgroundColor: 'white', borderColor: '#e2e8f0' },
-    dateBadgeDayText: { fontSize: 20, fontWeight: '800' },
-    dateBadgeDayOfWeekText: { fontSize: 12, fontWeight: '600', marginTop: 4 },
-    dateBadgeTextSelected: { color: 'white' },
-    dateBadgeTextUnselected: { color: '#0f172a' },
-    dateBadgeDayOfWeekTextUnselected: { color: '#64748b' },
     
     // --- BUTTONS ---
     setTimeButton: { backgroundColor: '#f1f5f9', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },

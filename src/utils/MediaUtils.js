@@ -157,5 +157,53 @@ export const MediaUtils = {
       console.error("MediaUtils Upload Error:", err);
       throw err; 
     }
+  },
+
+  // --------------------------------------------------
+  // 5. Upload & Update Trip Cover Photo
+  // --------------------------------------------------
+  uploadTripCover: async (uri, tripId) => {
+    try {
+      // 1. Compress the image first using your existing utility (max width 2000px for a crisp cover)
+      const compressedUri = await MediaUtils.processImage(uri, 2000); 
+
+      // 2. Fetch using arrayBuffer instead of blob (Better for React Native)
+      const response = await fetch(compressedUri);
+      const arrayBuffer = await response.arrayBuffer();
+
+      const fileExt = compressedUri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${tripId}/cover_${Date.now()}.${fileExt}`;
+
+      // 3. Upload raw binary to your 'trip-covers' bucket
+      const { error: uploadError } = await supabase.storage
+        .from('trip-covers') 
+        .upload(fileName, arrayBuffer, {
+          contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 4. Get the public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('trip-covers')
+        .getPublicUrl(fileName);
+
+      const newCoverUrl = publicUrlData.publicUrl;
+
+      // 5. Update the Trips table directly
+      const { error: dbError } = await supabase
+        .from('Trips') // <-- Make sure this matches your exact table name in Supabase
+        .update({ cover_photo: newCoverUrl }) 
+        .eq('trip_id', tripId);
+
+      if (dbError) throw dbError;
+
+      return newCoverUrl;
+
+    } catch (err) {
+      console.error("Error uploading cover photo:", err);
+      throw err; 
+    }
   }
 };

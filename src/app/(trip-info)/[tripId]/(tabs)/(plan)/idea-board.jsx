@@ -1,114 +1,21 @@
 import AnimatedBottomSheet from "@/src/components/AnimatedBottomSheet";
-import DeckSwiper from "@/src/components/DeckSwiper";
-import ProgressBar from "@/src/components/progressBar";
 import ReusableTabBar from "@/src/components/reusableTabBar";
-import TripInfoScrollView from "@/src/components/tripInfoScrollView";
+import DeckSwiper from "@/src/components/trip-info/idea-board/DeckSwiper";
+import { DiscoverCard } from "@/src/components/trip-info/idea-board/discoverCard";
+import { VotingInProgressCard } from "@/src/components/trip-info/idea-board/votingProgressCard";
+import TripInfoScrollView from "@/src/components/trip-info/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
-import { getCategoryFallback } from "@/src/constants/eventCategoryStyles";
 import { MediaUtils } from "@/src/utils/MediaUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
-import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
-// ==========================================
-// 1. CARDS & COMPONENTS
-// ==========================================
-
-const VotingInProgressCard = ({ item, group }) => {
-  const currentVotes = item.event_votes || [];
-  const yesVotes = currentVotes.reduce((sum, vote) => sum + (vote.vote_value === 1 ? 1 : 0), 0);  
-  
-  // FIX: Calculate required votes so the progress bar accurately hits 100%
-  const activeGroupSize = group.length;
-  const requiredVotes = Math.floor(activeGroupSize / 2) + 1;
-  const fallback = getCategoryFallback(item.category);
-  
-  // Cap at 100% just in case
-  const progressPercentage = requiredVotes > 0 ? `${Math.min((yesVotes / requiredVotes) * 100, 100)}%` : '0%';
-
-  return (
-    <View style={styles.votingCardContainer}>
-      {item.image_url ? (
-        <Image 
-          source={item.image_url} 
-          style={styles.votingCardImage}
-          contentFit="cover"
-          cachePolicy="memory-disk"
-        />
-      ):(
-        <LinearGradient colors={fallback.colors} style={[ styles.votingCardImage, { alignItems: 'center', justifyContent: 'center' } ]}>
-          <MaterialIcons name={fallback.icon} size={24} color="rgba(255,255,255,0.9)" />
-        </LinearGradient>
-      )}
-      
-      <View style={{ flex: 1 }}>
-        <Text style={styles.cardTitle}>{item.title}</Text>
-        <Text style={styles.cardSubtitle}>{item.category} • $$</Text>
-        <View style={{ marginTop: moderateScale(8) }}>
-          <ProgressBar 
-            width={'100%'} 
-            height={moderateScale(6)} 
-            progress={progressPercentage} 
-            progressColor={Colors.success} 
-          />
-          <View style={styles.progressTextRow}>
-            {/* FIX: Show progress out of Required Votes, not total group size */}
-            <Text style={styles.progressText}>{yesVotes}/{requiredVotes} Needed</Text>
-            <Text style={styles.progressText}>Waiting on group</Text>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-};
-
-const DiscoverCard = ({ item, swipeLeft, swipeRight }) => {
-  const fallback = getCategoryFallback(item.category);
-
-  return (
-    <View style={styles.discoverCardContainer}>
-      <View style={styles.discoverCardContent}>
-        {item.image_url ? (
-          <Image 
-            source={item.image_url} 
-            style={styles.discoverCardImage}
-            contentFit="cover" 
-            transition={200} 
-            cachePolicy="memory-disk" 
-          />
-        ) : (
-          <LinearGradient colors={fallback.colors} style={styles.fallbackGradient}>
-            <MaterialIcons name={fallback.icon} size={80} color="rgba(255,255,255,0.8)" />
-          </LinearGradient>
-        )}
-        
-        <View style={styles.discoverCardInfo}>
-          <Text style={styles.cardTitle}>{item.title}</Text>
-          <Text style={styles.cardSubtitle}>{item.description}</Text>
-          
-          <View style={styles.swipeActionRow}>
-            <TouchableOpacity style={[styles.actionButton, { backgroundColor: Colors.danger }]} onPress={swipeLeft} hitSlop={5}>
-              <MaterialIcons name="close" size={moderateScale(20)} color="#ffffff" />
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.actionButton, { backgroundColor: Colors.success }]} onPress={swipeRight} hitSlop={5}>
-              <MaterialIcons name="check" size={moderateScale(20)} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
-    </View>
-  );
-};
 
 // ==========================================
 // 2. MAIN SCREEN
 // ==========================================
-
 export default function IdeaBoard() {
   const { discoverFeed, inProgressFeed, handleVote, group, refreshTripData, tripId, addCustomIdea } = useTrip();
 
@@ -292,26 +199,7 @@ const styles = StyleSheet.create({
   
   addIdeaButton: { flexDirection: 'row', gap: 5, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10 },
   addIdeaText: { fontSize: moderateScale(12), color: Colors.primary, fontWeight: '600' },
-  
-  // --- DISCOVER CARD ---
-  swiperWrapper: { minHeight: 360, justifyContent: 'center', width: '100%' },
-  discoverCardContainer: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5, marginBottom: moderateScale(20), width: '100%', backgroundColor: 'white', borderRadius: 20 },
-  discoverCardContent: { borderRadius: 20, overflow: 'hidden', width: '100%', backgroundColor: 'white' },
-  discoverCardImage: { width: '100%', height: 180 },
-  fallbackGradient: { width: '100%', height: 180, alignItems: 'center', justifyContent: 'center' },
-  discoverCardInfo: { padding: 15, justifyContent: 'center' },
-  swipeActionRow: { flexDirection: 'row', justifyContent: 'center', gap: 15, marginTop: moderateScale(10) },
-  actionButton: { padding: 12, borderRadius: 50, alignItems: 'center', justifyContent: 'center' },
-  
-  // --- VOTING CARD ---
-  votingListContainer: { gap: 15, marginBottom: moderateScale(20) },
-  votingCardContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#ffffff', borderRadius: 15, padding: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5 },
-  votingCardImage: { width: 75, height: 75, borderRadius: 10 },
-  cardTitle: { fontSize: moderateScale(16), fontWeight: '700', color: Colors.darkBlue, marginBottom: moderateScale(2) },
-  cardSubtitle: { fontSize: moderateScale(13), color: Colors.gray },
-  progressTextRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 },
-  progressText: { fontSize: moderateScale(11), color: Colors.gray, fontWeight: '600' },
-
+    
   // --- BOTTOM SHEET FORM ---
   sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   sheetTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
