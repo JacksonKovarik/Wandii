@@ -9,7 +9,7 @@ import { BlurView } from 'expo-blur';
 import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
 
-import TripInfoScrollView from "@/src/components/tripInfoScrollView";
+import TripInfoScrollView from "@/src/components/trip-info/tripInfoScrollView";
 import { useTrip } from "@/src/utils/TripContext";
 import { useRouter } from "expo-router";
 

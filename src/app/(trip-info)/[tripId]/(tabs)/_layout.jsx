@@ -1,4 +1,4 @@
-import TripInfoTabBar from "@/src/components/tripInfoTabBar";
+import TripInfoTabBar from "@/src/components/trip-info/tripInfoTabBar";
 import DateUtils from "@/src/utils/DateUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";

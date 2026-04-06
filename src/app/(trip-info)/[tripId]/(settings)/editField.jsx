@@ -12,7 +12,6 @@ import {
   View
 } from "react-native";
 import { moderateScale } from "react-native-size-matters";
-// import { supabase } from "@/src/lib/supabase"; // UNCOMMENT and point to your Supabase client
 
 export default function EditFieldScreen() {
   const router = useRouter();

@@ -1,4 +1,5 @@
 import { Colors } from "@/src/constants/colors";
+import { CURRENCIES } from "@/src/constants/TripConstants"; // Ensure this is defined with code, name, and symbol for each currency
 import { supabase } from "@/src/lib/supabase"; // Adjust to your Supabase import
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -6,22 +7,6 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
-
-// A robust list of common currencies
-const CURRENCIES = [
-  { code: "USD", symbol: "$", name: "United States Dollar" },
-  { code: "EUR", symbol: "€", name: "Euro" },
-  { code: "GBP", symbol: "£", name: "British Pound Sterling" },
-  { code: "JPY", symbol: "¥", name: "Japanese Yen" },
-  { code: "CAD", symbol: "$", name: "Canadian Dollar" },
-  { code: "AUD", symbol: "$", name: "Australian Dollar" },
-  { code: "CHF", symbol: "CHF", name: "Swiss Franc" },
-  { code: "CNY", symbol: "¥", name: "Chinese Yuan" },
-  { code: "INR", symbol: "₹", name: "Indian Rupee" },
-  { code: "MXN", symbol: "$", name: "Mexican Peso" },
-  { code: "BRL", symbol: "R$", name: "Brazilian Real" },
-  { code: "ZAR", symbol: "R", name: "South African Rand" },
-];
 
 export default function EditCurrencyScreen() {
   const router = useRouter();

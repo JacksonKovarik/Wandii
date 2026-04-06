@@ -137,6 +137,13 @@ const DateUtils = {
         }
 
         return dates;
+    },
+
+    // Strip timezone shifts and save exact literal local time to Supabase
+    toLocalISOString(date) {
+        if (!date) return null;
+        const tzOffset = date.getTimezoneOffset() * 60000;
+        return new Date(date.getTime() - tzOffset).toISOString().slice(0, -1); 
     }
 };
 

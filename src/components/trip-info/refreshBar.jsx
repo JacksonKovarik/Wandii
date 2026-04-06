@@ -1,6 +1,6 @@
+import { Colors } from "@/src/constants/colors";
 import { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet } from "react-native";
-import { Colors } from "../constants/colors";
 
 export const RefreshBar = ({ isRefreshing }) => {
     const progress = useRef(new Animated.Value(0)).current;

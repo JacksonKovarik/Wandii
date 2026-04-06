@@ -1,7 +1,7 @@
-import { RefreshBar } from "@/src/components/refreshBar";
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
+import { RefreshBar } from './refreshBar';
 
 export default function TripInfoScrollView({ 
   onRefresh, // The function to run when the user pulls to refresh
