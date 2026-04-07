@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: 20, // fixed px to ensure overflow → scroll
     paddingTop: 3,
   },
 

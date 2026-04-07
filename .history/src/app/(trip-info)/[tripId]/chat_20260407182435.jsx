@@ -16,7 +16,6 @@ import {
 export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [inputHeight, setInputHeight] = useState(40);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const sendMessage = () => {
@@ -28,8 +27,6 @@ export default function Chat() {
     ]);
 
     setInput("");
-    setInputHeight(40);
-    Keyboard.dismiss();
   };
 
   useEffect(() => {
@@ -51,7 +48,6 @@ export default function Chat() {
   }, []);
 
   const bottomPosition = keyboardHeight > 0 ? keyboardHeight + 8 : 45;
-  const isMultiline = inputHeight > 40;
 
   return (
     <KeyboardAvoidingView
@@ -61,13 +57,6 @@ export default function Chat() {
     >
       <View style={styles.container}>
         <View style={styles.chatArea}>
-
-          {messages.length === 0 && (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>Start the conversation…</Text>
-            </View>
-          )}
-
           <FlatList
             data={messages}
             keyExtractor={item => item.id}
@@ -94,23 +83,11 @@ export default function Chat() {
 
         <View style={[styles.bottomBar, { bottom: bottomPosition }]}>
           <TextInput
-            style={[
-              styles.input,
-              {
-                height: inputHeight,
-                textAlignVertical: isMultiline ? "top" : "center",
-                paddingTop: isMultiline ? 6 : 10,
-                paddingBottom: isMultiline ? 6 : 10,
-              },
-            ]}
+            style={styles.input}
             placeholder="Type a message..."
             placeholderTextColor="#555"
             value={input}
             onChangeText={setInput}
-            multiline
-            onContentSizeChange={e =>
-              setInputHeight(Math.min(e.nativeEvent.contentSize.height, 120))
-            }
           />
 
           <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
@@ -123,6 +100,7 @@ export default function Chat() {
 }
 
 const ORANGE = "#FF8820";
+const LIGHT_GRAY = "#E5E5E5";
 const BG = "#F7F7F7";
 
 const styles = StyleSheet.create({
@@ -130,28 +108,12 @@ const styles = StyleSheet.create({
   chatArea: { flex: 1 },
   messagesContainer: { padding: 16, paddingBottom: 100 },
 
-  emptyState: {
-    position: "absolute",
-    top: "40%",
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    zIndex: 1,
-  },
-
-  emptyText: {
-    color: "#bbb",
-    fontSize: 22,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-
   messageBubble: {
-    maxWidth: "85%",
-    paddingVertical: 10,   // slightly smaller
-    paddingHorizontal: 16, // slightly smaller
-    borderRadius: 20,      // slightly smaller
-    marginBottom: 12,      // slightly smaller spacing
+    maxWidth: "75%",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    marginBottom: 10,
   },
 
   myMessage: {
@@ -166,11 +128,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 6,
   },
 
-  messageText: {
-    color: "#000",
-    fontSize: 17,   // slightly smaller
-    lineHeight: 21,
-  },
+  messageText: { color: "#000" },
 
   bottomBar: {
     position: "absolute",
@@ -181,7 +139,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -193,6 +151,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "transparent",
     paddingHorizontal: 10,
+    paddingVertical: 6,
     fontSize: 16,
     color: "#000",
   },

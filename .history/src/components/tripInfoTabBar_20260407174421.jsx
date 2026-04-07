@@ -26,35 +26,36 @@ export default function TripInfoTabBar({ tripId }) {
         showsHorizontalScrollIndicator={false}
         bounces={false}
         overScrollMode="never"
-        contentContainerStyle={styles.scrollContent}
       >
-        {tabs.map((tab) => {
-          const active = tab.checkSegments.some(isActive);
+        <View style={styles.tabsRow}>
+          {tabs.map((tab) => {
+            const active = tab.checkSegments.some(isActive);
 
-          return (
-            <TouchableOpacity
-              key={tab.name}
-              onPress={() => router.navigate(`/(trip-info)/${tripId}/${tab.path}`)}
-              style={styles.tabButton}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: active ? Colors.primary : Colors.textSecondary },
-                ]}
+            return (
+              <TouchableOpacity
+                key={tab.name}
+                onPress={() => router.navigate(`/(trip-info)/${tripId}/${tab.path}`)}
+                style={styles.tabButton}
               >
-                {tab.name}
-              </Text>
+                <Text
+                  style={[
+                    styles.tabText,
+                    { color: active ? Colors.primary : Colors.textSecondary },
+                  ]}
+                >
+                  {tab.name}
+                </Text>
 
-              <View
-                style={[
-                  styles.tabUnderline,
-                  { backgroundColor: active ? Colors.primary : "transparent" },
-                ]}
-              />
-            </TouchableOpacity>
-          );
-        })}
+                <View
+                  style={[
+                    styles.tabUnderline,
+                    { backgroundColor: active ? Colors.primary : "transparent" },
+                  ]}
+                />
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </ScrollView>
     </View>
   );
@@ -75,7 +76,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
 
-  scrollContent: {
+  tabsRow: {
     flexDirection: "row",
     alignItems: "center",
   },
@@ -84,7 +85,7 @@ const styles = StyleSheet.create({
     height: "100%",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: "4%", 
     paddingTop: 3,
   },
 

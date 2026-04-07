@@ -147,11 +147,11 @@ const styles = StyleSheet.create({
   },
 
   messageBubble: {
-    maxWidth: "85%",
-    paddingVertical: 10,   // slightly smaller
-    paddingHorizontal: 16, // slightly smaller
-    borderRadius: 20,      // slightly smaller
-    marginBottom: 12,      // slightly smaller spacing
+    maxWidth: "85%",       // bigger width
+    paddingVertical: 14,   // bigger bubble height
+    paddingHorizontal: 20, // more padding inside
+    borderRadius: 24,      // rounder bubbles
+    marginBottom: 14,      // more spacing between bubbles
   },
 
   myMessage: {
@@ -168,8 +168,8 @@ const styles = StyleSheet.create({
 
   messageText: {
     color: "#000",
-    fontSize: 17,   // slightly smaller
-    lineHeight: 21,
+    fontSize: 18,   // bigger text
+    lineHeight: 22, // cleaner spacing
   },
 
   bottomBar: {

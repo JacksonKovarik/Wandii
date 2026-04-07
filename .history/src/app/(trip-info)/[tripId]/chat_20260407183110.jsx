@@ -62,6 +62,7 @@ export default function Chat() {
       <View style={styles.container}>
         <View style={styles.chatArea}>
 
+          {/* EMPTY STATE MESSAGE */}
           {messages.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Start the conversation…</Text>
@@ -132,7 +133,7 @@ const styles = StyleSheet.create({
 
   emptyState: {
     position: "absolute",
-    top: "40%",
+    top: "40%",          // centers vertically
     left: 0,
     right: 0,
     alignItems: "center",
@@ -141,17 +142,17 @@ const styles = StyleSheet.create({
 
   emptyText: {
     color: "#bbb",
-    fontSize: 22,
+    fontSize: 22,        // bigger text
     fontWeight: "600",
     textAlign: "center",
   },
 
   messageBubble: {
-    maxWidth: "85%",
-    paddingVertical: 10,   // slightly smaller
-    paddingHorizontal: 16, // slightly smaller
-    borderRadius: 20,      // slightly smaller
-    marginBottom: 12,      // slightly smaller spacing
+    maxWidth: "75%",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    marginBottom: 10,
   },
 
   myMessage: {
@@ -166,11 +167,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 6,
   },
 
-  messageText: {
-    color: "#000",
-    fontSize: 17,   // slightly smaller
-    lineHeight: 21,
-  },
+  messageText: { color: "#000" },
 
   bottomBar: {
     position: "absolute",
