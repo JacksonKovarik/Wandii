@@ -278,11 +278,55 @@ export function useTripDashboard() {
     }, [tripData]);
 
     const unassignEvent = useCallback(async (eventId, dateStr) => {
+        // 1. Find the full event object from the timeline BEFORE we delete it
+        const eventToMove = tripData.timelineData?.[dateStr]?.find(
+            e => e.id === eventId || e.event_id === eventId
+        );
+
+        if (!eventToMove) return;
+
+        // Save previous state for a potential rollback
         const previousState = tripData;
-        setTripData(prev => ({ ...prev, ideaBoard: prev.ideaBoard.map(idea => idea.id === eventId ? { ...idea, status: 'approved' } : idea), timelineData: { ...prev.timelineData, [dateStr]: (prev.timelineData[dateStr] || []).filter(e => e.id !== eventId) } }));
+
+        // 2. Optimistic Update (Immediate UI change)
+        setTripData(prev => {
+            // Check if it somehow still exists in the idea board array
+            const existsInBoard = prev.ideaBoard.some(
+                idea => idea.id === eventId || idea.event_id === eventId
+            );
+
+            // If it's already there, map it. If not, append the eventToMove object to the end!
+            const updatedIdeaBoard = existsInBoard
+                ? prev.ideaBoard.map(idea => 
+                    (idea.id === eventId || idea.event_id === eventId) 
+                        ? { ...idea, status: 'approved', start_timestamp: null } 
+                        : idea
+                )
+                : [...prev.ideaBoard, { ...eventToMove, status: 'approved', start_timestamp: null }];
+
+            return { 
+                ...prev, 
+                ideaBoard: updatedIdeaBoard, 
+                timelineData: { 
+                    ...prev.timelineData, 
+                    [dateStr]: (prev.timelineData[dateStr] || []).filter(
+                        e => e.id !== eventId && e.event_id !== eventId
+                    ) 
+                } 
+            };
+        });
+
+        // 3. Database Update
         try {
-            await supabase.from('Events').update({ start_timestamp: null, status: 'approved' }).eq('event_id', eventId);
+            const { error } = await supabase
+                .from('Events')
+                .update({ start_timestamp: null, status: 'approved' })
+                .eq('event_id', eventId);
+
+            if (error) throw error;
+            
         } catch (error) {
+            // 4. Rollback on failure
             setTripData(previousState);
             Alert.alert("Network Error", "Failed to unassign event.");
             console.error("Failed to unassign event:", error);
