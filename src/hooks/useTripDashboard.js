@@ -5,7 +5,7 @@ import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
 
-// --- TEMPORARY CURRENT USER ---
+
 const CURRENT_USER_ID = '5b6c11f8-d8d5-45c3-815b-54870bcbb0ad';
 
 // ==========================================

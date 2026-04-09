@@ -1,83 +1,194 @@
 import { Colors } from "@/src/constants/colors";
+import { supabase } from "@/src/lib/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
-// 1. Import your context hook
+import LocationSearchBar from "@/src/components/locationSearchBar";
 import { useTrip } from "@/src/utils/TripContext";
 
 export default function EditDestinationsScreen() {
   const router = useRouter();
-  
-  // 2. Consume the context data
   const tripData = useTrip();
-  
-  const [inputValue, setInputValue] = useState("");
-  const [destinations, setDestinations] = useState([]);
+  const tripId = tripData?.trip_id || tripData?.id; 
 
-  // 3. Populate local state when the context data loads
+  const [destinations, setDestinations] = useState([]);
+  
+  // Custom Search Engine State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  // Load existing destinations
   useEffect(() => {
     if (tripData && tripData.destination) {
-      console.log("Loaded trip data:", tripData.destination);
-
-      // If it's a string, parse it. (Also guarding just in case it ever comes back as an array)
       if (typeof tripData.destination === 'string') {
         const parsedDestinations = tripData.destination
-          .split('&') // Split by the ampersand
-          .map(dest => dest.trim()) // Remove any extra spaces around the names
-          .filter(dest => dest.length > 0) // Remove any accidentally empty strings
+          .split('&') 
+          .map(dest => dest.trim()) 
+          .filter(dest => dest.length > 0) 
           .map((destName, index) => ({
-            // Generate a temporary unique ID for the FlatList to use
             id: `initial-${index}-${Date.now()}`, 
             name: destName
           }));
-
         setDestinations(parsedDestinations);
       } else if (Array.isArray(tripData.destination)) {
-        // Fallback in case your DB ever returns an array
         setDestinations(tripData.destination);
       }
     }
   }, [tripData]);
 
-  const handleAdd = async () => {
-    if (!inputValue.trim()) return;
-    
-    // Create a temporary object for the UI
-    const newDest = { id: Date.now().toString(), name: inputValue.trim() };
-    setDestinations([...destinations, newDest]);
-    setInputValue("");
+  // ==========================================
+  // DEBOUNCED OSM SEARCH ENGINE
+  // ==========================================
+  useEffect(() => {
+    // If the user clears the input, hide the dropdown
+    if (searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
 
+    // Wait 800ms after the user stops typing to call the API
+    const delayDebounceFn = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const LOCATION_IQ_KEY = 'pk.29ba43c85df756ee6924d2cf82e92464'
+        // Fetch from OSM. We use q= query, and ask for JSON and address details
+        const url = `https://us1.locationiq.com/v1/search?key=${LOCATION_IQ_KEY}&q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=5`;
+        
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        setSearchResults(data);
+        setShowDropdown(true);
+      } catch (error) {
+        console.error("OSM Search Error:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 800); 
+
+    // Clear the timer if the user keeps typing
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+
+  // ==========================================
+  // SAVE DESTINATION
+  // ==========================================
+  const handleSelectLocation = async (item) => {
+    // 1. Hide dropdown and clear input instantly
+    setShowDropdown(false);
+    setSearchQuery("");
+
+    const city = item.address?.city || item.address?.town || item.address?.village || item.name;
+    const country = item.address?.country;
+    const lat = parseFloat(item.lat);
+    const lng = parseFloat(item.lon);
+    
+    const displayName = city && country ? `${city}, ${country}` : item.name;
+
+    // 3. Optimistic UI update
+    const newDest = { id: Date.now().toString(), name: displayName };
+    setDestinations([...destinations, newDest]);
+
+    // 4. Save to Database
     try {
-      // TODO: Insert into your Supabase Trip_Destinations table here
-      // Example: await supabase.from('Trip_Destinations').insert({...})
-      
-      // Optional: If your context has a refresh function, call it here
-      // refreshTripData(); 
+        // We use OSM's unique ID instead of Google's Place ID
+        const osmId = item.osm_id.toString();
+
+        let { data: existingDest } = await supabase
+            .from('cached_destinations')
+            .select('destination_id')
+            .eq('country', country) // Simplified cache check
+            .eq('city', city)
+            .single();
+
+        let destinationId = existingDest?.destination_id;
+
+        if (!destinationId) {
+            const { data: insertedDest, error: cacheError } = await supabase
+                .from('cached_destinations')
+                .insert({
+                    city: city,
+                    country: country,
+                    latitude: lat,
+                    longitude: lng
+                })
+                .select()
+                .single();
+                
+            if (cacheError) throw cacheError;
+            destinationId = insertedDest.destination_id;
+        }
+
+        const arrival = tripData?.start_date || new Date().toISOString();
+        const departure = tripData?.end_date || new Date().toISOString();
+
+        await supabase
+            .from('Trip_Destinations')
+            .insert({
+                trip_id: tripId,
+                destination_id: destinationId,
+                arrival_date: arrival,
+                departure_date: departure  
+            });
+
     } catch (error) {
-      console.error("Error adding destination:", error);
+        console.error("Database error adding destination:", error);
     }
   };
 
-  const handleDelete = async (idToRemove) => {
-    // Optimistically update the UI
-    setDestinations(destinations.filter(dest => dest.id !== idToRemove));
+  const handleDelete = async (itemToRemove) => {
+    // 1. Optimistically update the UI instantly so it feels snappy
+    setDestinations(prev => prev.filter(dest => dest.id !== itemToRemove.id));
 
     try {
-      // TODO: Delete from your Supabase Trip_Destinations table here
-      // Example: await supabase.from('Trip_Destinations').delete().eq('id', idToRemove)
-      
-      // Optional: refreshTripData();
+      // 2. Parse the city and country from our display name (e.g. "Paris, France")
+      const nameParts = itemToRemove.name.split(',');
+      const city = nameParts[0].trim();
+      const country = nameParts.length > 1 ? nameParts[1].trim() : null;
+
+      // 3. Look up the official destination_id in the cache
+      let cacheQuery = supabase
+        .from('cached_destinations')
+        .select('destination_id')
+        .eq('city', city);
+        
+      if (country) {
+        cacheQuery = cacheQuery.eq('country', country);
+      }
+
+      const { data: cachedDest, error: fetchError } = await cacheQuery.single();
+
+      if (fetchError || !cachedDest) {
+        console.warn("Could not find destination in cache to delete:", fetchError);
+        return; 
+      }
+
+      // 4. Delete the relationship from Trip_Destinations
+      const { error: deleteError } = await supabase
+        .from('Trip_Destinations')
+        .delete()
+        .match({ 
+          trip_id: tripId, 
+          destination_id: cachedDest.destination_id 
+        });
+
+      if (deleteError) throw deleteError;
+
     } catch (error) {
-      console.error("Error deleting destination:", error);
+      console.error("Database error deleting destination:", error);
+      // Optional: If the database deletion fails, you could add it back to the UI state here
     }
   };
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      {/* --- Header --- */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
           <Text style={styles.doneText}>Done</Text>
@@ -86,48 +197,37 @@ export default function EditDestinationsScreen() {
         <View style={styles.headerBtn} /> 
       </View>
 
-      {/* --- Input Area --- */}
-      <View style={styles.inputSection}>
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.input}
-            value={inputValue}
-            onChangeText={setInputValue}
-            placeholder="Add a destination..."
-            placeholderTextColor={Colors.textSecondaryLight}
-            onSubmitEditing={handleAdd}
+      {/* SEARCH SECTION - Look how clean this is now! */}
+      <View style={{ paddingHorizontal: moderateScale(20), paddingTop: moderateScale(20), zIndex: 10 }}>
+          <LocationSearchBar 
+            placeholder="Search for a city..." 
+            onSelect={handleSelectLocation} 
           />
-          <TouchableOpacity 
-            style={[styles.addBtn, !inputValue.trim() && styles.addBtnDisabled]} 
-            onPress={handleAdd}
-            disabled={!inputValue.trim()}
-          >
-            <MaterialIcons name="add" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
       </View>
 
-      {/* --- Destinations List --- */}
-      <FlatList
-        data={destinations}
-        // Ensure you are using the correct unique ID from your database here
-        keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
-        contentContainerStyle={styles.listContainer}
-        renderItem={({ item }) => (
-          <View style={styles.destinationRow}>
-            <View style={styles.destinationLeft}>
-              <MaterialIcons name="location-pin" size={22} color={Colors.primary} />
-              <Text style={styles.destinationName}>{item.name}</Text>
-            </View>
-            <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
-              <MaterialIcons name="remove-circle-outline" size={22} color={Colors.danger} />
-            </TouchableOpacity>
-          </View>
-        )}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No destinations added yet.</Text>
-        }
-      />
+      {/* DESTINATIONS LIST */}
+      <View style={{ flex: 1, zIndex: 0 }}>
+          <FlatList
+            data={destinations}
+            keyExtractor={(item) => item.id?.toString()}
+            contentContainerStyle={styles.listContainer}
+            keyboardShouldPersistTaps="handled" 
+            renderItem={({ item }) => (
+              <View style={styles.destinationRow}>
+                <View style={styles.destinationLeft}>
+                  <MaterialIcons name="location-pin" size={22} color={Colors.primary} />
+                  <Text style={styles.destinationName}>{item.name}</Text>
+                </View>
+                <TouchableOpacity onPress={() => handleDelete(item)} style={styles.deleteBtn}>
+                  <MaterialIcons name="remove-circle-outline" size={22} color={Colors.danger} />
+                </TouchableOpacity>
+              </View>
+            )}
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>No destinations added yet.</Text>
+            }
+          />
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -138,20 +238,69 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: moderateScale(20), paddingTop: moderateScale(20), paddingBottom: moderateScale(15),
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.lightGray,
+    zIndex: 1, 
   },
   headerBtn: { minWidth: moderateScale(60), justifyContent: 'center' },
   title: { fontSize: moderateScale(17), fontWeight: '700', color: Colors.darkBlue },
   doneText: { fontSize: moderateScale(16), color: Colors.primary, fontWeight: '600' },
-  inputSection: { padding: moderateScale(20), borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.lightGray },
+  
+  // Input Styles
   inputWrapper: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.backgroundLight,
-    borderRadius: moderateScale(12), paddingHorizontal: moderateScale(12),
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    borderRadius: moderateScale(12),
+    paddingHorizontal: moderateScale(16),
+    height: moderateScale(50),
   },
-  input: { flex: 1, fontSize: moderateScale(16), color: Colors.darkBlue, paddingVertical: moderateScale(12) },
-  addBtn: {
-    backgroundColor: Colors.primary, borderRadius: 20, padding: moderateScale(4), marginLeft: moderateScale(8)
+  input: { 
+    flex: 1,
+    fontSize: moderateScale(16), 
+    color: Colors.darkBlue, 
   },
-  addBtnDisabled: { backgroundColor: Colors.lightGray },
+
+  // Dropdown Styles
+  dropdown: {
+    position: 'absolute',
+    top: moderateScale(75),
+    left: moderateScale(20),
+    right: moderateScale(20),
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(12),
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    maxHeight: moderateScale(250),
+    paddingVertical: moderateScale(8),
+  },
+  dropdownRow: {
+    flexDirection: 'row',
+    paddingVertical: moderateScale(12),
+    paddingHorizontal: moderateScale(16),
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.lightGray,
+  },
+  dropdownTitle: {
+    fontSize: moderateScale(15),
+    fontWeight: '600',
+    color: Colors.darkBlue,
+  },
+  dropdownSubtitle: {
+    fontSize: moderateScale(13),
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  attribution: {
+    fontSize: moderateScale(10),
+    color: Colors.textSecondaryLight,
+    textAlign: 'center',
+    paddingTop: moderateScale(8),
+    fontStyle: 'italic'
+  },
+
+  // List Styles
   listContainer: { padding: moderateScale(20) },
   destinationRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
