@@ -1,21 +1,22 @@
 import PastTripCard from "@/src/components/pastTripCard";
-import { fakePastTrips } from "@/src/data/fakePastTrips";
+import { Colors } from "@/src/constants/colors";
+import { usePastTrips } from "@/src/hooks/usePastTrips";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useRef } from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
-import { moderateScale, scale, verticalScale } from "react-native-size-matters";
+import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
+import { scale, verticalScale } from "react-native-size-matters";
 
 export default function Past() {
-  const trips = fakePastTrips;
-  const loading = false;
+  const { trips, loading, reloadTrips } = usePastTrips();
   const listRef = useRef(null);
 
   useFocusEffect(
     useCallback(() => {
+      reloadTrips();
       if (listRef.current) {
         listRef.current.scrollToOffset({ offset: 0, animated: false });
       }
-    }, [])
+    }, [reloadTrips])
   );
 
   return (
@@ -23,20 +24,18 @@ export default function Past() {
       <FlatList
         ref={listRef}
         data={trips}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <PastTripCard trip={item} onRelivePress={() => {}} />
-        )}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => <PastTripCard trip={item} onRelivePress={() => {}} />}
         ListEmptyComponent={() => (
           <View style={styles.emptyContent}>
-            <Text style={styles.emptyTrips}>
-              {loading ? "Loading..." : "No Trips Found..."}
-            </Text>
+            {loading ? (
+              <ActivityIndicator size="large" color={Colors.primary} />
+            ) : (
+              <Text style={styles.emptyTrips}>No past trips yet</Text>
+            )}
           </View>
         )}
-        contentContainerStyle={
-          trips.length === 0 ? styles.emptyContainer : styles.listContainer
-        }
+        contentContainerStyle={trips.length === 0 ? styles.emptyContainer : styles.listContainer}
         showsVerticalScrollIndicator={false}
       />
     </View>
@@ -46,23 +45,26 @@ export default function Past() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: Colors.background,
   },
   listContainer: {
     paddingTop: verticalScale(20),
     paddingHorizontal: scale(20),
+    paddingBottom: verticalScale(30),
   },
   emptyContainer: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: scale(24),
   },
   emptyContent: {
     justifyContent: "center",
     alignItems: "center",
   },
   emptyTrips: {
-    fontSize: moderateScale(30),
-    opacity: 0.4,
-    color: "#9D9D9D",
+    fontSize: 20,
+    color: Colors.textSecondary,
+    fontWeight: "600",
   },
 });

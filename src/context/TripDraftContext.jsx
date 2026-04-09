@@ -10,6 +10,7 @@ const emptyDraft = {
   coverPhotoUri: null,
   budget: 0,
   vibe: "Relaxing",
+  invitedConnectionIds: [],
 };
 
 export function TripDraftProvider({ children }) {

@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
+import { decode } from "base64-arraybuffer";
+import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -9,6 +11,7 @@ import { moderateScale, verticalScale } from "react-native-size-matters";
 import { useAuth } from "@/src/context/AuthContext";
 import { useTripDraft } from "@/src/context/TripDraftContext";
 import { supabase } from "@/src/lib/supabase";
+import { createTrip } from "@/src/lib/trips";
 
 const vibeOptions = [
   "Relaxing",
@@ -22,23 +25,38 @@ const vibeOptions = [
 async function uploadCoverPhotoIfNeeded(userId, coverPhotoUri) {
   if (!coverPhotoUri) return null;
 
-  const resp = await fetch(coverPhotoUri);
-  const blob = await resp.blob();
+  const fileExt =
+    coverPhotoUri?.split(".").pop()?.toLowerCase()?.split("?")[0] || "jpg";
 
-  const fileExt = coverPhotoUri.split(".").pop()?.toLowerCase() || "jpg";
   const fileName = `${userId}/${Date.now()}.${fileExt}`;
 
-  const { error: uploadError } = await supabase.storage
+  const base64 = await FileSystem.readAsStringAsync(coverPhotoUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  const contentType =
+    fileExt === "png"
+      ? "image/png"
+      : fileExt === "webp"
+      ? "image/webp"
+      : "image/jpeg";
+
+  const { data: uploadData, error: uploadError } = await supabase.storage
     .from("trip-covers")
-    .upload(fileName, blob, {
-      contentType: blob.type || "image/jpeg",
+    .upload(fileName, decode(base64), {
+      contentType,
       upsert: true,
     });
 
-  if (uploadError) throw uploadError;
+  if (uploadError) {
+    throw uploadError;
+  }
 
-  const { data } = supabase.storage.from("trip-covers").getPublicUrl(fileName);
-  return data?.publicUrl ?? null;
+  const { data: publicUrlData } = supabase.storage
+    .from("trip-covers")
+    .getPublicUrl(uploadData.path);
+
+  return publicUrlData?.publicUrl ?? null;
 }
 
 export default function TripPlanThird() {
@@ -49,26 +67,30 @@ export default function TripPlanThird() {
   const [busy, setBusy] = useState(false);
 
   const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Permission required", "Permission to access photos is required.");
-      return;
-    }
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    const results = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    });
+      if (!permission.granted) {
+        Alert.alert("Permission required", "Permission to access photos is required.");
+        return;
+      }
 
-    if (!results.canceled) {
-      setField("coverPhotoUri", results.assets[0].uri);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets?.length) {
+        setField("coverPhotoUri", result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert("Image error", error?.message || "Could not pick image.");
     }
   };
 
   async function onLaunchAdventure() {
-    const { data: sessionData } = await supabase.auth.getSession();
-
     if (!user) {
       Alert.alert("Not signed in", "Please sign in first.");
       router.replace("/sign-in");
@@ -84,42 +106,28 @@ export default function TripPlanThird() {
     try {
       setBusy(true);
 
-      const coverUrl = await uploadCoverPhotoIfNeeded(user.id, draft.coverPhotoUri);
+      const coverPhotoUrl = await uploadCoverPhotoIfNeeded(user.id, draft.coverPhotoUri);
 
-      const { data: trip, error: tripError } = await supabase
-        .from("Trips")
-        .insert([
-          {
-            trip_name: draft.tripName,
-            start_date: new Date(draft.startDate).toISOString(),
-            end_date: new Date(draft.endDate).toISOString(),
-            owner_id: user.id,
-            destination_text: draft.destination,
-            cover_photo_url: coverUrl,
-            budget_estimate: draft.budget,
-            vibe: draft.vibe,
-          },
-        ])
-        .select()
-        .single();
+      const { error } = await createTrip({
+        userId: user.id,
+        title: draft.tripName,
+        destination: draft.destination,
+        startDate: draft.startDate,
+        endDate: draft.endDate,
+        coverPhotoUrl,
+        budgetEstimate: draft.budget,
+        vibe: draft.vibe,
+        memberIds: draft.invitedConnectionIds,
+      });
 
-      if (tripError) throw tripError;
-
-      const { error: memberError } = await supabase.from("Trip_Members").insert([
-        {
-          user_id: user.id,
-          trip_id: trip.trip_id,
-          role: "owner",
-          status: "accepted",
-        },
-      ]);
-
-      if (memberError) throw memberError;
+      if (error) {
+        throw error;
+      }
 
       reset();
       router.replace("/(tabs)/(trips)/upcoming");
     } catch (e) {
-      Alert.alert("Could not create trip", e?.message ?? "Unknown error");
+      Alert.alert("Could not create trip", e?.message || "Unknown error");
     } finally {
       setBusy(false);
     }
@@ -144,7 +152,7 @@ export default function TripPlanThird() {
           )}
         </TouchableOpacity>
 
-        <Text style={styles.label}>Budget Estimation: ${Math.round(draft.budget)}</Text>
+        <Text style={styles.label}>Budget Estimation: ${Math.round(draft.budget || 0)}</Text>
 
         <View style={{ marginTop: -20, marginBottom: -5 }}>
           <Slider
@@ -156,7 +164,7 @@ export default function TripPlanThird() {
             maximumTrackTintColor="#EBEBEB"
             tapToSeek
             thumbTintColor="#FF8820"
-            value={draft.budget}
+            value={Number(draft.budget || 0)}
             onValueChange={(v) => setField("budget", v)}
             disabled={busy}
           />
@@ -207,7 +215,6 @@ const styles = StyleSheet.create({
     borderRadius: moderateScale(10),
     alignItems: "center",
   },
-
   vibeContainer: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -216,7 +223,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginTop: -10,
   },
-
   vibeButton: {
     width: "31%",
     paddingVertical: verticalScale(8),
@@ -226,23 +232,19 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#CFCFCF",
   },
-
   vibeButtonSelected: {
     backgroundColor: "rgba(255, 122, 0, 0.25)",
     borderColor: "#FF8820",
     borderWidth: 2,
   },
-
   vibeText: {
     fontSize: moderateScale(14),
     fontWeight: "700",
     color: "#9d9d9d",
   },
-
   vibeTextSelected: {
     color: "#FF8820",
   },
-
   bottomContainer: {
     width: "100%",
     height: "22%",
@@ -259,7 +261,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
   },
-
   label: {
     fontSize: moderateScale(15),
     fontWeight: "600",
@@ -267,32 +268,27 @@ const styles = StyleSheet.create({
     marginTop: 15,
     marginBottom: 18,
   },
-
   buttonText: {
     color: "white",
     fontWeight: "700",
     fontSize: moderateScale(18),
   },
-
   screen: {
     backgroundColor: "white",
     flex: 1,
     justifyContent: "space-between",
     paddingTop: 15,
   },
-
   header: {
     marginTop: -15,
     fontSize: moderateScale(28),
     fontWeight: "700",
   },
-
   subHeader: {
     fontSize: moderateScale(15),
     marginBottom: 20,
     color: "#626262",
   },
-
   uploadBox: {
     width: 120,
     height: 120,
@@ -306,19 +302,16 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     marginTop: -15,
   },
-
   uploadText: {
     color: "#9d9d9d",
     fontSize: moderateScale(16),
     textAlign: "center",
   },
-
   uploadedImage: {
     width: "100%",
     height: "100%",
     borderRadius: moderateScale(12),
   },
-
   budgetNote: {
     fontSize: moderateScale(11),
     color: "#c7c7c7",

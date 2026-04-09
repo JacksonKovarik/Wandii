@@ -1,82 +1,66 @@
-import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
+import { Colors } from "@/src/constants/colors";
+import DateUtils from "@/src/utils/DateUtils";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import React from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { moderateScale, scale, verticalScale } from "react-native-size-matters";
+
+const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80";
 
 const PastTripCard = ({ trip, onRelivePress }) => {
+  const imageSource =
+    typeof trip?.cover_photo_url === "string" && trip.cover_photo_url
+      ? { uri: trip.cover_photo_url }
+      : { uri: FALLBACK_IMAGE };
+
+  const startDate = trip?.start_date ? DateUtils.parseYYYYMMDDToDate(trip.start_date) : null;
+  const endDate = trip?.end_date ? DateUtils.parseYYYYMMDDToDate(trip.end_date) : null;
+
+  const dateLabel =
+    startDate && endDate
+      ? DateUtils.formatRange(startDate, endDate)
+      : endDate
+      ? DateUtils.formatDate(endDate)
+      : "Completed trip";
+
   return (
     <View style={styles.card}>
-      <View style={styles.topRow}>
-        <Image source={trip.image} style={styles.coverImage} />
+      <Image source={imageSource} style={styles.coverImage} contentFit="cover" cachePolicy="memory-disk" />
 
-        <View style={styles.textColumn}>
-          <Text style={styles.location}>{trip.location}</Text>
-
-          <View style={styles.dateRow}>
-            <Ionicons
-              name="calendar-outline"
-              size={moderateScale(20)}
-              color="#9d9d9d"
-              style={{ marginRight: scale(6) }}
-            />
-            <Text style={styles.dates}>{trip.dates}</Text>
-          </View>
-
-          <View style={styles.infoColumn}>
-            <View style={[styles.details, styles.photoDetails]}>
-              <Ionicons
-                name="image-outline"
-                size={moderateScale(12)}
-                color="#9900FF"
-                style={{ marginRight: scale(4) }}
-              />
-              <Text style={[styles.detailText, { color: '#9900FF' }]}>
-                {trip.photos} Photos
-              </Text>
-            </View>
-
-            <View style={[styles.details, styles.journalDetails]}>
-              <Ionicons
-                name="book-outline"
-                size={moderateScale(12)}
-                color="#FF5900"
-                style={{ marginRight: scale(4) }}
-              />
-              <Text style={[styles.detailText, { color: '#FF5900' }]}>
-                {trip.journals} Journals
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.routeDetails}>
-            <Ionicons
-              name="map-outline"
-              size={moderateScale(12)}
-              color="#0051FF"
-              style={{ marginRight: scale(4) }}
-            />
-            <Text style={[styles.detailText, { color: '#0051FF' }]}>
-              Route Map
+      <View style={styles.content}>
+        <View style={styles.topRow}>
+          <View style={styles.locationPill}>
+            <MaterialCommunityIcons name="map-marker-outline" size={14} color={Colors.primary} />
+            <Text style={styles.locationPillText} numberOfLines={1}>
+              {trip?.destination || "Past trip"}
             </Text>
           </View>
         </View>
-      </View>
 
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.reliveButton} onPress={onRelivePress}>
-          <Text style={styles.reliveText}>Relive Trip</Text>
-        </TouchableOpacity>
+        <Text style={styles.title} numberOfLines={2}>
+          {trip?.title || "Untitled Trip"}
+        </Text>
 
-        <TouchableOpacity style={styles.shareButton}>
-          <View style={styles.shareContent}>
-            <Ionicons
-              name="share-social"
-              size={moderateScale(20)}
-              color="white"
-              style={{ marginRight: scale(6) }}
-            />
-            <Text style={styles.shareText}>Share</Text>
+        <View style={styles.dateRow}>
+          <Ionicons name="calendar-outline" size={16} color={Colors.textSecondary} />
+          <Text style={styles.dates}>{dateLabel}</Text>
+        </View>
+
+        <View style={styles.badgesRow}>
+          <View style={[styles.badge, styles.memoryBadge]}>
+            <Ionicons name="images-outline" size={12} color="#7C3AED" />
+            <Text style={[styles.badgeText, { color: "#7C3AED" }]}>Memories</Text>
           </View>
+
+          <View style={[styles.badge, styles.completedBadge]}>
+            <Ionicons name="checkmark-circle-outline" size={12} color="#0EA5A5" />
+            <Text style={[styles.badgeText, { color: "#0EA5A5" }]}>Completed</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity style={styles.reliveButton} onPress={onRelivePress} activeOpacity={0.85}>
+          <Text style={styles.reliveText}>Relive Trip</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -87,130 +71,98 @@ export default PastTripCard;
 
 const styles = StyleSheet.create({
   card: {
-    width: '100%',
-    backgroundColor: 'white',
-    borderRadius: scale(16),
-    paddingTop: verticalScale(16),
-    paddingBottom: verticalScale(16),
-    paddingHorizontal: scale(20),
-    marginBottom: verticalScale(25),
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: verticalScale(4) },
-    shadowOpacity: 0.12,
-    shadowRadius: scale(5),
-    elevation: 4,
-  },
-
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    width: "100%",
+    backgroundColor: "white",
+    borderRadius: scale(22),
     marginBottom: verticalScale(20),
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
-
   coverImage: {
-    width: scale(100),
-    height: verticalScale(130),
-    borderRadius: scale(10),
-    marginRight: scale(16),
+    width: "100%",
+    height: verticalScale(180),
   },
-
-  textColumn: {
-    flex: 1,
+  content: {
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(16),
   },
-
-  location: {
-    fontSize: moderateScale(20),
-    fontWeight: '700',
-    marginBottom: verticalScale(6),
-  },
-
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: verticalScale(10),
   },
-
+  locationPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: scale(4),
+    backgroundColor: "#FFF4E8",
+    borderRadius: scale(999),
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(6),
+    maxWidth: "100%",
+  },
+  locationPillText: {
+    color: Colors.primary,
+    fontWeight: "700",
+    fontSize: moderateScale(12),
+    flexShrink: 1,
+  },
+  title: {
+    fontSize: moderateScale(20),
+    fontWeight: "800",
+    color: "#111827",
+    marginBottom: verticalScale(8),
+  },
+  dateRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: scale(6),
+  },
   dates: {
     fontSize: moderateScale(13),
-    fontWeight: '600',
-    color: '#9d9d9d',
+    fontWeight: "600",
+    color: Colors.textSecondary,
   },
-
-  infoColumn: {
-    flexDirection: 'column',
-    gap: verticalScale(6),
-    marginBottom: verticalScale(6),
+  badgesRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: scale(8),
+    marginTop: verticalScale(14),
+    marginBottom: verticalScale(16),
   },
-
-  details: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: verticalScale(4),
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: scale(4),
+    borderRadius: scale(999),
     paddingHorizontal: scale(10),
-    borderRadius: scale(8),
-    alignSelf: 'flex-start',
+    paddingVertical: verticalScale(6),
   },
-
-  photoDetails: {
-    backgroundColor: '#EDD9FF',
+  memoryBadge: {
+    backgroundColor: "#F3E8FF",
   },
-
-  journalDetails: {
-    backgroundColor: '#FFE6C4',
+  completedBadge: {
+    backgroundColor: "#DFF9F6",
   },
-
-  routeDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: verticalScale(4),
-    paddingHorizontal: scale(10),
-    borderRadius: scale(8),
-    backgroundColor: '#BFD9FF',
-    alignSelf: 'flex-start',
-  },
-
-  detailText: {
+  badgeText: {
     fontSize: moderateScale(11),
-    fontWeight: '700',
+    fontWeight: "700",
   },
-
-  buttonRow: {
-    flexDirection: 'row',
-  },
-
   reliveButton: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: "#F3F4F6",
+    borderRadius: scale(14),
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: verticalScale(12),
-    borderRadius: scale(10),
-    alignItems: 'center',
-    marginRight: scale(12),
   },
-
   reliveText: {
     fontSize: moderateScale(13),
-    fontWeight: '700',
-    color: '#000',
-  },
-
-  shareButton: {
-    flex: 1,
-    backgroundColor: '#6193FF',
-    paddingVertical: verticalScale(4),
-    justifyContent: 'center',
-    borderRadius: scale(10),
-    alignItems: 'center',
-  },
-
-  shareText: {
-    fontSize: moderateScale(13),
-    fontWeight: '700',
-    color: 'white',
-  },
-
-  shareContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontWeight: "700",
+    color: "#111827",
   },
 });

@@ -1,10 +1,12 @@
-import FriendsList from "@/src/components/friendsList";
-import ProfileHeader from "@/src/components/profileHeader";
-import RecentDestinations from "@/src/components/recentDestinations";
-import { supabase } from "@/src/lib/supabase";
-import { useFocusEffect } from "@react-navigation/native";
-import { useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import FriendsList from '@/src/components/friendsList';
+import ProfileHeader from '@/src/components/profileHeader';
+import RecentDestinations from '@/src/components/recentDestinations';
+import { useAuth } from '@/src/context/AuthContext';
+import { useProfileData } from '@/src/hooks/useProfileData';
+import { getInitialsFromName } from '@/src/lib/profile';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -12,70 +14,44 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from "react-native";
+} from 'react-native';
 
 export default function Profile() {
   const router = useRouter();
-  const [photo, setPhoto] = useState(null);
+  const { signOut } = useAuth();
+  const { loading, profile, connections, recentDestinations, stats, reloadProfileData } = useProfileData();
   const [loggingOut, setLoggingOut] = useState(false);
-
   const scrollRef = useRef(null);
 
-  // Reset scroll when returning to this screen
   useFocusEffect(
     useCallback(() => {
+      reloadProfileData();
       if (scrollRef.current) {
         scrollRef.current.scrollTo({ y: 0, animated: false });
       }
-    }, [])
+    }, [reloadProfileData])
   );
 
-  // temporary user data
-  const user = {
-    name: "Shelby Wood",
-    username: "shelbywood",
-    trips: 12,
-    buddies: 12,
-    countries: 3,
-  };
+  const displayName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() || 'Traveler';
+  const initials = getInitialsFromName(displayName || profile?.username || 'Traveler');
 
-  const travelBuddies = [
-    { id: 1, name: "Alex", avatar: "https://i.pravatar.cc/150?img=1" },
-    { id: 2, name: "Jordan", avatar: "https://i.pravatar.cc/150?img=2" },
-    { id: 3, name: "Taylor", avatar: "https://i.pravatar.cc/150?img=3" },
-    { id: 4, name: "Riley", avatar: "https://i.pravatar.cc/150?img=4" },
-    { id: 5, name: "Casey", avatar: "https://i.pravatar.cc/150?img=5" },
-    { id: 6, name: "Morgan", avatar: "https://i.pravatar.cc/150?img=6" },
-    { id: 7, name: "Jamie", avatar: "https://i.pravatar.cc/150?img=7" },
-    { id: 8, name: "Chris", avatar: "https://i.pravatar.cc/150?img=8" },
-  ];
-
-  const recentDestinations = [
-    "Paris, France",
-    "Tokyo, Japan",
-    "New York, USA",
-    "Rome, Italy",
-    "Toronto, Canada",
-    "London, UK",
-  ];
-
-  const initials = user?.name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
+  const travelBuddies = (connections || []).map((connection) => ({
+    id: connection.user_id,
+    name: connection.full_name,
+    username: connection.username,
+    avatar: connection.avatar_url,
+  }));
 
   const handleLogout = async () => {
     try {
       setLoggingOut(true);
-
-      await supabase.auth.signOut();
-
-      setTimeout(() => {
-        router.replace("/");
-      }, 500);
+      const { error } = await signOut();
+      if (error) {
+        throw error;
+      }
+      router.replace('/');
     } catch (error) {
-      console.error("Logout error:", error);
+      console.error('Logout error:', error);
       setLoggingOut(false);
     }
   };
@@ -83,10 +59,16 @@ export default function Profile() {
   return (
     <View style={styles.screen}>
       <ProfileHeader
-        user={user}
-        photo={photo}
+        user={{
+          name: displayName,
+          username: profile?.username || '',
+          trips: stats.trips,
+          buddies: stats.buddies,
+          countries: stats.countries,
+        }}
+        photo={profile?.avatar_url || null}
         initials={initials}
-        onPressSettings={() => router.push("/settings")}
+        onPressSettings={() => router.push('/(settings)')}
       />
 
       <ScrollView
@@ -94,19 +76,30 @@ export default function Profile() {
         contentContainerStyle={{ paddingBottom: 80 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ marginTop: 30, paddingHorizontal: 20 }}>
-          <FriendsList
-            buddies={travelBuddies}
-            onPressMore={() => router.push("/travel-buddies")}
-          />
+        <View style={styles.editButtonWrap}>
+          <TouchableOpacity style={styles.editButton} onPress={() => router.push('/(settings)')}>
+            <Text style={styles.editButtonText}>Edit Profile</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={{ marginTop: 50, paddingHorizontal: 20 }}>
-          <RecentDestinations
-            destinations={recentDestinations}
-            onPressMore={() => router.push("/destinations")}
-          />
-        </View>
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color="#FF8820" />
+          </View>
+        ) : (
+          <>
+            <View style={{ marginTop: 12, paddingHorizontal: 20 }}>
+              <FriendsList
+                buddies={travelBuddies}
+                onPressMore={() => router.push('/(tabs)/connections')}
+              />
+            </View>
+
+            <View style={{ marginTop: 40, paddingHorizontal: 20 }}>
+              <RecentDestinations destinations={recentDestinations} />
+            </View>
+          </>
+        )}
 
         <View style={styles.logoutContainer}>
           <TouchableOpacity
@@ -115,7 +108,7 @@ export default function Profile() {
             disabled={loggingOut}
           >
             {loggingOut ? (
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
                 <Text style={styles.logoutText}>Logging out...</Text>
               </View>
@@ -132,27 +125,45 @@ export default function Profile() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: '#F3F4F6',
   },
-
+  editButtonWrap: {
+    paddingHorizontal: 20,
+    marginTop: 16,
+  },
+  editButton: {
+    backgroundColor: '#FFF4E8',
+    borderWidth: 1,
+    borderColor: '#FFD6AE',
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  editButtonText: {
+    color: '#FF8820',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  loadingWrap: {
+    paddingTop: 60,
+    alignItems: 'center',
+  },
   logoutContainer: {
     marginTop: 50,
     paddingHorizontal: 20,
-    alignItems: "center",
+    alignItems: 'center',
   },
-
   logoutButton: {
-    backgroundColor: "#FF3B30",
+    backgroundColor: '#FF3B30',
     paddingVertical: 16,
     paddingHorizontal: 60,
     borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-
   logoutText: {
-    color: "#FFFFFF",
+    color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: "700",
+    fontWeight: '700',
   },
 });
