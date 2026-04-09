@@ -108,24 +108,31 @@ export default function Home() {
   const displayName =
     [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || "Traveler";
 
+  
+  const CustomHeader = () => (
+    <View style={styles.container}>
+        <View style={styles.headerContent}>
+          <View style={styles.titleRow}>
+            <View>
+              <Text style={styles.welcomeText}>Welcome Back</Text>
+              <Text style={styles.title}>{displayName}</Text>
+            </View>
+            <TouchableOpacity style={styles.bellButton} activeOpacity={0.85}>
+              <Ionicons name="notifications-outline" size={22} color="#111827" />
+              <View style={styles.notificationDot} />
+            </TouchableOpacity>
+          </View>
+        </View>
+    </View>
+);
+
   return (
     <View style={styles.screen}>
+      <CustomHeader />
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.headerCard}>
-          <View>
-            <Text style={styles.welcomeText}>Welcome Back</Text>
-            <Text style={styles.nameText}>{displayName}</Text>
-          </View>
-
-          <TouchableOpacity style={styles.bellButton} activeOpacity={0.85}>
-            <Ionicons name="notifications-outline" size={22} color="#111827" />
-            <View style={styles.notificationDot} />
-          </TouchableOpacity>
-        </View>
-
         <PlanNewTripCard />
 
         <View style={styles.sectionHeader}>
@@ -204,8 +211,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   scrollContent: {
-    paddingHorizontal: scale(18),
-    paddingTop: verticalScale(18),
+    paddingHorizontal: '5%',
     paddingBottom: verticalScale(28),
   },
   headerCard: {
@@ -403,4 +409,33 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(13),
     lineHeight: moderateScale(18),
   },
+  container: {
+        backgroundColor: "white",
+        padding: 10,
+        shadowColor: "#9D9D9D",
+        borderBottomLeftRadius: moderateScale(20),
+        borderBottomRightRadius: moderateScale(20),
+        shadowOpacity: 0.4,
+        shadowRadius: 0.8,
+        shadowOffset: { width: 0, height: 2 },
+    },
+    headerContent: {
+        marginTop: 65,
+        marginBottom: 10,
+    },
+    titleRow: {
+        flexDirection: "row",
+        marginHorizontal: "5%",
+        alignItems: "flex-end",
+        justifyContent: "space-between",
+    },
+    title: {
+        fontSize: moderateScale(26),
+        fontWeight: "bold",
+        marginBottom: 5,
+    },
+    tabBarContainer: {
+        width: "100%",
+        alignItems: "center",
+    },
 });
