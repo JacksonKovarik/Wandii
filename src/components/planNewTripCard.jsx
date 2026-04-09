@@ -1,13 +1,13 @@
-import { useRouter } from 'expo-router';
-import { Pressable, Text, View, StyleSheet } from 'react-native';
+import { Colors } from "@/src/constants/colors";
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Colors } from "@/src/constants/colors"
+import { useRouter } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export default function PlanNewTripCard() {
   const router = useRouter();
 
   async function handlePress() {
-    router.push({pathname: "/(trips)"});
+    router.push({ pathname: "/(add-trips)/tripPlanFirst" });
   }
 
   return(

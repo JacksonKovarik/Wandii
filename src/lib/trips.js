@@ -158,7 +158,7 @@ async function attachDestinationLabels(trips) {
  * @param userId - The ID of the user whose trips we want to retrieve.
  * @returns - A promise that resolves to an array of trip objects that the user is a member of, with normalized fields and attached destination labels if available.
  */
-async function readAllTripsForUser(userId) {
+export async function getAllTripsForUser(userId) {
   // Step 1: Get the list of trip_ids this user is a part of
   const { data: userMemberships, error: memberError } = await supabase
     .from("Trip_Members")
@@ -242,6 +242,24 @@ async function ensureCreatorMembership(userId, tripId) {
   }
 }
 
+async function addTripMembers(tripId, memberIds = []) {
+  const uniqueMemberIds = [...new Set((memberIds || []).filter(Boolean).map(String))];
+  if (!tripId || !uniqueMemberIds.length) return;
+
+  const payload = uniqueMemberIds.map((memberId) => ({
+    user_id: memberId,
+    trip_id: tripId,
+    role: "member",
+    status: "accepted",
+  }));
+
+  const { error } = await supabase.from(TRIP_MEMBERS_TABLE).insert(payload);
+
+  if (error) {
+    console.warn("Could not add invited members:", error.message);
+  }
+}
+
 /**
  * Creates a new trip with the provided values and inserts it into the database. 
  * Also handles creating the associated destination link and ensuring the creator is a member of the trip.
@@ -276,9 +294,12 @@ export async function createTrip(values) {
 
   const tripId = data?.trip_id;
   if (tripId) {
+    const invitedMemberIds = (values.memberIds || []).filter((memberId) => String(memberId) !== String(values.userId));
+
     await Promise.allSettled([
       createTripDestinationLink(tripId, values.destination, values.startDate, values.endDate),
       ensureCreatorMembership(values.userId, tripId),
+      addTripMembers(tripId, invitedMemberIds),
     ]);
   }
 
@@ -295,7 +316,7 @@ export async function createTrip(values) {
  */
 export async function getUpcomingTrips(userId) {
   const today = new Date().toISOString().split("T")[0];
-  const rows = await readAllTripsForUser(userId);
+  const rows = await getAllTripsForUser(userId);
   return rows
     .filter((row) => matchesUpcoming(row, today))
     .sort((a, b) => String(a.start_date || "9999-12-31").localeCompare(String(b.start_date || "9999-12-31")));
@@ -310,14 +331,14 @@ export async function getUpcomingTrips(userId) {
  */
 export async function getPastTrips(userId) {
   const today = new Date().toISOString().split("T")[0];
-  const rows = await readAllTripsForUser(userId);
+  const rows = await getAllTripsForUser(userId);
   return rows
     .filter((row) => matchesPast(row, today))
     .sort((a, b) => String(b.end_date || "").localeCompare(String(a.end_date || "")));
 }
 
 export async function getTripById(userId, tripId) {
-  const rows = await readAllTripsForUser(userId);
+  const rows = await getAllTripsForUser(userId);
   return rows.find((row) => String(row.id) === String(tripId)) ?? null;
 }
 
