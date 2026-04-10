@@ -98,7 +98,7 @@ export default function SettingsScreen() {
           <SettingRow 
             icon="place" 
             title="Destination" 
-            value={destination} 
+            value={destination.length > 1 ? `${destination.length} destinations` : `${destination[0].city}, ${destination[0].country}`} 
             onPress={() => router.push(`/(trip-info)/${tripId}/(settings)/editDestination`)}
           />
           {/* ADD PHOTO PICKING HERE */}

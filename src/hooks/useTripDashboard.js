@@ -59,7 +59,7 @@ const fetchTripData = async (tripId, userId) => {
             .from('Trips')
             .select(`
                 trip_id, trip_name, start_date, end_date, cover_photo_url, target_budget, default_currency,
-                Trip_Destinations ( cached_destinations ( city, country, cover_image_url, longitude, latitude ) ),
+                Trip_Destinations ( cached_destinations ( city, country, country_code, cover_image_url, longitude, latitude ) ),
                 Trip_Members ( user_id, role, Users ( first_name, last_name, avatar_url ) )
             `)
             .eq('trip_id', tripId)
@@ -115,13 +115,12 @@ const fetchTripData = async (tripId, userId) => {
         const takeoffDays = Math.max(0, Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 3600 * 24)));
         const destinations = trip.Trip_Destinations?.map(td => td.cached_destinations).filter(Boolean) || [];
         const primaryDestination = destinations[0] || null;
-        const destinationsStr = destinations.map(cd => `${cd.city}, ${cd.country}`).join(' & ') || 'TBD';
         const activeNotifications = await fetchTripNotifications(tripId, userId);
 
         return {
             id: trip.trip_id,
             name: trip.trip_name,
-            destination: destinationsStr,
+            destination: destinations,
             startDate: trip.start_date,
             endDate: trip.end_date,
             image: trip.cover_photo_url || primaryDestination?.cover_image_url,

@@ -193,38 +193,64 @@ export async function getAllTripsForUser(userId) {
   return attachDestinationLabels(tripsData ?? []);
 }
 
-async function createTripDestinationLink(tripId, destination, startDate, endDate) {
-  const parsed = parseDestinationInput(destination);
-  if (!parsed.label || !parsed.country) return;
+export async function createTripDestinationLink(tripId, destination, startDate, endDate) {
+  console.log(destination.length, '\n')
+  for(let i=0; i<destination.length; i++) {
+    console.log(destination[i], '\n')
 
-  const { data: destinationRow, error: destinationError } = await supabase
-    .from(CACHED_DESTINATIONS_TABLE)
-    .insert([
-      {
-        city: parsed.city,
-        country: parsed.country,
-      },
-    ])
-    .select("destination_id, city, country")
-    .single();
+    const city = destination[i].city;
+    const country = destination[i].country;
+    const countryCode = destination[i].countryCode;
+    const lat = parseFloat(destination[i].latitude);
+    const lng = parseFloat(destination[i].longitude);
 
-  if (destinationError || !destinationRow?.destination_id) {
-    console.warn("Could not save destination row:", destinationError?.message || "Unknown error");
-    return;
+    try {
+      const { data: existingDest } = await supabase
+        .from(CACHED_DESTINATIONS_TABLE)
+        .select("destination_id")
+        .eq("city", city)
+        .eq("country", country)
+        .single();
+
+      let destinationId = existingDest?.destination_id;
+
+      if (!destinationId) {
+        const { data: destinationRow, error: destinationError } = await supabase
+          .from(CACHED_DESTINATIONS_TABLE)
+          .insert({
+            city: city,
+            country: country,
+            country_code: countryCode,
+            latitude: parseFloat(lat),
+            longitude: parseFloat(lng),
+          })
+          .select("destination_id, city, country")
+          .single();
+
+          console.log("Destinaton Row:", destinationRow)
+
+        if (destinationError) throw destinationError;
+        destinationId = destinationRow?.destination_id;
+      }
+
+      const { error: linkError } = await supabase
+        .from(DESTINATIONS_TABLE)
+        .insert({
+          trip_id: tripId,
+          destination_id: destinationId,
+          arrival_date: toTimestampWithoutTimezone(startDate),
+          departure_date: toTimestampWithoutTimezone(endDate),
+        });
+
+      if (linkError) {
+        console.warn("Could not link trip destination:", linkError.message);
+      }
+    }
+    catch (error) {
+      console.log("Error in createTripDestinationLink:", error.message);
+    }
   }
-
-  const { error: linkError } = await supabase.from(DESTINATIONS_TABLE).insert([
-    {
-      trip_id: tripId,
-      destination_id: destinationRow.destination_id,
-      arrival_date: toTimestampWithoutTimezone(startDate),
-      departure_date: toTimestampWithoutTimezone(endDate),
-    },
-  ]);
-
-  if (linkError) {
-    console.warn("Could not link trip destination:", linkError.message);
-  }
+  
 }
 
 async function ensureCreatorMembership(userId, tripId) {
@@ -286,7 +312,11 @@ export async function createTrip(values) {
     vibe: values.vibe || "Relaxing",
   };
 
-  const { data, error } = await supabase.from(TRIPS_TABLE).insert([payload]).select("*").single();
+  const { data, error } = await supabase
+    .from(TRIPS_TABLE)
+    .insert([payload])
+    .select("*")
+    .single();
 
   if (error) {
     return { error, trip: null };
