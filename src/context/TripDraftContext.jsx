@@ -3,7 +3,7 @@ import React, { createContext, useContext, useMemo, useState } from "react";
 const TripDraftContext = createContext(null);
 
 const emptyDraft = {
-  destination: "",
+  destination: [],
   tripName: "",
   startDate: null, // "YYYY-MM-DD"
   endDate: null,   // "YYYY-MM-DD"

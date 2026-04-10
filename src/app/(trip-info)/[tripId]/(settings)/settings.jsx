@@ -10,7 +10,7 @@ import { moderateScale } from "react-native-size-matters";
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { tripId, destination, trip_name, name, image, defaultCurrency, default_currency } = useTrip();
+  const { tripId, destination, trip_name, name, image, defaultCurrency, default_currency, updateTripContext } = useTrip();
   
   const [requireApprovals, setRequireApprovals] = useState(true);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -58,6 +58,7 @@ export default function SettingsScreen() {
       Alert.alert("Success", "Cover photo updated!");
     } catch (error) {
       Alert.alert("Upload Failed", "There was an error updating your cover photo.");
+      console.error(error);
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -98,7 +99,7 @@ export default function SettingsScreen() {
           <SettingRow 
             icon="place" 
             title="Destination" 
-            value={destination} 
+            value={destination.length > 1 ? `${destination.length} destinations` : `${destination[0].city}, ${destination[0].country}`} 
             onPress={() => router.push(`/(trip-info)/${tripId}/(settings)/editDestination`)}
           />
           {/* ADD PHOTO PICKING HERE */}

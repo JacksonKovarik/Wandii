@@ -7,21 +7,16 @@ import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOp
 import { moderateScale } from "react-native-size-matters";
 
 import LocationSearchBar from "@/src/components/locationSearchBar";
+import { createTripDestinationLink } from "@/src/lib/trips";
 import { useTrip } from "@/src/utils/TripContext";
 
 export default function EditDestinationsScreen() {
   const router = useRouter();
   const tripData = useTrip();
   const tripId = tripData?.trip_id || tripData?.id; 
-
   const [destinations, setDestinations] = useState([]);
   
-  // Custom Search Engine State
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-
+  // Load existing destinations
   // Load existing destinations
   useEffect(() => {
     if (tripData && tripData.destination) {
@@ -35,112 +30,68 @@ export default function EditDestinationsScreen() {
             name: destName
           }));
         setDestinations(parsedDestinations);
+        
       } else if (Array.isArray(tripData.destination)) {
-        setDestinations(tripData.destination);
+        // 1. Map the array into a completely new array
+        const parsedDestinations = tripData.destination.map((dest, index) => {
+            // Failsafe in case a string accidentally snuck into the array
+            if (typeof dest === 'string') {
+              return { id: `initial-${index}-${Date.now()}`, name: dest };
+            }
+
+            const displayCountry = (dest.country && dest.country.length > 10 && dest.country_code) 
+              ? dest.country_code 
+              : dest.country;
+            
+            // Allow for fallbacks so it doesn't return an empty string if city is missing
+            const name = (dest.city && displayCountry) 
+              ? `${dest.city}, ${displayCountry}` 
+              : (dest.city || displayCountry || dest.name || 'Unknown Destination');
+            
+            return { 
+                id: `initial-${index}-${Date.now()}`, 
+                name 
+            };
+        });
+
+        // 2. Set the state exactly once, OVERWRITING previous state instead of appending
+        setDestinations(parsedDestinations);
       }
+    } else {
+        // Clear destinations if tripData.destination becomes empty
+        setDestinations([]);
     }
   }, [tripData]);
-
-  // ==========================================
-  // DEBOUNCED OSM SEARCH ENGINE
-  // ==========================================
-  useEffect(() => {
-    // If the user clears the input, hide the dropdown
-    if (searchQuery.trim().length < 2) {
-      setSearchResults([]);
-      setShowDropdown(false);
-      return;
-    }
-
-    // Wait 800ms after the user stops typing to call the API
-    const delayDebounceFn = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const LOCATION_IQ_KEY = 'pk.29ba43c85df756ee6924d2cf82e92464'
-        // Fetch from OSM. We use q= query, and ask for JSON and address details
-        const url = `https://us1.locationiq.com/v1/search?key=${LOCATION_IQ_KEY}&q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=5`;
-        
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        setSearchResults(data);
-        setShowDropdown(true);
-      } catch (error) {
-        console.error("OSM Search Error:", error);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 800); 
-
-    // Clear the timer if the user keeps typing
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery]);
-
 
   // ==========================================
   // SAVE DESTINATION
   // ==========================================
   const handleSelectLocation = async (item) => {
-    // 1. Hide dropdown and clear input instantly
-    setShowDropdown(false);
-    setSearchQuery("");
-
-    const city = item.address?.city || item.address?.town || item.address?.village || item.name;
+    const city = item.address?.city || item.address?.town || item.address?.village || item.address?.county || item.address?.state;
     const country = item.address?.country;
+    const countryCode = item.address?.country_code?.toUpperCase();
     const lat = parseFloat(item.lat);
     const lng = parseFloat(item.lon);
     
-    const displayName = city && country ? `${city}, ${country}` : item.name;
+    const displayCountry = (country && country.length > 10 && countryCode) 
+      ? countryCode 
+      : country;
+    const displayName = city && displayCountry ? `${city}, ${displayCountry}` : item.display_name.split(',')[0];
 
     // 3. Optimistic UI update
     const newDest = { id: Date.now().toString(), name: displayName };
     setDestinations([...destinations, newDest]);
+    
+    const newDestObj = {
+      name: displayName,
+      city: city || null,
+      country: country || null,
+      countryCode: countryCode || null,
+      latitude: lat,
+      longitude: lng
+    };
 
-    // 4. Save to Database
-    try {
-        // We use OSM's unique ID instead of Google's Place ID
-        const osmId = item.osm_id.toString();
-
-        let { data: existingDest } = await supabase
-            .from('cached_destinations')
-            .select('destination_id')
-            .eq('country', country) // Simplified cache check
-            .eq('city', city)
-            .single();
-
-        let destinationId = existingDest?.destination_id;
-
-        if (!destinationId) {
-            const { data: insertedDest, error: cacheError } = await supabase
-                .from('cached_destinations')
-                .insert({
-                    city: city,
-                    country: country,
-                    latitude: lat,
-                    longitude: lng
-                })
-                .select()
-                .single();
-                
-            if (cacheError) throw cacheError;
-            destinationId = insertedDest.destination_id;
-        }
-
-        const arrival = tripData?.start_date || new Date().toISOString();
-        const departure = tripData?.end_date || new Date().toISOString();
-
-        await supabase
-            .from('Trip_Destinations')
-            .insert({
-                trip_id: tripId,
-                destination_id: destinationId,
-                arrival_date: arrival,
-                departure_date: departure  
-            });
-
-    } catch (error) {
-        console.error("Database error adding destination:", error);
-    }
+    createTripDestinationLink(tripId, [newDestObj], tripData.startDate, tripData.endDate);
   };
 
   const handleDelete = async (itemToRemove) => {

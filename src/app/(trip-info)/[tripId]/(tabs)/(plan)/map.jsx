@@ -13,7 +13,7 @@ import { moderateScale } from "react-native-size-matters";
 
 export default function Map() {
     // 1. Standardized Context Usage
-    const { tripId, timelineData } = useTrip();
+    const { tripId, timelineData, destination } = useTrip();
     
     const [staysData, setStaysData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -64,18 +64,30 @@ export default function Map() {
         event.longitude
     );
 
-        // Map everything to strict numeric coordinates
-        const stayCoords = staysData.map(s => ({ latitude: Number(s.latitude), longitude: Number(s.longitude) }));
-        const eventCoords = scheduledEvents.map(e => ({ latitude: Number(e.latitude), longitude: Number(e.longitude) }));
-        const allCoords = [...stayCoords, ...eventCoords];
+    // Map everything to strict numeric coordinates
+    const stayCoords = staysData.map(s => ({ latitude: Number(s.latitude), longitude: Number(s.longitude) }));
+    const eventCoords = scheduledEvents.map(e => ({ latitude: Number(e.latitude), longitude: Number(e.longitude) }));
+    const allCoords = [...stayCoords, ...eventCoords];
+
+    // --- NEW FALLBACK LOGIC ---
+    // Extract destination coordinates from context
+    let destCoords = [];
+    if (Array.isArray(destination)) {
+        destCoords = destination
+            .filter(d => d.latitude && d.longitude) // Ensure they have valid coordinates
+            .map(d => ({ latitude: Number(d.latitude), longitude: Number(d.longitude) }));
+    }
+    
+    // Determine which array to use for focusing the map
+    const coordsToFocus = allCoords.length > 0 ? allCoords : destCoords;
 
 
     // 4. Auto-Focus Map logic
     const focusMap = () => {
         if (!mapRef.current) return;
         
-        if (allCoords.length > 0) {
-            mapRef.current.fitToCoordinates(allCoords, {
+        if (coordsToFocus.length > 0) {
+            mapRef.current.fitToCoordinates(coordsToFocus, {
                 edgePadding: { top: 150, right: 50, bottom: 50, left: 50 },
                 animated: true,
             });
@@ -83,11 +95,12 @@ export default function Map() {
     };
 
     // Trigger map focus when data is ready and the tab is actively focused
+    // Added 'destination' to the dependency array so it refocues if destinations change
     useEffect(() => {
         if (isFocused && !isLoading) {
-            setTimeout(focusMap, 500); // Slight delay ensures MapView is fully rendered before zooming
+            setTimeout(focusMap, 500); 
         }
-    }, [isFocused, isLoading, staysData, timelineData]);
+    }, [isFocused, isLoading, staysData, timelineData, destination]);
 
     return (
         <View style={styles.container}>
@@ -115,10 +128,11 @@ export default function Map() {
                     ref={mapRef}
                     style={styles.map} 
                     showsUserLocation={hasLocationPermission}
-                    initialRegion={allCoords.length > 0 ? {
-                        latitude: allCoords[0].latitude,
-                        longitude: allCoords[0].longitude,
-                        latitudeDelta: 0.5, // 0.5 is a good default city-level zoom
+                    // Updated the initial region to also use the fallback coordinates
+                    initialRegion={coordsToFocus.length > 0 ? {
+                        latitude: coordsToFocus[0].latitude,
+                        longitude: coordsToFocus[0].longitude,
+                        latitudeDelta: 0.5, 
                         longitudeDelta: 0.5,
                     } : undefined}
                 >
