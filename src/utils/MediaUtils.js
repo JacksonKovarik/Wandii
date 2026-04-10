@@ -1,5 +1,7 @@
 import { supabase } from '@/src/lib/supabase';
+import { decode } from 'base64-arraybuffer';
 import { Camera } from 'expo-camera';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { Alert, Linking } from 'react-native';
@@ -164,37 +166,45 @@ export const MediaUtils = {
   // --------------------------------------------------
   uploadTripCover: async (uri, tripId) => {
     try {
-      // 1. Compress the image first using your existing utility (max width 2000px for a crisp cover)
+      // 1. Compress the image
       const compressedUri = await MediaUtils.processImage(uri, 2000); 
 
-      // 2. Fetch using arrayBuffer instead of blob (Better for React Native)
-      const response = await fetch(compressedUri);
-      const arrayBuffer = await response.arrayBuffer();
+      // 2. GET USER ID DYNAMICALLY (This satisfies the Supabase RLS Policy!)
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData?.user) throw new Error("User not authenticated");
+      const userId = authData.user.id;
 
       const fileExt = compressedUri.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${tripId}/cover_${Date.now()}.${fileExt}`;
+      
+      // 3. USE USER ID AS THE ROOT FOLDER (Fixes the RLS block!)
+      const fileName = `${userId}/${tripId}_cover_${Date.now()}.${fileExt}`;
 
-      // 3. Upload raw binary to your 'trip-covers' bucket
+      // 4. Read as Base64 using Expo FileSystem
+      const base64 = await FileSystem.readAsStringAsync(compressedUri, {
+        encoding: 'base64',
+      });
+
+      // 5. Upload raw binary to your 'trip-covers' bucket
       const { error: uploadError } = await supabase.storage
         .from('trip-covers') 
-        .upload(fileName, arrayBuffer, {
+        .upload(fileName, decode(base64), {
           contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`,
           upsert: true,
         });
 
       if (uploadError) throw uploadError;
 
-      // 4. Get the public URL
+      // 6. Get the public URL
       const { data: publicUrlData } = supabase.storage
         .from('trip-covers')
         .getPublicUrl(fileName);
 
       const newCoverUrl = publicUrlData.publicUrl;
 
-      // 5. Update the Trips table directly
+      // 7. Update the Trips table
       const { error: dbError } = await supabase
-        .from('Trips') // <-- Make sure this matches your exact table name in Supabase
-        .update({ cover_photo: newCoverUrl }) 
+        .from('Trips') 
+        .update({ cover_photo_url: newCoverUrl }) 
         .eq('trip_id', tripId);
 
       if (dbError) throw dbError;
