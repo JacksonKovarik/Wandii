@@ -35,7 +35,22 @@ const CACHE_LIMIT_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 export default function Overview() {
   const tripData = useTrip();
-  const { takeoffDays, weather: defaultWeather, readinessPercent, notifications, notificationList, group, refreshTripData } = tripData;
+  
+  // Destructure new stats (daysRemaining, completedActivities, memoriesCount)
+  const { 
+    takeoffDays, 
+    weather: defaultWeather, 
+    readinessPercent, 
+    notifications, 
+    notificationList, 
+    group, 
+    refreshTripData, 
+    endDate,
+    status = takeoffDays > 0 ? 'upcoming' : new Date(endDate) < Date.now() ? 'past' : 'active',
+    daysRemaining = 0,
+    completedActivities = 0,
+    memoriesCount = 0
+  } = tripData;
 
   const router = useRouter();
 
@@ -48,11 +63,11 @@ export default function Overview() {
   
   const notificationAction = (title) => {
     if (title === "Ready to Schedule") {
-        return {theme: 'action', icon: 'calendar-today', onPress: () => router.navigate("/(plan)/timeline")};
+        return {theme: 'action', icon: 'calendar-today', onPress: () => router.navigate(`(trip-info)/${tripData.tripId}/(tabs)/(plan)/timeline`)};
     } else if (title === "Payment Due") {
-        return {theme: 'urgent', icon: 'payment', onPress: () => router.navigate("/payments")};
+        return {theme: 'urgent', icon: 'payment', onPress: () => router.navigate(`(trip-info)/${tripData.tripId}/(tabs)/wallet`)};
     } else if (title === "New Ideas to Explore") {
-        return {theme: 'info', icon: 'lightbulb', onPress: () => router.navigate("/(plan)/idea-board")};
+        return {theme: 'info', icon: 'lightbulb', onPress: () => router.navigate(`(trip-info)/${tripData.tripId}/(tabs)/(plan)/idea-board`)};
     } 
   }
 
@@ -61,15 +76,15 @@ export default function Overview() {
       try {
         let lat, lon, locationName;
 
-        // 1. DETERMINE WHICH COORDINATES TO USE (Keep this exactly the same)
-        if (takeoffDays > 0) {
+        // 1. DETERMINE WHICH COORDINATES TO USE
+        if (status === 'upcoming' || takeoffDays > 0) {
           if (!defaultWeather?.coordinates) return;
           lat = defaultWeather.coordinates.latitude;
           lon = defaultWeather.coordinates.longitude;
           locationName = defaultWeather.location;
         } else {
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status !== 'granted') {
+          const { permissionStatus } = await Location.requestForegroundPermissionsAsync();
+          if (permissionStatus !== 'granted') {
             lat = defaultWeather?.coordinates?.latitude;
             lon = defaultWeather?.coordinates?.longitude;
             locationName = defaultWeather?.location;
@@ -106,23 +121,19 @@ export default function Overview() {
 
         // 3. FORMAT AND SAVE TO CACHE
         if (data && data.current_weather) {
-          
-          // 🎨 NEW: Get both the icon and the color from our new helper
           const { icon, color } = getWeatherDetails(data.current_weather.weathercode);
 
           const newWeatherData = {
             temp: Math.round(data.current_weather.temperature),
             location: locationName,
-            icon: icon,   // Use the destructured icon
-            color: color  // Save the destructured color to state/cache
+            icon: icon,   
+            color: color  
           };
 
-          // Save it in our global cache for the next 10 minutes
           weatherCache.coordsKey = currentCoordsKey;
           weatherCache.data = newWeatherData;
           weatherCache.timestamp = now;
 
-          // Update the UI
           setLiveWeather(newWeatherData);
         }
       } catch (error) {
@@ -130,7 +141,7 @@ export default function Overview() {
       }
     };
     fetchWeather();
-  }, [takeoffDays, defaultWeather]); // Re-run if these change
+  }, [takeoffDays, defaultWeather, status]); 
 
   return (
     <TripInfoScrollView onRefresh={refreshTripData} style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -138,16 +149,34 @@ export default function Overview() {
       <View style={styles.headerCard}>
         <View style={styles.headerRow}>
           <View style={styles.headerLeft}>
-            <Text style={styles.subtitle}>Takeoff In</Text>
-            <Text style={styles.largeText}>
-              {takeoffDays}<Text style={styles.smallText}> days</Text>
-            </Text>
+            {/* Dynamic Header Texts */}
+            {status === 'upcoming' && (
+              <>
+                <Text style={styles.subtitle}>Takeoff In</Text>
+                <Text style={styles.largeText}>
+                  {takeoffDays}<Text style={styles.smallText}> days</Text>
+                </Text>
+              </>
+            )}
+            {status === 'active' && (
+              <>
+                <Text style={styles.subtitle}>Currently Exploring</Text>
+                <Text style={styles.largeText}>
+                  {daysRemaining}<Text style={styles.smallText}> days left</Text>
+                </Text>
+              </>
+            )}
+            {status === 'past' && (
+              <>
+                <Text style={styles.subtitle}>Trip Ended</Text>
+                <Text style={styles.largeText}>Completed</Text>
+              </>
+            )}
           </View>
 
           <View style={styles.weatherCard}>
             <BlurView intensity={20} style={StyleSheet.absoluteFillObject} />
             <View style={styles.weatherContent}>
-              {/* USING LIVE WEATHER STATE HERE */}
               <MaterialIcons 
                 name={liveWeather?.icon || 'wb-sunny'} 
                 size={moderateScale(24)} 
@@ -159,43 +188,86 @@ export default function Overview() {
           </View>
         </View>
         
-        <View style={styles.progressHeader}>
-          <Text style={styles.progressLabel}>Trip Readiness</Text>
-          <Text style={styles.progressPercent}>{readinessPercent}% Ready</Text>
-        </View>
-        <ProgressBar width="100%" height={moderateScale(8)} progress={`${readinessPercent}%`} backgroundColor="rgba(255,255,255,0.3)" />
-      </View>
+        {/* Dynamic Lower Section: Progress Bar for Upcoming, Stats for Active/Past */}
+        {status === 'upcoming' && (
+          <>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressLabel}>Trip Readiness</Text>
+              <Text style={styles.progressPercent}>{readinessPercent}% Ready</Text>
+            </View>
+            <ProgressBar width="100%" height={moderateScale(8)} progress={`${readinessPercent}%`} backgroundColor="rgba(255,255,255,0.3)" />
+          </>
+        )}
 
-      {/* Action Required */}
-      <View style={styles.actionSection}>
-        <Text style={styles.sectionTitle}>Action Required</Text>
-        {notifications && notificationList.length > 0 ? (
-          <View style={styles.notificationsContainer}>
-            {notificationList.map((notif) => {
-              const action = notificationAction(notif.title);
-              return (
-                <InAppNotification 
-                  key={notif.id}
-                  icon={action.icon}
-                  title={notif.title}
-                  description={notif.message}
-                  type={action.theme}
-                  onPress={action.onPress}
-                />
-            )})}
+        {status === 'active' && (
+          <View style={styles.statsContainer}>
+            <View style={styles.statBox}>
+              <MaterialIcons name="check-circle" size={moderateScale(18)} color={Colors.success} />
+              <Text style={styles.statText}>{completedActivities} Events Done</Text>
+            </View>
           </View>
-        ) : (
-          <Text>Nothing Happening</Text>
+        )}
+
+        {status === 'past' && (
+          <View style={styles.statsContainer}>
+            <View style={styles.statBox}>
+              <MaterialIcons name="photo-library" size={moderateScale(18)} color="#4FC3F7" />
+              <Text style={styles.statText}>{memoriesCount} Memories</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statBox}>
+              <MaterialIcons name="map" size={moderateScale(18)} color="#FFD700" />
+              <Text style={styles.statText}>{completedActivities} Activities Done</Text>
+            </View>
+          </View>
         )}
       </View>
+
+      {/* Dynamic Action Section */}
+      {status === 'past' ? (
+        <View style={styles.actionSection}>
+          <Text style={styles.sectionTitle}>Trip Memories</Text>
+          <InAppNotification 
+            icon="photo-library"
+            title="View Gallery"
+            description="Look back at your favorite moments from this trip."
+            type="info"
+            onPress={() => router.navigate(`(trip-info)/${tripData.tripId}/(tabs)/memories`)}
+          />
+        </View>
+      ) : (
+        <View style={styles.actionSection}>
+          <Text style={styles.sectionTitle}>Action Required</Text>
+          {notifications && notificationList.length > 0 ? (
+            <View style={styles.notificationsContainer}>
+              {notificationList.map((notif) => {
+                const action = notificationAction(notif.title);
+                return (
+                  <InAppNotification 
+                    key={notif.id}
+                    icon={action?.icon || 'notifications'}
+                    title={notif.title}
+                    description={notif.message}
+                    type={action?.theme || 'info'}
+                    onPress={action?.onPress || (() => {})}
+                  />
+              )})}
+            </View>
+          ) : (
+            <Text>Nothing Happening</Text>
+          )}
+        </View>
+      )}
 
       {/* The Group */}
       <View style={styles.groupSection}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={styles.sectionTitle}>The Group</Text>
-          <TouchableOpacity onPress={() => router.push(`/(trip-info)/${tripData.tripId}/(settings)/manageMembers`)}>
-            <Text style={styles.manageButton}>Manage</Text>
-          </TouchableOpacity>
+          {status !== 'past' && (
+            <TouchableOpacity onPress={() => router.push(`/(trip-info)/${tripData.tripId}/(settings)/manageMembers`)}>
+              <Text style={styles.manageButton}>Manage</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} bounces={false} contentContainerStyle={styles.groupContainer}>
 
@@ -204,6 +276,7 @@ export default function Overview() {
               key={member.id} 
               style={styles.memberItem}
               onPress={() => {console.log(`Member ${member.name} pressed`);}}
+              disabled={status === 'past'}
             >
               <View style={[styles.avatar, { borderColor: member.active ? Colors.success : Colors.textSecondaryLight }]}>
                 
@@ -236,17 +309,19 @@ export default function Overview() {
             </TouchableOpacity>
           ))}
 
-          <TouchableOpacity 
-            style={styles.memberItem}
-            onPress={() => {console.log('Add member pressed');}}
-          >
-            <View style={[styles.avatar, { borderColor: Colors.textSecondaryLight, borderStyle: 'dashed' }]}>
-              <View style={ styles.avatarContent } >
-                <MaterialIcons name="add" size={moderateScale(24)} color={Colors.textSecondaryLight} />
+          {status !== 'past' && (
+            <TouchableOpacity 
+              style={styles.memberItem}
+              onPress={() => {console.log('Add member pressed');}}
+            >
+              <View style={[styles.avatar, { borderColor: Colors.textSecondaryLight, borderStyle: 'dashed' }]}>
+                <View style={ styles.avatarContent } >
+                  <MaterialIcons name="add" size={moderateScale(24)} color={Colors.textSecondaryLight} />
+                </View>
               </View>
-            </View>
-            <Text style={styles.memberName}>Invite</Text>
-          </TouchableOpacity>
+              <Text style={styles.memberName}>Invite</Text>
+            </TouchableOpacity>
+          )}
 
         </ScrollView>
       </View>
@@ -341,6 +416,30 @@ const styles = StyleSheet.create({
     color: Colors.success,
     fontWeight: 'bold',
   },
+  statsContainer: {
+    flexDirection: 'row',
+    marginTop: moderateScale(15),
+    paddingTop: moderateScale(15),
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  statBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: moderateScale(8),
+  },
+  statText: {
+    color: '#ffffff',
+    fontSize: moderateScale(13),
+    fontWeight: '600',
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    height: moderateScale(20),
+  },
   sectionTitle: {
     fontSize: moderateScale(16),
     fontWeight: 'bold',
@@ -405,7 +504,7 @@ const styles = StyleSheet.create({
   },
   notificationsContainer: {
     marginTop: moderateScale(16),
-    gap: moderateScale(8), // Adds perfect spacing between multiple notifications
+    gap: moderateScale(8), 
   },
   
 });
