@@ -392,11 +392,41 @@ export async function deleteTrip(userId, tripId) {
 
 /**
  * Removes a user from a trip by deleting their membership record.
- * 
- * @param userId - The ID of the user who wants to leave the trip.
+ * * @param userId - The ID of the user who wants to leave the trip.
  * @param tripId - The ID of the trip the user wants to leave.
- * @returns 
+ * @returns { success: boolean, error: string | null }
  */
 export async function leaveTrip(userId, tripId) {
-  return supabase.from(TRIP_MEMBERS_TABLE).delete().eq("user_id", userId).eq("trip_id", tripId);
+  try {
+    // 1. Check if the user is the creator of the trip
+    const { data: tripData, error: tripError } = await supabase
+      .from('Trips')
+      .select('creator_id')
+      .eq('trip_id', tripId)
+      .single();
+
+    if (tripError) throw new Error("Failed to verify trip details.");
+
+    if (tripData.creator_id === userId) {
+      throw new Error("As the trip creator, you cannot leave the trip. You must delete the trip or transfer ownership.");
+    }
+
+    // 2. Attempt to delete the membership
+    const { error: deleteError } = await supabase
+      .from('Trip_Members') // Ensure this matches your actual table name exactly
+      .delete()
+      .eq("user_id", userId)
+      .eq("trip_id", tripId);
+
+    if (deleteError) {
+      // This will catch RLS errors or network issues
+      throw new Error(deleteError.message);
+    }
+    console.log("User left trip successfully.");
+    return { success: true, error: null };
+
+  } catch (err) {
+    console.error("Error leaving trip:", err.message);
+    return { success: false, error: err.message };
+  }
 }

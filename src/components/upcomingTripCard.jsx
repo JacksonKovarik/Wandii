@@ -18,8 +18,10 @@ import { moderateScale, scale, verticalScale } from "react-native-size-matters";
 
 export const UpcomingTripCard = ({ trip, onDelete, isCreator }) => {
   const router = useRouter();
+  const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=80";
   const imageSource =
-    typeof trip.cover_photo_url === "string" ? { uri: trip.cover_photo_url } : trip.cover_photo_url;
+    typeof trip.cover_photo_url === "string" ? { uri: trip.cover_photo_url } : { uri: FALLBACK_IMAGE };
+
 
   const takeoffDays = DateUtils.calculateDaysUntil(
     DateUtils.parseYYYYMMDDToDate(trip.start_date)

@@ -26,10 +26,9 @@ export default function TripInfoLayout() {
 
     return (
         <TripContext.Provider value={contextValue}>
-            <Stack>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)"/>
                 <Stack.Screen name="(settings)" options={{
-                    headerShown: false,
                     presentation: 'modal'
                 }} />
             </Stack>
