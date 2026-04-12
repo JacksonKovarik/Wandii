@@ -1,6 +1,6 @@
 import { Colors } from "@/src/constants/colors";
 import { useRouter, useSegments } from "expo-router";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 export default function TripInfoTabBar({ tripId }) {
@@ -16,18 +16,11 @@ export default function TripInfoTabBar({ tripId }) {
     { name: "Wallet", path: "wallet", checkSegments: ["wallet"] },
     { name: "Docs", path: "docs", checkSegments: ["docs"] },
     { name: "Memories", path: "memories", checkSegments: ["memories", "album"] },
-    { name: "Chat", path: "chat", checkSegments: ["chat"] },
   ];
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        bounces={false}
-        overScrollMode="never"
-        contentContainerStyle={styles.scrollContent}
-      >
+      <View style={styles.scrollContent} >
         {tabs.map((tab) => {
           const active = tab.checkSegments.some(isActive);
 
@@ -55,7 +48,7 @@ export default function TripInfoTabBar({ tripId }) {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
     </View>
   );
 }

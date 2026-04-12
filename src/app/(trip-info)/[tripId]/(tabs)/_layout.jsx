@@ -1,11 +1,12 @@
 import TripInfoTabBar from "@/src/components/trip-info/tripInfoTabBar";
+import { Colors } from "@/src/constants/colors";
 import DateUtils from "@/src/utils/DateUtils";
 import { useTrip } from "@/src/utils/TripContext";
-import { MaterialIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { Tabs, useNavigation, useRouter } from "expo-router";
+import { router, Tabs, useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
@@ -92,6 +93,9 @@ export default function TripTabsLayout() {
                 <Tabs.Screen name="memories" options={{ title: "Memories" }} />
                 <Tabs.Screen name="album" options={{ headerShown: false }} />
             </Tabs>
+            <TouchableOpacity onPress={() => router.push(`/(trip-info)/${tripData.id}/chat`)} style={styles.chatButton}>
+                <Ionicons name="chatbubble-ellipses" size={35} color={'white'} />
+            </TouchableOpacity>
         </View>
     )
 }
@@ -105,4 +109,5 @@ const styles = StyleSheet.create({
     textContainer: { gap: 4 },
     destination: { color: 'white', fontSize: moderateScale(25), fontWeight: 'bold', maxWidth: '60%' },
     dateRange: { color: 'white', fontSize: moderateScale(12), marginTop: 4 },
+    chatButton: { position: 'absolute', bottom: 50, right: 40, backgroundColor: Colors.darkBlue, height: 70, width: 70, borderRadius: 40, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3 }
 });

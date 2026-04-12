@@ -14,11 +14,7 @@ import { moderateScale } from "react-native-size-matters";
 import { useAuth } from "@/src/context/AuthContext";
 import { useMemoryData } from "@/src/hooks/useMemoryData";
 
-//////////////////////////////////////////////////////////////////
 
-// ADD Journal Entry editing for a users entries NOT others
-
-//////////////////////////////////////////////////////////////////
 
 const { width: screenWidth } = Dimensions.get('window');
 const cardWidth = screenWidth * 0.85;
