@@ -10,7 +10,7 @@ import { moderateScale } from "react-native-size-matters";
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { tripId, destination, trip_name, name, image, defaultCurrency, default_currency, updateTripContext } = useTrip();
+  const { tripId, destination, trip_name, name, image, defaultCurrency, default_currency, updateTripContext, group } = useTrip();
   
   const [requireApprovals, setRequireApprovals] = useState(true);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -117,7 +117,7 @@ export default function SettingsScreen() {
           <SettingRow 
             icon="people" 
             title="Manage Members" 
-            value="3 People" 
+            value={`${group.length} members`}
             onPress={() => router.push(`/(trip-info)/${tripId}/(settings)/manageMembers`)} />
           <SettingRow 
             icon="link" 

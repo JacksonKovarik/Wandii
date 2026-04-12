@@ -204,7 +204,17 @@ export default function Stays() {
           {isLoading ? (
             <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
           ) : staysData.length === 0 ? (
-            <Text style={{ textAlign: 'center', color: Colors.gray, marginTop: 20 }}>No accommodations booked yet.</Text>
+            <View style={styles.emptyStayCard}>
+              <View style={styles.placeholderRow}>
+                <View style={styles.placeholderIcon} />
+                <View style={styles.placeholderLines}>
+                    <View style={[styles.line, { width: '80%' }]} />
+                    <View style={[styles.line, { width: '50%' }]} />
+                </View>
+              </View>
+              <Text style={styles.emptyStayTitle}>Where are you staying?</Text>
+              <Text style={styles.emptyStaySub}>Add your hotel, Airbnb, or hostel details here to keep everyone in the loop.</Text>
+            </View>
           ) : (
             staysData.map(stay => (
               <StayCard 
@@ -324,4 +334,50 @@ const styles = StyleSheet.create({
   premiumSubmitButton: { backgroundColor: '#0f172a', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginTop: 10 },
   premiumSubmitDisabled: { backgroundColor: '#cbd5e1' },
   premiumSubmitText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
+  // --- EMPTY STATE STYLES ---
+  emptyStayCard: {
+    backgroundColor: '#fff',
+    borderRadius: moderateScale(16),
+    padding: moderateScale(24),
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0', // A nice light gray
+    borderStyle: 'dashed',
+    alignItems: 'center',
+  },
+  placeholderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: moderateScale(20),
+    opacity: 0.6,
+  },
+  placeholderIcon: {
+    width: moderateScale(48),
+    height: moderateScale(48),
+    borderRadius: moderateScale(12),
+    backgroundColor: '#f1f5f9',
+    marginRight: moderateScale(16),
+  },
+  placeholderLines: {
+    flex: 1,
+    gap: moderateScale(10),
+  },
+  line: {
+    height: moderateScale(12),
+    borderRadius: moderateScale(6),
+    backgroundColor: '#f1f5f9',
+  },
+  emptyStayTitle: {
+    fontSize: moderateScale(18),
+    fontWeight: '800',
+    color: Colors.darkBlue || '#0f172a',
+    marginBottom: moderateScale(8),
+    textAlign: 'center',
+  },
+  emptyStaySub: {
+    fontSize: moderateScale(14),
+    color: Colors.textSecondaryDark || '#64748b',
+    textAlign: 'center',
+    lineHeight: moderateScale(20),
+  },
 });

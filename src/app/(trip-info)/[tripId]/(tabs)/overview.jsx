@@ -254,7 +254,16 @@ export default function Overview() {
               )})}
             </View>
           ) : (
-            <Text>Nothing Happening</Text>
+            // --- NEW EMPTY NOTIFICATION STATE ---
+            <View style={styles.emptyNotificationCard}>
+              <View style={styles.emptyNotificationIcon}>
+                <MaterialIcons name="check-circle-outline" size={moderateScale(28)} color={Colors.success || '#4CAF50'} />
+              </View>
+              <View style={styles.emptyNotificationTextContainer}>
+                <Text style={styles.emptyNotificationTitle}>You're all caught up!</Text>
+                <Text style={styles.emptyNotificationSub}>No pending actions right now.</Text>
+              </View>
+            </View>
           )}
         </View>
       )}
@@ -506,5 +515,30 @@ const styles = StyleSheet.create({
     marginTop: moderateScale(16),
     gap: moderateScale(8), 
   },
-  
+  emptyNotificationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.08)', // Very light green background
+    borderRadius: moderateScale(12),
+    padding: moderateScale(16),
+    marginTop: moderateScale(10),
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.3)', // Subtle green border
+  },
+  emptyNotificationIcon: {
+    marginRight: moderateScale(16),
+  },
+  emptyNotificationTextContainer: {
+    flex: 1,
+  },
+  emptyNotificationTitle: {
+    fontSize: moderateScale(15),
+    fontWeight: 'bold',
+    color: Colors.success || '#4CAF50',
+    marginBottom: moderateScale(4),
+  },
+  emptyNotificationSub: {
+    fontSize: moderateScale(13),
+    color: Colors.textSecondaryDark,
+  },
 });
