@@ -67,7 +67,8 @@ export default function Chat() {
   const flatListRef = useRef(null);
 
   useEffect(() => {
-    // 1. Fetch initial messages
+    let intervalId;
+
     const fetchMessages = async () => {
       try {
         const { data, error } = await supabase
@@ -86,43 +87,19 @@ export default function Chat() {
       }
     };
 
+    // 1. Fetch immediately when the screen loads
     fetchMessages();
 
-    // 2. Set up the Real-time Listener
-    const channel = supabase
-      .channel(`chat_room_${tripId}`)
-      .on(
-        "postgres",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "Messages",
-          filter: `trip_id=eq.${tripId}`, // Only listen to messages for THIS trip
-        },
-        async (payload) => {
-          // Ignore messages sent by ourselves (to avoid duplicates with Optimistic UI)
-          if (payload.new.sender_id === user?.id) return;
+    // 2. Poll the database every 3 seconds for updates
+    intervalId = setInterval(() => {
+      fetchMessages();
+    }, 3000);
 
-          // Fetch the full message data so we get the sender's first_name
-          const { data: fullMessage } = await supabase
-            .from("Messages")
-            .select("*, Users(first_name)")
-            .eq("id", payload.new.id)
-            .single();
-
-          if (fullMessage) {
-            setMessages((prev) => [...prev, fullMessage]);
-          }
-        }
-      )
-      .subscribe();
-
-    // 3. Cleanup the listener when leaving the screen
+    // 3. Clean up the timer when leaving the chat
     return () => {
-      supabase.removeChannel(channel);
+      clearInterval(intervalId);
     };
-  }, [tripId, user?.id]); // Added user?.id to dependencies
-
+  }, [tripId]);
   const sendMessage = async () => {
     const messageText = input.trim();
     if (!messageText || !user?.id) return;

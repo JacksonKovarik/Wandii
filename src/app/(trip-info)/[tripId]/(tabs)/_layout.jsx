@@ -1,5 +1,7 @@
 import TripInfoTabBar from "@/src/components/trip-info/tripInfoTabBar";
 import { Colors } from "@/src/constants/colors";
+import { useAuth } from "@/src/context/AuthContext";
+import { supabase } from "@/src/lib/supabase";
 import DateUtils from "@/src/utils/DateUtils";
 import { useTrip } from "@/src/utils/TripContext";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
@@ -8,9 +10,9 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Tabs, useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
-
 
 // ==========================================
 // HELPER COMPONENTS
@@ -77,9 +79,44 @@ const CustomHeader = ({ trip }) => {
 };
 
 
+
 export default function TripTabsLayout() {
     const tripData = useTrip();
     if (!tripData) return null;
+    const [hasUnreadChats, setHasUnreadChats] = useState(false);
+
+    const handleOpenChat = () => {
+        // 2. Clear the indicator when they open the chat
+        setHasUnreadChats(false); 
+        router.push(`/(trip-info)/${tripData.id}/chat`);
+    };
+
+    const { user } = useAuth(); // Needed so we don't trigger the dot for our own messages!
+
+        useEffect(() => {
+        if (!tripData?.id || !user?.id) return;
+
+        const checkUnread = async () => {
+        // Only grab the SINGLE most recent message
+        const { data } = await supabase
+            .from("Messages")
+            .select("sender_id")
+            .eq("trip_id", tripData.id)
+            .order("sent_at", { ascending: false })
+            .limit(1)
+            .single();
+        
+        if (data && data.sender_id !== user.id) {
+            setHasUnreadChats(true);
+        }
+        };
+
+        // Check once immediately, then check every 60 seconds
+        checkUnread();
+        const interval = setInterval(checkUnread, 60000); 
+
+        return () => clearInterval(interval);
+    }, [tripData?.id, user?.id]);
 
     return (
         <View style={{ flex: 1 }}>
@@ -93,8 +130,14 @@ export default function TripTabsLayout() {
                 <Tabs.Screen name="memories" options={{ title: "Memories" }} />
                 <Tabs.Screen name="album" options={{ headerShown: false }} />
             </Tabs>
-            <TouchableOpacity onPress={() => router.push(`/(trip-info)/${tripData.id}/chat`)} style={styles.chatButton}>
+            {/* 3. Update the button to use the new function and render the badge */}
+            <TouchableOpacity onPress={handleOpenChat} style={styles.chatButton}>
                 <Ionicons name="chatbubble-ellipses" size={35} color={'white'} />
+                
+                {/* THE RED DOT */}
+                {hasUnreadChats && (
+                    <View style={styles.unreadBadge} />
+                )}
             </TouchableOpacity>
         </View>
     )
@@ -109,5 +152,6 @@ const styles = StyleSheet.create({
     textContainer: { gap: 4 },
     destination: { color: 'white', fontSize: moderateScale(25), fontWeight: 'bold', maxWidth: '60%' },
     dateRange: { color: 'white', fontSize: moderateScale(12), marginTop: 4 },
-    chatButton: { position: 'absolute', bottom: 50, right: 40, backgroundColor: Colors.darkBlue, height: 70, width: 70, borderRadius: 40, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3 }
+    chatButton: { position: 'absolute', bottom: 50, right: 40, backgroundColor: Colors.darkBlue, height: 70, width: 70, borderRadius: 40, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3 },
+    unreadBadge: { position: 'absolute', top: 15, right: 15, width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.danger || 'red', borderWidth: 2, borderColor: Colors.darkBlue }
 });
