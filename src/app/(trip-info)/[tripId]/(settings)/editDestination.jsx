@@ -15,6 +15,8 @@ export default function EditDestinationsScreen() {
   const tripData = useTrip();
   const tripId = tripData?.trip_id || tripData?.id; 
   const [destinations, setDestinations] = useState([]);
+
+  const { updateTripContext } = tripData;
   
   // Load existing destinations
   // Load existing destinations
@@ -91,6 +93,12 @@ export default function EditDestinationsScreen() {
       longitude: lng
     };
 
+    if (updateTripContext) {
+      // Ensure we are working with an array, then append the new destination
+      const currentContextDests = Array.isArray(tripData.destination) ? tripData.destination : [];
+      updateTripContext({ destination: [...tripData.destination, newDestObj] });
+    }
+
     createTripDestinationLink(tripId, [newDestObj], tripData.startDate, tripData.endDate);
   };
 
@@ -103,18 +111,14 @@ export default function EditDestinationsScreen() {
       const nameParts = itemToRemove.name.split(',');
       const city = nameParts[0].trim();
       const country = nameParts.length > 1 ? nameParts[1].trim() : null;
+      console.log(city, country)
 
-      // 3. Look up the official destination_id in the cache
-      let cacheQuery = supabase
+      const { data: cachedDest, error: fetchError } = await supabase
         .from('cached_destinations')
         .select('destination_id')
-        .eq('city', city);
-        
-      if (country) {
-        cacheQuery = cacheQuery.eq('country', country);
-      }
-
-      const { data: cachedDest, error: fetchError } = await cacheQuery.single();
+        .eq('city', city)
+        .eq('country', country)
+        // .single();
 
       if (fetchError || !cachedDest) {
         console.warn("Could not find destination in cache to delete:", fetchError);

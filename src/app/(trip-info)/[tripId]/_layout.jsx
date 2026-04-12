@@ -31,6 +31,9 @@ export default function TripInfoLayout() {
                 <Stack.Screen name="(settings)" options={{
                     presentation: 'modal'
                 }} />
+                <Stack.Screen name="chat" options={{
+                    presentation: 'modal'
+                }} />
             </Stack>
         </TripContext.Provider>
     );

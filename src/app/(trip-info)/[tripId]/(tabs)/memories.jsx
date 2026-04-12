@@ -14,11 +14,7 @@ import { moderateScale } from "react-native-size-matters";
 import { useAuth } from "@/src/context/AuthContext";
 import { useMemoryData } from "@/src/hooks/useMemoryData";
 
-//////////////////////////////////////////////////////////////////
 
-// ADD Journal Entry editing for a users entries NOT others
-
-//////////////////////////////////////////////////////////////////
 
 const { width: screenWidth } = Dimensions.get('window');
 const cardWidth = screenWidth * 0.85;
@@ -126,9 +122,24 @@ export default function Memories() {
           </TouchableOpacity>
         </View>
 
-        {memories.length === 0 ? (
-           <Text style={{ textAlign: 'center', color: Colors.gray, marginBottom: 20 }}>No journal entries yet.</Text>
-        ) : (
+        {(!memories || memories.length === 0) && !isLoading ? (
+  <View style={styles.emptyMemoryContainer}>
+    <View style={styles.emptyMemoryIconCircle}>
+      <MaterialIcons name="photo-camera" size={moderateScale(40)} color={Colors.primary || '#3b82f6'} />
+    </View>
+    <Text style={styles.emptyMemoryTitle}>No memories yet</Text>
+    <Text style={styles.emptyMemorySubtext}>
+      Capture your favorite moments and journal your thoughts to look back on after the trip!
+    </Text>
+    <TouchableOpacity 
+      style={styles.addMemoryBtn}
+      // Make sure this triggers your new memory bottom sheet/modal
+      onPress={() => setModalVisible(true)} 
+    >
+      <Text style={styles.addMemoryBtnText}>+ Add First Memory</Text>
+    </TouchableOpacity>
+  </View>
+) : (
           <FlatList
             data={memories}
             renderItem={({ item }) => <JournalCard item={item} />}
@@ -336,4 +347,50 @@ const styles = StyleSheet.create({
   premiumSubmitButton: { backgroundColor: '#0f172a', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginTop: 10 },
   premiumSubmitDisabled: { backgroundColor: '#cbd5e1' },
   premiumSubmitText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
+  // --- EMPTY STATE STYLES ---
+  emptyMemoryContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: moderateScale(50),
+    paddingHorizontal: moderateScale(30),
+  },
+  emptyMemoryIconCircle: {
+    width: moderateScale(60),
+    height: moderateScale(60),
+    borderRadius: moderateScale(40),
+    backgroundColor: 'rgba(59, 130, 246, 0.1)', // Light tint of primary color
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: moderateScale(20),
+  },
+  emptyMemoryTitle: {
+    fontSize: moderateScale(20),
+    fontWeight: '800',
+    color: Colors.darkBlue || '#0f172a',
+    marginBottom: moderateScale(8),
+  },
+  emptyMemorySubtext: {
+    fontSize: moderateScale(14),
+    color: Colors.textSecondaryDark || '#64748b',
+    textAlign: 'center',
+    lineHeight: moderateScale(22),
+    marginBottom: moderateScale(30),
+  },
+  addMemoryBtn: {
+    backgroundColor: Colors.primary || '#3b82f6',
+    paddingVertical: moderateScale(14),
+    paddingHorizontal: moderateScale(30),
+    borderRadius: moderateScale(30),
+    shadowColor: Colors.primary || '#3b82f6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  addMemoryBtnText: {
+    color: '#fff',
+    fontSize: moderateScale(15),
+    fontWeight: 'bold',
+  },
 });

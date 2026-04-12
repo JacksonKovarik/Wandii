@@ -96,8 +96,13 @@ export default function IdeaBoard() {
                 onSwipeRight={(item) => handleVote(item.id, 'yes')}
               />
             ) : (
-              <View style={{ alignItems: 'center' }}>
-                <Text style={styles.emptyText}>No new ideas right now. Check back later!</Text>
+              <View style={styles.emptyIdeaContainer}>
+                <MaterialIcons name="lightbulb-outline" size={60} color={Colors.gray} />
+                <Text style={styles.emptyIdeaText}>No ideas yet!</Text>
+                <Text style={styles.emptyIdeaSubtext}>Add a custom idea or invite friends to start brainstorming.</Text>
+                <TouchableOpacity style={styles.addIdeaBtn} onPress={() => setModalVisible(true)}>
+                  <Text style={styles.addIdeaBtnText}>+ Add First Idea</Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -226,4 +231,42 @@ const styles = StyleSheet.create({
   premiumSubmitButton: { backgroundColor: '#0f172a', paddingVertical: 16, borderRadius: 16, alignItems: 'center', marginTop: 10 },
   premiumSubmitDisabled: { backgroundColor: '#cbd5e1' },
   premiumSubmitText: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
+  // --- EMPTY STATE STYLES ---
+  emptyIdeaContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: moderateScale(30),
+    paddingVertical: moderateScale(30),
+  },
+  emptyIdeaText: {
+    fontSize: moderateScale(20),
+    fontWeight: '800',
+    color: Colors.darkBlue || '#0f172a',
+    marginTop: moderateScale(16),
+    marginBottom: moderateScale(8),
+  },
+  emptyIdeaSubtext: {
+    fontSize: moderateScale(14),
+    color: Colors.textSecondaryDark || '#64748b',
+    textAlign: 'center',
+    lineHeight: moderateScale(22),
+    marginBottom: moderateScale(30),
+  },
+  addIdeaBtn: {
+    backgroundColor: Colors.primary || '#3b82f6',
+    paddingVertical: moderateScale(14),
+    paddingHorizontal: moderateScale(30),
+    borderRadius: moderateScale(30),
+    shadowColor: Colors.primary || '#3b82f6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  addIdeaBtnText: {
+    color: '#fff',
+    fontSize: moderateScale(15),
+    fontWeight: 'bold',
+  },
 });

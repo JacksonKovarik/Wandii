@@ -40,10 +40,22 @@ export default function Docs() {
       {isLoading ? (
         <ActivityIndicator size="large" color={Colors.primary} style={{ marginTop: 20 }} />
       ) : documents.length === 0 ? (
-        <TouchableOpacity style={styles.uploadContainer} onPress={() => setModalVisible(true)}>
-          <MaterialIcons name="cloud-upload" size={moderateScale(24)} color={Colors.gray} />
-          <Text style={styles.uploadText}>Tap to upload PDF or Image</Text>
-        </TouchableOpacity>  
+        <View style={styles.emptyDocsContainer}>
+          <View style={styles.emptyDocsIconWrapper}>
+            <MaterialIcons name="folder-shared" size={moderateScale(50)} color={Colors.gray || '#94a3b8'} />
+          </View>
+          <Text style={styles.emptyDocsTitle}>No documents yet</Text>
+          <Text style={styles.emptyDocsSubtext}>
+            Keep your boarding passes, reservations, and passports safe and easily accessible for the whole group.
+          </Text>
+          <TouchableOpacity 
+            style={styles.uploadDocsBtn}
+            onPress={() => setModalVisible(true)}
+          >
+            <MaterialIcons name="cloud-upload" size={moderateScale(20)} color="white" />
+            <Text style={styles.uploadDocsBtnText}>Upload Document</Text>
+          </TouchableOpacity>
+        </View>  
       ) : (
         documents.map((doc) => (
           <DocumentCard key={doc.id} title={doc.title} date={doc.date} size={doc.size} url={doc.url} fileType={doc.file_type} />
@@ -99,5 +111,49 @@ const styles = StyleSheet.create({
   sheetMinimalRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: moderateScale(16), borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.lightGray, gap: moderateScale(16) },
   sheetActionText: { fontSize: moderateScale(16), fontWeight: '500', color: Colors.darkBlue },
   cancelButton: { marginTop: moderateScale(24), alignItems: 'center', paddingVertical: moderateScale(12) },
-  cancelButtonText: { fontSize: moderateScale(16), color: Colors.gray, fontWeight: '600' }
+  cancelButtonText: { fontSize: moderateScale(16), color: Colors.gray, fontWeight: '600' },
+  // --- EMPTY STATE STYLES ---
+  emptyDocsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+    borderRadius: moderateScale(16),
+    padding: moderateScale(30),
+    marginTop: moderateScale(20),
+    borderWidth: 2,
+    borderColor: '#e2e8f0', // Light slate
+    borderStyle: 'dashed',
+  },
+  emptyDocsIconWrapper: {
+    marginBottom: moderateScale(16),
+    opacity: 0.8,
+  },
+  emptyDocsTitle: {
+    fontSize: moderateScale(18),
+    fontWeight: '700',
+    color: Colors.darkBlue || '#0f172a',
+    marginBottom: moderateScale(8),
+    textAlign: 'center',
+  },
+  emptyDocsSubtext: {
+    fontSize: moderateScale(14),
+    color: Colors.textSecondaryDark || '#64748b',
+    textAlign: 'center',
+    lineHeight: moderateScale(20),
+    marginBottom: moderateScale(24),
+  },
+  uploadDocsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.darkBlue || '#0f172a',
+    paddingVertical: moderateScale(12),
+    paddingHorizontal: moderateScale(24),
+    borderRadius: moderateScale(25),
+    gap: moderateScale(8), // Puts space between the icon and text
+  },
+  uploadDocsBtnText: {
+    color: '#fff',
+    fontSize: moderateScale(14),
+    fontWeight: 'bold',
+  },
 });
