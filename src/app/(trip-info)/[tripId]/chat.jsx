@@ -208,7 +208,7 @@ export default function Chat() {
                   {/* Render the Timestamp Banner if the 1-hour condition is met */}
                   {showTimestamp && (
                     <Text style={styles.timestampBanner}>
-                      {formatChatTimestamp(item.sent_at || new Date().toISOString())}
+                      {formatChatTimestamp(item?.sent_at || new Date().toISOString())}
                     </Text>
                   )}
 
@@ -219,7 +219,7 @@ export default function Chat() {
                     
                     {!isMyMessage && (
                       <Text style={styles.senderName}>
-                        {item.Users.first_name || "Unknown"}
+                        {item?.Users?.first_name || "Unknown"}
                       </Text>
                     )}
 
