@@ -3,16 +3,18 @@ import { Colors } from "@/src/constants/colors";
 import { useAuth } from "@/src/context/AuthContext";
 import { supabase } from "@/src/lib/supabase";
 import DateUtils from "@/src/utils/DateUtils";
-import { useTrip } from "@/src/utils/TripContext";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, Tabs, useNavigation, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
+
+// 1. Swap your context import for your new TanStack hook
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 // ==========================================
 // HELPER COMPONENTS
@@ -37,91 +39,89 @@ const HeaderButton = ({ icon, onPress }) => (
   </TouchableOpacity>
 );
 
-const CustomHeader = ({ trip }) => {
-    const router = useRouter()
+// 2. CustomHeader now consumes the hook directly instead of receiving props!
+const CustomHeader = () => {
+    const router = useRouter();
     const navigation = useNavigation();
+    
+    // Pull exactly what we need from the cache instantly
+    const { tripId, image, name, startDate, endDate } = useTripDashboard();
+
     const goBack = () => {
-        // 1. We don't need getParent() because CustomHeader is already at the Stack level!
         if (navigation.canGoBack()) {
-            // Normal usage: Pop the trip off the stack safely
             navigation.goBack();
         } else {
-            // Notification usage: No history exists! 
             router.replace('/'); 
         }
     };
+
     return (
         <View style={styles.headerContainer}>
-            <Image source={trip.image} style={styles.gradient} contentFit='cover' cachePolicy='memory-disk' />
+            <Image source={image} style={styles.gradient} contentFit='cover' cachePolicy='memory-disk' />
             <LinearGradient style={styles.gradient} colors={['rgba(0,0,0,0)', 'rgba(0,0,0,.2)', 'rgba(0,0,0,.6)', 'rgba(0,0,0,0.8)']} locations={[0, 0.49, 0.78, 1]} />
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: '5%', paddingTop: moderateScale(65) }}>
-                <HeaderButton icon="arrow-back" onPress={() => goBack()}/>
+                <HeaderButton icon="arrow-back" onPress={goBack}/>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(12) }}>
                     <HeaderButton icon="search" onPress={() => console.log('search')} />
-                    <HeaderButton icon="settings" onPress={() => router.navigate(`/(trip-info)/${trip.id}/(settings)/settings`)} />
+                    <HeaderButton icon="settings" onPress={() => router.navigate(`/(trip-info)/${tripId}/(settings)/settings`)} />
                 </View>
             </View>
             
             <View style={ styles.contentWrapper }>
                 <View style={ styles.spacer } />
                 <View style={ styles.textContainer }>
-                    <Text style={ styles.destination } numberOfLines={2}>{ trip.name }</Text>
+                    <Text style={ styles.destination } numberOfLines={2}>{ name }</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(6) }}>
                         <MaterialIcons name="calendar-today" size={moderateScale(12)} color="white" />
-                        <Text style={ styles.dateRange }>{ DateUtils.formatRange(DateUtils.parseYYYYMMDDToDate(trip.startDate), DateUtils.parseYYYYMMDDToDate(trip.endDate)) }</Text>
+                        <Text style={ styles.dateRange }>
+                          { DateUtils.formatRange(DateUtils.parseYYYYMMDDToDate(startDate), DateUtils.parseYYYYMMDDToDate(endDate)) }
+                        </Text>
                     </View>
                 </View>
             </View>
-            <TripInfoTabBar tripId={ trip.id }/>
+            <TripInfoTabBar tripId={ tripId }/>
         </View>
     );
 };
 
-
-
 export default function TripTabsLayout() {
-    const tripData = useTrip();
-    if (!tripData) return null;
-    const [hasUnreadChats, setHasUnreadChats] = useState(false);
+    const { tripId } = useTripDashboard();
+    const { user } = useAuth(); 
+    const queryClient = useQueryClient();
+
+    // 3. Replaced `useEffect` and `setInterval` with a much cleaner TanStack `useQuery`!
+    const { data: hasUnreadChats = false } = useQuery({
+        queryKey: ['unreadChats', tripId],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from("Messages")
+                .select("sender_id")
+                .eq("trip_id", tripId)
+                .order("sent_at", { ascending: false })
+                .limit(1)
+                .single();
+            
+            // Returns true if the last message was NOT sent by the current user
+            return data && data.sender_id !== user?.id;
+        },
+        enabled: !!tripId && !!user?.id, // Only run if we have the IDs
+        refetchInterval: 60000, // Automatically runs every 60 seconds!
+        refetchIntervalInBackground: true, // Optional: keep checking if app is minimized
+    });
 
     const handleOpenChat = () => {
-        // 2. Clear the indicator when they open the chat
-        setHasUnreadChats(false); 
-        router.push(`/(trip-info)/${tripData.id}/chat`);
+        // Optimistically clear the unread badge instantly in the cache
+        queryClient.setQueryData(['unreadChats', tripId], false); 
+        router.push(`/(trip-info)/${tripId}/chat`);
     };
 
-    const { user } = useAuth(); // Needed so we don't trigger the dot for our own messages!
-
-        useEffect(() => {
-        if (!tripData?.id || !user?.id) return;
-
-        const checkUnread = async () => {
-        // Only grab the SINGLE most recent message
-        const { data } = await supabase
-            .from("Messages")
-            .select("sender_id")
-            .eq("trip_id", tripData.id)
-            .order("sent_at", { ascending: false })
-            .limit(1)
-            .single();
-        
-        if (data && data.sender_id !== user.id) {
-            setHasUnreadChats(true);
-        }
-        };
-
-        // Check once immediately, then check every 60 seconds
-        checkUnread();
-        const interval = setInterval(checkUnread, 60000); 
-
-        return () => clearInterval(interval);
-    }, [tripData?.id, user?.id]);
+    if (!tripId) return null;
 
     return (
         <View style={{ flex: 1 }}>
             <StatusBar style="light" /> 
-            <CustomHeader trip={tripData} />
+            <CustomHeader />
             <Tabs screenOptions={{ tabBarStyle: { display: "none" }, headerShown: false, unmountOnBlur: true }}>
                 <Tabs.Screen name="overview" options={{ title: "Overview" }} />
                 <Tabs.Screen name="(plan)" options={{ title: "Plan" }} />
@@ -130,11 +130,10 @@ export default function TripTabsLayout() {
                 <Tabs.Screen name="memories" options={{ title: "Memories" }} />
                 <Tabs.Screen name="album" options={{ headerShown: false }} />
             </Tabs>
-            {/* 3. Update the button to use the new function and render the badge */}
-            <TouchableOpacity onPress={handleOpenChat} style={styles.chatButton}>
+            
+            <TouchableOpacity onPress={handleOpenChat} style={styles.chatButton} activeOpacity={0.8}>
                 <Ionicons name="chatbubble-ellipses" size={35} color={'white'} />
                 
-                {/* THE RED DOT */}
                 {hasUnreadChats && (
                     <View style={styles.unreadBadge} />
                 )}

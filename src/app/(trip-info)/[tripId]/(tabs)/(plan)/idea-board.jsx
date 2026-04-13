@@ -62,7 +62,6 @@ export default function IdeaBoard() {
     setNewIdea({ title: '', category: 'Food', description: '', imageUri: null });
   };
 
-  // FIX: Wrap everything in a root View
   return (
     <View style={styles.container}>
       {/* 1. SCROLLVIEW SIBLING */}
