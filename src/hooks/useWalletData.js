@@ -1,254 +1,218 @@
 import { WALLET_CATEGORIES } from "@/src/constants/TripConstants";
 import { supabase } from '@/src/lib/supabase';
 import DateUtils from "@/src/utils/DateUtils";
-import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 
-export function useWalletData(tripId, userId, currencySymbol) {
-  const defaultFormState = {
-    id: null,
-    title: '',
-    amount: '',
-    categoryId: null,
-    isSplitEqually: true,
-    splits: {} 
-  };
-  
-  const [walletState, setWalletState] = useState({
+const defaultWalletState = {
     otherMembers: [],
     transactions: [],
     budgetData: { totalSpent: 0, totalBudget: 0 },
     myBalance: 0,
-  });
-  
-  const [isFetchingWallet, setIsFetchingWallet] = useState(true);
-  const [isModalVisible, setModalVisible] = useState(false);
-  const [expenseForm, setExpenseForm] = useState(defaultFormState);
-  const [expandedTxId, setExpandedTxId] = useState(null);
+};
 
-  const fetchWalletData = async () => {
-    if (!tripId) return; 
-    setIsFetchingWallet(true);
-    
-    try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) throw new Error("No active session found!");
+export const fetchWalletDataAPI = async (tripId, userId) => {
+    if (!tripId || !userId) return null;
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) throw new Error("No active session found!");
 
-      const { data, error } = await supabase.functions.invoke('get-trip-wallet', {
+    const { data, error } = await supabase.functions.invoke('get-trip-wallet', {
         body: { tripId },
-      });
+    });
 
-      if (error) throw error;     
+    if (error) throw error;
+    return data || defaultWalletState;
+}
 
-      setWalletState({
-        otherMembers: data.otherMembers || [],
-        transactions: data.transactions || [],
-        budgetData: data.budgetData || { totalSpent: 0, totalBudget: 0 },
-        myBalance: data.myBalance || 0
-      });
-    } catch (error) {
-      console.error("Error fetching wallet:", error);
-      Alert.alert("Sync Error", "Could not fetch latest balances.");
-    } finally {
-      setIsFetchingWallet(false);
-    }
-  };
+export function useWalletData(tripId, userId, currencySymbol) {
+    const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchWalletData();
-  }, [tripId, userId]);
+    const defaultFormState = {
+        id: null,
+        title: '',
+        amount: '',
+        categoryId: null,
+        isSplitEqually: true,
+        splits: {} 
+    };
+    
+    const [isModalVisible, setModalVisible] = useState(false);
+    const [expenseForm, setExpenseForm] = useState(defaultFormState);
+    const [expandedTxId, setExpandedTxId] = useState(null);
 
-  useEffect(() => {
-    if (isModalVisible && !expenseForm.id && Object.keys(expenseForm.splits).length === 0) {
-      const initialSplits = {};
-      walletState.otherMembers.forEach(m => {
-        initialSplits[m.id] = { selected: true, amount: '' };
-      });
-      setExpenseForm(prev => ({ ...prev, splits: initialSplits }));
-    }
-  }, [isModalVisible]);
+    const {
+        data: walletState = defaultWalletState,
+        isLoading: isFetchingWallet,
+        isFetching,
+        refetch: fetchWalletData 
+    } = useQuery({
+        queryKey: ['wallet', tripId],
+        queryFn: () => fetchWalletDataAPI(tripId, userId),
+        enabled: !!tripId,
+        staleTime: 1000 * 60 * 5, 
+    });
 
-  // --- ACTIONS ---
-  const handleOpenAdd = () => {
-    setExpenseForm(defaultFormState);
-    setModalVisible(true);
-  };
+    const groupedTransactions = useMemo(() => {
+        if (!walletState.transactions || walletState.transactions.length === 0) return [];
+        const grouped = walletState.transactions.reduce((acc, transaction) => {
+            const dateObj = DateUtils.timestampToDate(transaction.date);
+            const dateString = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            if (!acc[dateString]) acc[dateString] = [];
+            acc[dateString].push(transaction);
+            return acc;
+        }, {});
+        return Object.keys(grouped)
+            .sort((a, b) => new Date(b) - new Date(a))
+            .map(date => ({ title: date, data: grouped[date] }));
+    }, [walletState.transactions]);
 
-  const handleDeleteExpense = (transactionId) => {
-    Alert.alert("Delete Expense", "Are you sure? This will recalculate everyone's balances.", [
-      { text: "Cancel", style: "cancel" },
-      { 
-        text: "Delete", 
-        style: "destructive", 
-        onPress: async () => {
-          try {
-            const { error: splitError } = await supabase.from('Expense_Splits').delete().eq('expense_id', transactionId);
-            if (splitError) throw splitError;
+    // 🌟 THE FIX: Inject "You" at the very top of the active members list!
+    // Since `wallet.jsx` dynamically maps over this array, "You" will automatically render at the top without touching UI code!
+    const activeMembers = [
+        { id: userId, name: 'You' }, 
+        ...(walletState.otherMembers || [])
+    ];
+    
+    const percentSpent = walletState.budgetData?.totalBudget > 0 ? Math.floor((walletState.budgetData.totalSpent / walletState.budgetData.totalBudget) * 100) : 0;
+    const isNetPositive = walletState.myBalance >= 0;
+    const formattedNetBalance = `${isNetPositive ? '+' : '-'}${currencySymbol || '$'}${Math.abs(walletState.myBalance || 0).toFixed(2)}`;
 
-            const { error: expenseError } = await supabase.from('Expenses').delete().eq('expense_id', transactionId); 
+    const saveExpenseMutation = useMutation({
+        mutationFn: async (formPayload) => {
+            const selectedCategory = WALLET_CATEGORIES.find(c => c.id === formPayload.categoryId);
+            const categoryName = selectedCategory ? selectedCategory.name : 'Other';
+
+            const { data: newExpense, error: expenseError } = await supabase
+                .from('Expenses')
+                .insert({
+                    trip_id: tripId,
+                    paid_by: userId,
+                    total_amount: parseFloat(formPayload.amount),
+                    description: formPayload.title,
+                    category: categoryName,
+                    currency: currencySymbol || 'USD'
+                })
+                .select()
+                .single();
+
             if (expenseError) throw expenseError;
 
-            fetchWalletData(); 
-          } catch (err) {
-            Alert.alert("Error", "Could not delete the expense.");
-          }
-        }
-      }
-    ]);
-  };
-
-  const handleTransactionLongPress = (transaction) => {
-    Alert.alert("Manage Expense", transaction.title, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => handleDeleteExpense(transaction.id) }
-    ]);
-  };
-
-  const handleSaveExpense = async () => {
-    try {
-      const selectedCategory = WALLET_CATEGORIES.find(c => c.id === expenseForm.categoryId);
-      const totalAmount = parseFloat((expenseForm.amount));
-      let finalExpenseId = expenseForm.id;
-
-      if (finalExpenseId) {
-        const { error: updateError } = await supabase
-          .from('Expenses')
-          .update({
-            total_amount: totalAmount.toFixed(2),
-            category: selectedCategory ? selectedCategory.name : 'Other',
-            description: expenseForm.title,
-          })
-          .eq('expense_id', finalExpenseId);
-        if (updateError) throw updateError;
-        await supabase.from('Expense_Splits').delete().eq('expense_id', finalExpenseId);
-      } else {
-        const { data: newExpense, error: insertError } = await supabase
-          .from('Expenses')
-          .insert({
-            trip_id: tripId,
-            paid_by: userId,
-            total_amount: totalAmount.toFixed(2),
-            category: selectedCategory ? selectedCategory.name : 'Other',
-            description: expenseForm.title,
-          })
-          .select().single();
-        if (insertError) throw insertError;
-        finalExpenseId = newExpense.expense_id; 
-      }
-
-      const selectedMembers = Object.entries(expenseForm.splits).filter(([_, data]) => data.selected);
-      const equalSplitAmount = totalAmount / selectedMembers.length;
-
-      const splitsToInsert = selectedMembers.map(([memberId, data]) => ({
-        expense_id: finalExpenseId, 
-        user_id: memberId,
-        amount_owed: expenseForm.isSplitEqually ? equalSplitAmount : parseFloat(data.amount)
-      }));
-
-      const { error: splitsError } = await supabase.from('Expense_Splits').insert(splitsToInsert);
-      if (splitsError) throw splitsError;
-
-      setModalVisible(false);
-      setExpenseForm(defaultFormState);
-      fetchWalletData();
-    } catch (err) {
-      Alert.alert("Error", "Could not save the expense.");
-    }
-  };
-  
-  const handlePay = (member) => {
-    Alert.alert(
-      "Record Payment",
-      `Did you pay ${currencySymbol}${Math.abs(member.balance).toFixed(2)} to ${member.name}?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Yes, I paid", 
-          onPress: async () => {
-            try {
-              setIsFetchingWallet(true);
-              const { data: expense, error: expError } = await supabase.from('Expenses')
-                .insert({
-                  trip_id: tripId, paid_by: userId, total_amount: parseFloat(Math.abs(member.balance).toFixed(2)),
-                  category: 'Settlement', description: `Paid back ${member.name}`
-                }).select().single();
-              if (expError) throw expError;
-
-              const { error: splitError } = await supabase.from('Expense_Splits')
-                .insert({ expense_id: expense.expense_id, user_id: member.id, amount_owed: Math.abs(member.balance) });
-              if (splitError) throw splitError;
-
-              Alert.alert("Recorded!", "Your balance has been updated.");
-              fetchWalletData();
-            } catch (err) {
-              Alert.alert("Error", "Could not process payment.");
-              setIsFetchingWallet(false);
+            const splitInserts = [];
+            
+            if (formPayload.isSplitEqually) {
+                // 🌟 THE FIX: We no longer magically add "+ 1" for the payer!
+                // We ONLY divide by the exact amount of boxes checked in the UI.
+                const selectedUserIds = Object.keys(formPayload.splits);
+                const totalPeople = selectedUserIds.length; 
+                
+                if (totalPeople > 0) {
+                    const splitAmount = (parseFloat(formPayload.amount) / totalPeople).toFixed(2);
+                    
+                    // Add splits strictly for the checked members (which includes "You" if you left yourself checked)
+                    selectedUserIds.forEach(memberId => {
+                        splitInserts.push({ expense_id: newExpense.expense_id, user_id: memberId, amount_owed: splitAmount });
+                    });
+                }
+            } else {
+                Object.keys(formPayload.splits).forEach(splitUserId => {
+                    const amt = parseFloat(formPayload.splits[splitUserId]);
+                    if (amt > 0) {
+                        splitInserts.push({
+                            expense_id: newExpense.expense_id,
+                            user_id: splitUserId,
+                            amount_owed: amt
+                        });
+                    }
+                });
             }
-          } 
+
+            if (splitInserts.length > 0) {
+                const { error: splitsError } = await supabase
+                    .from('Expense_Splits')
+                    .insert(splitInserts);
+                if (splitsError) throw splitsError;
+            }
+
+            return true;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['wallet', tripId] });
+            setModalVisible(false);
+            setExpenseForm(defaultFormState);
+        },
+        onError: (error) => {
+            console.error("Failed to save expense:", error);
+            Alert.alert("Error", "Could not save transaction.");
         }
-      ]
-    );
-  };
+    });
 
-  const handleRemind = (member) => {
-    Alert.alert("Reminder Sent", `We sent a push notification to ${member.name} to pay you back!`);
-  };
+    const isFormValid = () => {
+        return expenseForm.title.trim() !== '' && 
+               expenseForm.amount !== '' && 
+               expenseForm.categoryId !== null;
+    };
 
-  const handleUpdateSplit = (memberId, data) => {
-    setExpenseForm(prev => ({ ...prev, splits: { ...prev.splits, [memberId]: data } }));
-  };
+    const handleSaveExpense = () => {
+        if (!isFormValid()) return;
+        saveExpenseMutation.mutate(expenseForm); 
+    };
 
-  const isFormValid = () => {
-    if (!expenseForm.title || !expenseForm.amount || !expenseForm.categoryId) return false;
-    const selectedMembers = Object.values(expenseForm.splits).filter(s => s.selected);
-    if (selectedMembers.length === 0) return false;
-    if (!expenseForm.isSplitEqually) {
-      const totalAmount = parseFloat(expenseForm.amount) || 0;
-      const sumOfSplits = selectedMembers.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
-      if (Math.abs(totalAmount - sumOfSplits) > 0.01) return false; 
-    }
-    return true;
-  };
+    const handleOpenAdd = () => {
+        const initialSplits = {};
+        activeMembers.forEach(m => {
+            initialSplits[m.id] = ''; 
+        });
 
-  // --- DERIVED DATA ---
-  const groupedTransactions = useMemo(() => {
-    if (!walletState.transactions || walletState.transactions.length === 0) return [];
-    const grouped = walletState.transactions.reduce((acc, transaction) => {
-      const dateObj = DateUtils.timestampToDate(transaction.date); 
-      const dateString = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      if (!acc[dateString]) acc[dateString] = [];
-      acc[dateString].push(transaction);
-      return acc;
-    }, {});
-    return Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a)).map(date => ({ title: date, data: grouped[date] }));
-  }, [walletState.transactions]);
+        setExpenseForm({
+            ...defaultFormState,
+            splits: initialSplits
+        });
+        setModalVisible(true);
+    };
 
-  const activeMembers = walletState.otherMembers.filter(m => Math.abs(m.balance) > 0.01);
-  const percentSpent = walletState.budgetData.totalBudget > 0 ? Math.floor((walletState.budgetData.totalSpent / walletState.budgetData.totalBudget) * 100) : 0;
-  const isNetPositive = walletState.myBalance >= 0;
-  const formattedNetBalance = `${isNetPositive ? '+' : '-'}${currencySymbol}${Math.abs(walletState.myBalance).toFixed(2)}`;
+    const handleTransactionLongPress = (tx) => {
+        setExpandedTxId(tx.id === expandedTxId ? null : tx.id);
+    };
 
-  return {
-    walletState,
-    isFetchingWallet,
-    isModalVisible,
-    setModalVisible,
-    expenseForm,
-    setExpenseForm,
-    expandedTxId,
-    setExpandedTxId,
-    fetchWalletData,
-    handleOpenAdd,
-    handleTransactionLongPress,
-    handleSaveExpense,
-    handlePay,
-    handleRemind,
-    handleUpdateSplit,
-    isFormValid,
-    groupedTransactions,
-    activeMembers,
-    percentSpent,
-    isNetPositive,
-    formattedNetBalance
-  };
+    const handleUpdateSplit = (userId, splitData) => {
+        setExpenseForm(prev => {
+            const newSplits = { ...prev.splits };
+            
+            if (splitData.selected) {
+                newSplits[userId] = splitData.amount; 
+            } else {
+                delete newSplits[userId];
+            }
+
+            return {
+                ...prev,
+                splits: newSplits
+            };
+        });
+    };
+
+    return {
+        walletState,
+        isFetchingWallet,
+        isRefreshing: isFetching && !isFetchingWallet, 
+        isModalVisible,
+        setModalVisible,
+        expenseForm,
+        setExpenseForm,
+        expandedTxId,
+        setExpandedTxId,
+        fetchWalletData, 
+        groupedTransactions,
+        activeMembers,
+        percentSpent,
+        isNetPositive,
+        formattedNetBalance,
+        handleOpenAdd,
+        handleTransactionLongPress,
+        isFormValid,        
+        handleSaveExpense,
+        handleUpdateSplit,
+        isSaving: saveExpenseMutation.isPending 
+    };
 }

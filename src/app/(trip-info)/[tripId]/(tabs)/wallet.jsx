@@ -141,15 +141,18 @@ export default function WalletScreen() {
                         <Text style={styles.settledSubtitle}>You don't owe anyone, and nobody owes you.</Text>
                     </View>
                 ) : (
-                    activeMembers.map((member) => (
-                      <BalanceCard 
-                        key={member.id} 
-                        member={member} 
-                        onRemind={handleRemind} 
-                        onPay={handlePay} 
-                        currencySymbol={currencySymbol} 
-                      />
-                    ))
+                    activeMembers.map((member) => {
+                      if (member.id === user.id) return null;
+                      return (
+                        <BalanceCard 
+                          key={member.id} 
+                          member={member} 
+                          onRemind={handleRemind} 
+                          onPay={handlePay} 
+                          currencySymbol={currencySymbol} 
+                        />
+                      )
+                    })
                 )}
             </View>
         </View>
@@ -280,7 +283,7 @@ export default function WalletScreen() {
           </View>
 
           <View style={styles.modalMemberList}>
-            {otherMembers.map((member) => (
+            {activeMembers.map((member) => (
               <MemberSelecter 
                 key={member.id} 
                 member={member} 

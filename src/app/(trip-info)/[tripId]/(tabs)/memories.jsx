@@ -123,27 +123,27 @@ export default function Memories() {
         </View>
 
         {(!memories || memories.length === 0) && !isLoading ? (
-  <View style={styles.emptyMemoryContainer}>
-    <View style={styles.emptyMemoryIconCircle}>
-      <MaterialIcons name="photo-camera" size={moderateScale(40)} color={Colors.primary || '#3b82f6'} />
-    </View>
-    <Text style={styles.emptyMemoryTitle}>No memories yet</Text>
-    <Text style={styles.emptyMemorySubtext}>
-      Capture your favorite moments and journal your thoughts to look back on after the trip!
-    </Text>
-    <TouchableOpacity 
-      style={styles.addMemoryBtn}
-      // Make sure this triggers your new memory bottom sheet/modal
-      onPress={() => setModalVisible(true)} 
-    >
-      <Text style={styles.addMemoryBtnText}>+ Add First Memory</Text>
-    </TouchableOpacity>
-  </View>
-) : (
+          <View style={styles.emptyMemoryContainer}>
+            <View style={styles.emptyMemoryIconCircle}>
+              <MaterialIcons name="photo-camera" size={moderateScale(40)} color={Colors.primary || '#3b82f6'} />
+            </View>
+            <Text style={styles.emptyMemoryTitle}>No memories yet</Text>
+            <Text style={styles.emptyMemorySubtext}>
+              Capture your favorite moments and journal your thoughts to look back on after the trip!
+            </Text>
+            <TouchableOpacity 
+              style={styles.addMemoryBtn}
+              // Make sure this triggers your new memory bottom sheet/modal
+              onPress={() => setModalVisible(true)} 
+            >
+              <Text style={styles.addMemoryBtnText}>+ Add First Memory</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
           <FlatList
             data={memories}
             renderItem={({ item }) => <JournalCard item={item} />}
-            keyExtractor={item => item.id.toString()}
+            keyExtractor={item => String(item.id || item.entry_id)}
             horizontal
             showsHorizontalScrollIndicator={false}
             snapToInterval={cardWidth + 15} 

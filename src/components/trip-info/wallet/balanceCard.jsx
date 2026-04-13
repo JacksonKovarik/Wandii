@@ -6,6 +6,7 @@ import { moderateScale } from "react-native-size-matters";
 export const BalanceCard = ({ member, onRemind, onPay, currencySymbol }) => {
   const isOwed = member.balance > 0; 
   const names = member.name.trim().split(/\s+/);
+  
   const firstInitial = names[0].charAt(0);
   const lastInitial = names[names.length - 1].charAt(0);
   
