@@ -4,7 +4,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/src/lib/supabase';
 
 const USERS_TABLE = 'Users';
-const AVATAR_BUCKET = 'trip-covers';
+const AVATAR_BUCKET = 'avatars';
 
 function splitNameParts(firstName, lastName) {
   return [firstName, lastName].filter(Boolean).join(' ').trim();
@@ -41,7 +41,7 @@ export async function uploadAvatarIfNeeded(userId, avatarUri) {
   if (/^https?:\/\//i.test(avatarUri)) return avatarUri;
 
   const fileExt = avatarUri?.split('.').pop()?.toLowerCase()?.split('?')[0] || 'jpg';
-  const fileName = `avatars/${userId}/${Date.now()}.${fileExt}`;
+  const fileName = `${userId}/avatar.${fileExt}`;
 
   const base64 = await FileSystem.readAsStringAsync(avatarUri, {
     encoding: FileSystem.EncodingType.Base64,
@@ -69,7 +69,11 @@ export async function uploadAvatarIfNeeded(userId, avatarUri) {
     .from(AVATAR_BUCKET)
     .getPublicUrl(uploadData.path);
 
-  return publicUrlData?.publicUrl ?? null;
+  if (!publicUrlData?.publicUrl) {
+    return null;
+  }
+
+  return `${publicUrlData.publicUrl}?t=${Date.now()}`;
 }
 
 export async function saveUserProfile({
@@ -103,8 +107,13 @@ export async function saveUserProfile({
   const { data: authUserData } = await supabase.auth.getUser();
   const currentEmail = String(authUserData?.user?.email || '').trim().toLowerCase();
 
-  if (normalizedEmail && normalizedEmail !== currentEmail) authUpdate.email = normalizedEmail;
-  if (password) authUpdate.password = password;
+  if (normalizedEmail && normalizedEmail !== currentEmail) {
+    authUpdate.email = normalizedEmail;
+  }
+
+  if (password) {
+    authUpdate.password = password;
+  }
 
   if (Object.keys(authUpdate).length) {
     const { error: authError } = await supabase.auth.updateUser(authUpdate);
