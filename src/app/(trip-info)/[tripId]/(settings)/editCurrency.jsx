@@ -1,50 +1,69 @@
 import { Colors } from "@/src/constants/colors";
-import { CURRENCIES } from "@/src/constants/TripConstants"; // Ensure this is defined with code, name, and symbol for each currency
-import { supabase } from "@/src/lib/supabase"; // Adjust to your Supabase import
-import { useTrip } from "@/src/utils/TripContext";
+import { CURRENCIES } from "@/src/constants/TripConstants";
+import { supabase } from "@/src/lib/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
+// 憖 IMPORTANT: Import your new TanStack hook instead of the old context
+import { useTripDashboard } from "@/src/hooks/useTripDashboard"; // Adjust path as needed
+
 export default function EditCurrencyScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   
-  // Assume your context exposes the current currency and a way to update it locally
-  const { tripId, defaultCurrency, default_currency, updateTripContext } = useTrip();
+  // Pull the current data straight from your TanStack cache
+  const { tripId, defaultCurrency } = useTripDashboard();
   
-  // Keep track of the currently selected currency code locally for the UI
-  const [selectedCurrency, setSelectedCurrency] = useState(default_currency && default_currency !== undefined ? default_currency : defaultCurrency);
-  const [isSaving, setIsSaving] = useState(false);
+  // Local state for immediate visual feedback
+  const [selectedCurrency, setSelectedCurrency] = useState(defaultCurrency || 'USD');
 
-  const handleSelectCurrency = async (currency) => {
-    // Optimistic UI update
-    setSelectedCurrency(currency.code);
-    setIsSaving(true);
+  // 憖 The new mutation for flawless optimistic updates
+  const { mutate: updateCurrency, isPending: isSaving } = useMutation({
+    onMutate: async (newCurrencyCode) => {
+      setSelectedCurrency(newCurrencyCode);
 
-    try {
-      // 1. Update the database (Ensure 'default_currency' matches your Trips table column)
+      // Cancel outgoing refetches to prevent overwriting
+      await queryClient.cancelQueries({ queryKey: ['tripDashboard', tripId] });
+
+      // Snapshot previous state for rollback
+      const previousTripData = queryClient.getQueryData(['tripDashboard', tripId]);
+
+      // Optimistically update the cache
+      queryClient.setQueryData(['tripDashboard', tripId], (old) => {
+        if (!old) return old;
+        return { ...old, defaultCurrency: newCurrencyCode };
+      });
+
+      return { previousTripData };
+    },
+    mutationFn: async (newCurrencyCode) => {
       const { error } = await supabase
         .from('Trips')
-        .update({ default_currency: currency.code })
+        .update({ default_currency: newCurrencyCode })
         .eq('trip_id', tripId);
 
       if (error) throw error;
-
-      // 2. Update local context so the previous page shows the new value instantly
-      if (updateTripContext) {
-        updateTripContext({ defaultCurrency: currency.code });
-      }
-
-    } catch (error) {
-      console.error("Error updating currency:", error);
+    },
+    onError: (err, newCurrencyCode, context) => {
+      console.error("Error updating currency:", err);
       Alert.alert("Error", "Could not save currency. Please try again.");
-      // Revert if failed
-      setSelectedCurrency(default_currency && default_currency !== undefined ? default_currency : defaultCurrency);
-    } finally {
-      setIsSaving(false);
+      
+      // Rollback on failure
+      setSelectedCurrency(context.previousTripData?.defaultCurrency || 'USD');
+      queryClient.setQueryData(['tripDashboard', tripId], context.previousTripData);
+    },
+    onSettled: () => {
+      // Sync strictly with the database
+      queryClient.invalidateQueries({ queryKey: ['tripDashboard', tripId] });
     }
+  });
+
+  const handleSelectCurrency = (currency) => {
+    updateCurrency(currency.code);
   };
 
   const renderCurrency = ({ item }) => {
@@ -80,7 +99,6 @@ export default function EditCurrencyScreen() {
 
   return (
     <View style={styles.container}>
-      {/* --- Header --- */}
       <View style={styles.header}>
         <View style={styles.headerBtn} /> 
         <Text style={styles.title}>Default Currency</Text>
@@ -89,7 +107,6 @@ export default function EditCurrencyScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* --- Currency List --- */}
       <FlatList
         data={CURRENCIES}
         keyExtractor={(item) => item.code}

@@ -1,90 +1,102 @@
 import { Colors } from "@/src/constants/colors";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard"; // ADDED
 import { supabase } from "@/src/lib/supabase";
-import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'; // ADDED
 import * as Clipboard from 'expo-clipboard';
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 export default function ManageMembersScreen() {
   const router = useRouter();
-  const { tripId } = useTrip(); 
+  const queryClient = useQueryClient();
+  const { tripId } = useTripDashboard(); 
   
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [currentUserRole, setCurrentUserRole] = useState('member'); 
   const [currentUserId, setCurrentUserId] = useState(null);
 
-  useEffect(() => {
-    fetchMembers();
-  }, [tripId]);
-
-  const fetchMembers = async () => {
-    setLoading(true);
-    try {
+  // 憖 1. Wrap the fetch inside useQuery for caching and auto-fetching
+  const { data: members = [], isLoading: loading } = useQuery({
+    queryKey: ['tripMembers', tripId],
+    queryFn: async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) throw new Error("Could not get user auth.");
-      
-      const loggedInUserId = user.id;
-      setCurrentUserId(loggedInUserId);
+      setCurrentUserId(user.id);
 
       const { data, error } = await supabase
         .from('Trip_Members')
-        .select(`
-          role,
-          status,
-          user_id,
-          Users!inner (
-            user_id,
-            first_name,
-            last_name,
-            username,
-            avatar_url
-          )
-        `)
+        .select(`role, status, user_id, Users!inner (user_id, first_name, last_name, username, avatar_url)`)
         .eq('trip_id', tripId);
 
       if (error) throw error;
 
-      const formattedMembers = data.map((item) => {
-        if (item.user_id === loggedInUserId) {
-          setCurrentUserRole(item.role); 
-        }
-        return {
-          id: item.user_id,
-          role: item.role,
-          status: item.status,
-          firstName: item.Users.first_name,
-          lastName: item.Users.last_name,
-          username: item.Users.username,
-          avatarUrl: item.Users.avatar_url,
-        };
-      });
+      const formattedMembers = data.map((item) => ({
+        id: item.user_id,
+        role: item.role,
+        status: item.status,
+        firstName: item.Users.first_name,
+        lastName: item.Users.last_name,
+        username: item.Users.username,
+        avatarUrl: item.Users.avatar_url,
+      }));
 
+      // Sort roles: Owner > Admin > Member
       formattedMembers.sort((a, b) => {
         const roleWeights = { owner: 3, admin: 2, member: 1 };
         return (roleWeights[b.role] || 0) - (roleWeights[a.role] || 0);
       });
 
-      setMembers(formattedMembers);
-    } catch (error) {
-      console.error("Error fetching members:", error);
-      Alert.alert("Error", "Could not load trip members.");
-    } finally {
-      setLoading(false);
+      return formattedMembers;
     }
-  };
+  });
+
+  // Calculate current user's role natively from the cached data
+  const currentUserRole = useMemo(() => {
+    const me = members.find(m => m.id === currentUserId);
+    return me ? me.role : 'member';
+  }, [members, currentUserId]);
+
+  // 憖 2. Use Mutation for removing a member optimistically
+  const { mutate: removeMember } = useMutation({
+    onMutate: async (userIdToRemove) => {
+      await queryClient.cancelQueries({ queryKey: ['tripMembers', tripId] });
+      const previousMembers = queryClient.getQueryData(['tripMembers', tripId]);
+      
+      // Optimistically remove from UI
+      queryClient.setQueryData(['tripMembers', tripId], (old) => 
+        old ? old.filter(m => m.id !== userIdToRemove) : old
+      );
+
+      return { previousMembers };
+    },
+    mutationFn: async (userIdToRemove) => {
+      const { error } = await supabase
+        .from('Trip_Members')
+        .delete()
+        .match({ trip_id: tripId, user_id: userIdToRemove });
+
+      if (error) throw error;
+    },
+    onError: (err, userIdToRemove, context) => {
+      console.error("Error removing member:", err);
+      Alert.alert("Error", "Could not remove user. Please try again.");
+      // Roll back
+      queryClient.setQueryData(['tripMembers', tripId], context.previousMembers);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['tripMembers', tripId] });
+    }
+  });
 
   const handleCopyInvite = async () => {
     const dummyLink = `https://wandii.app/join/${tripId}`;
@@ -101,22 +113,7 @@ export default function ManageMembersScreen() {
         { 
           text: "Remove", 
           style: "destructive",
-          onPress: async () => {
-            try {
-              setMembers(prev => prev.filter(m => m.id !== userIdToRemove));
-
-              const { error } = await supabase
-                .from('Trip_Members')
-                .delete()
-                .match({ trip_id: tripId, user_id: userIdToRemove });
-
-              if (error) throw error;
-            } catch (error) {
-              console.error("Error removing member:", error);
-              Alert.alert("Error", "Could not remove user. Please try again.");
-              fetchMembers(); 
-            }
-          }
+          onPress: () => removeMember(userIdToRemove) // Call mutation here
         }
       ]
     );

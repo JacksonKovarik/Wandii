@@ -1,6 +1,7 @@
 import { Colors } from "@/src/constants/colors";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard"; // ADDED
 import { supabase } from "@/src/lib/supabase";
-import { useTrip } from "@/src/utils/TripContext";
+import { useMutation, useQueryClient } from '@tanstack/react-query'; // ADDED
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -15,37 +16,61 @@ import { moderateScale } from "react-native-size-matters";
 
 export default function EditFieldScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   
-  // Grab the parameters passed from the settings screen
-  const { fieldKey, fieldLabel, currentValue, tripId } = useLocalSearchParams();
-  const { updateTripField } = useTrip();
+  // Get tripId from our new hook instead of passing it as a parameter
+  const { tripId } = useTripDashboard();
+  const { fieldKey, fieldLabel, currentValue } = useLocalSearchParams();
+  
   const [value, setValue] = useState(currentValue || "");
-  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = async () => {
+  // 憖 Implement the Mutation for saving the field
+  const { mutate: updateField, isPending: isSaving } = useMutation({
+    onMutate: async (newValue) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['tripDashboard', tripId] });
+
+      // Snapshot previous state for rollback
+      const previousTrip = queryClient.getQueryData(['tripDashboard', tripId]);
+
+      // Optimistically update the cache immediately
+      queryClient.setQueryData(['tripDashboard', tripId], (old) => {
+        if (!old) return old;
+        return { ...old, [fieldKey]: newValue };
+      });
+
+      return { previousTrip };
+    },
+    mutationFn: async (newValue) => {
+      const dbColumn = fieldKey === 'name' ? 'trip_name' : fieldKey;
+      const { error } = await supabase
+        .from('Trips')
+        .update({ [dbColumn]: newValue })
+        .eq('trip_id', tripId);
+        
+      if (error) throw error;
+    },
+    onError: (err, newValue, context) => {
+      console.error(`Error updating ${fieldKey}:`, err);
+      // Roll back on error
+      queryClient.setQueryData(['tripDashboard', tripId], context.previousTrip);
+    },
+    onSettled: () => {
+      // Sync strictly with DB
+      queryClient.invalidateQueries({ queryKey: ['tripDashboard', tripId] });
+    },
+    onSuccess: () => {
+      console.log(`${fieldKey} updated successfully!`);
+      router.back();
+    }
+  });
+
+  const handleSave = () => {
     if (!value.trim() || value === currentValue) {
       router.back();
       return; 
     }
-    
-    setIsSaving(true);
-
-    try {
-      const { error } = await supabase
-        .from('Trips')
-        .update({ [fieldKey]: value.trim() })
-        .eq('trip_id', tripId);
-        
-      updateTripField(fieldKey, value.trim()); // Update the context with the new value
-      console.log(`${fieldKey} updated successfully!`);
-      // INSTEAD OF router.back(), navigate to the settings screen and pass the new data
-      router.back();
-
-    } catch (error) {
-      console.error(`Error updating ${fieldKey}:`, error);
-    } finally {
-      setIsSaving(false);
-    }
+    updateField(value.trim());
   };
 
   return (
