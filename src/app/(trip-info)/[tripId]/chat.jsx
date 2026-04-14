@@ -2,8 +2,8 @@
 
 import { Colors } from "@/src/constants/colors";
 import { useAuth } from "@/src/context/AuthContext";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 import { supabase } from "@/src/lib/supabase";
-import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -64,7 +64,7 @@ const getSenderName = (sender) => {
 
 export default function Chat() {
   const router = useRouter();
-  const { tripId } = useTrip();
+  const { tripId } = useTripDashboard();
   const { user } = useAuth();
 
   const [messages, setMessages] = useState([]);

@@ -1,17 +1,10 @@
 import { Colors } from "@/src/constants/colors";
 import { useTripDashboard } from "@/src/hooks/useTripDashboard";
-import { TripContext } from "@/src/utils/TripContext";
 import { Stack } from "expo-router";
-import { useMemo } from "react";
 import { ActivityIndicator, View } from "react-native";
 
 export default function TripInfoLayout() {
   const dashboard = useTripDashboard();
-
-  const contextValue = useMemo(() => {
-    if (!dashboard?.id) return {};
-    return dashboard;
-  }, [dashboard]);
 
   if (dashboard.isLoading || !dashboard.id) {
     return (
@@ -29,7 +22,6 @@ export default function TripInfoLayout() {
   }
 
   return (
-    <TripContext.Provider value={contextValue}>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
@@ -51,6 +43,5 @@ export default function TripInfoLayout() {
           }}
         />
       </Stack>
-    </TripContext.Provider>
   );
 }
