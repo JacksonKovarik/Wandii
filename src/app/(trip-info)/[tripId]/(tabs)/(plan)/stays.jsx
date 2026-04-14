@@ -3,13 +3,13 @@ import ReusableTabBar from "@/src/components/reusableTabBar";
 import StayCard from "@/src/components/trip-info/stays/stayCard";
 import TripInfoScrollView from "@/src/components/trip-info/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
-import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { moderateScale } from "react-native-size-matters";
 // NEW IMPORT:
 import { useStaysData } from "@/src/hooks/useStaysData";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 
 // FIX: Bulletproof date formatting to prevent Hermes engine crashes on Android
 const formatSelectedDate = (date) => {
@@ -25,7 +25,7 @@ const formatSelectedDate = (date) => {
 };
 
 export default function Stays() {
-  const tripData = useTrip();
+  const tripData = useTripDashboard();
   const { tripId, destination } = tripData;
 
   // 🔥 One hook does all the heavy lifting!

@@ -19,7 +19,8 @@ export const fetchMemoryDataAPI = async (tripId) => {
             title,
             description,
             entry_timestamp,
-            Photos ( photo_url )
+            Photos ( photo_url ),
+            author:Users!created_by ( first_name, last_name, avatar_url )
         `)
         .eq('trip_id', tripId)
         .order('entry_timestamp', { ascending: false });
@@ -47,11 +48,14 @@ export const fetchMemoryDataAPI = async (tripId) => {
 
     // Format exactly how your old code did
     const formattedMemories = (journalsRes.data || []).map((journal) => ({
-        id: journal.entry_id,
-        title: journal.title,
-        description: journal.description,
-        date: formatJournalDate(journal.entry_timestamp),
-        images: journal.Photos?.map((p) => p.photo_url).filter(Boolean) || []
+        id: journal?.entry_id,
+        title: journal?.title,
+        description: journal?.description,
+        date: formatJournalDate(journal?.entry_timestamp),
+        images: journal.Photos?.map((p) => p.photo_url).filter(Boolean) || [],
+        author_first_name: journal?.author?.first_name,
+        author_last_name: journal?.author?.last_name,
+        author_avatar: journal?.author?.avatar_url
     }));
 
     const formattedAlbum = (albumRes.data || []).map((photo) => ({

@@ -1,12 +1,12 @@
 import { supabase } from "@/src/lib/supabase";
 import DateUtils from "@/src/utils/DateUtils";
 import { getCoordinatesForAddress } from "@/src/utils/LocationUtils";
-import { useTrip } from "@/src/utils/TripContext";
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
 import { reorderItems } from 'react-native-reorderable-list';
+import { useTripDashboard } from "./useTripDashboard";
 
 // ==========================================
 // HELPER: Time Sorting
@@ -21,7 +21,7 @@ const parseTimeToMinutes = (timeStr) => {
 };
 
 export function useTimeline() {
-    const tripData = useTrip();
+    const tripData = useTripDashboard();
     const queryClient = useQueryClient();
 
     const { 
@@ -66,7 +66,7 @@ export function useTimeline() {
 
     useEffect(() => {
         if (dateList.length > 0 && !selectedDate) {
-            setSelectedDate(dateList[0].fullDate);
+            setSelectedDate(DateUtils.parseYYYYMMDDToDate(dateList[0]));
         }
     }, [dateList]);
 
@@ -166,9 +166,25 @@ export function useTimeline() {
         setSelectedItemId(null);
     };
 
-    const handleConfirmTime = (formattedTime) => {
+    const handleConfirmTime = (selectedDateObj) => {
         if (!activeDateStr || !selectedItemId) return;
-        updateEventTime(selectedItemId, activeDateStr, formattedTime); 
+
+        // 1. Extract hours and minutes from the Date object
+        let hours = selectedDateObj.getHours();
+        const minutes = selectedDateObj.getMinutes().toString().padStart(2, '0');
+        
+        // 2. Determine AM or PM
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        
+        // 3. Convert to 12-hour format
+        hours = hours % 12;
+        hours = hours ? hours : 12; // the hour '0' should be '12'
+        
+        // 4. Construct the formatted string (e.g., "2:30 PM")
+        const formattedTimeStr = `${hours}:${minutes} ${ampm}`;
+
+        // 5. Pass the newly formatted string to your dashboard hook
+        updateEventTime(selectedItemId, activeDateStr, formattedTimeStr); 
         hideTimePicker();
     };
 

@@ -44,6 +44,11 @@ export function useStaysData(tripId, destination) {
                 coords = await getCoordinatesForAddress(stayForm.address, destination);      
             }
 
+            if (stayForm.checkIn && stayForm.checkOut && stayForm.checkIn >= stayForm.checkOut) {
+                Alert.alert("Invalid Dates", "Check-in date cannot be after check-out date.");
+                return; // Stop execution here!
+            }
+
             const dbPayload = {
                 trip_id: tripId,
                 title: stayForm.title,

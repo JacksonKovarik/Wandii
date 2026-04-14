@@ -3,14 +3,14 @@ import DocumentCard from "@/src/components/trip-info/docs/documentCard";
 import TripInfoScrollView from "@/src/components/trip-info/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
 import { useDocsData } from "@/src/hooks/useDocsData";
-import { useTrip } from "@/src/utils/TripContext";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 
 export default function Docs() {
-  const { tripId, refreshTripData } = useTrip(); 
+  const { tripId, refreshTripData } = useTripDashboard(); 
 
   const {
     documents, 

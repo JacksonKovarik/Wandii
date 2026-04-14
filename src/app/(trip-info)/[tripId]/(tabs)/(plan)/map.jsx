@@ -1,7 +1,7 @@
 import ReusableTabBar from "@/src/components/reusableTabBar";
 import { Colors } from "@/src/constants/colors";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 import { supabase } from "@/src/lib/supabase";
-import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
 import { BlurView } from "expo-blur";
@@ -13,7 +13,7 @@ import { moderateScale } from "react-native-size-matters";
 
 export default function Map() {
     // 1. Standardized Context Usage
-    const { tripId, timelineData, destination } = useTrip();
+    const { tripId, timelineData, destination } = useTripDashboard();
     
     const [staysData, setStaysData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);

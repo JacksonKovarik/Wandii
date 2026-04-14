@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { Alert } from "react-native";
 import { fetchDocumentsAPI } from "./useDocsData";
 import { fetchMemoryDataAPI } from "./useMemoryData";
+import { fetchStaysAPI } from "./useStaysData";
 import { fetchWalletDataAPI } from "./useWalletData";
 
 // ==========================================
@@ -119,23 +120,30 @@ export function useTripDashboard() {
     useEffect(() => {
         if (!tripId || !userId) return;
 
+        // Prefetch T Data
+        queryClient.prefetchQuery({
+            queryKey: ['stays', tripId], 
+            queryFn: () => fetchStaysAPI(tripId),
+            staleTime: 1000 * 60 * 5, // Keep it in cache for 5 minutes
+        });
+
         // Prefetch Wallet Data
         queryClient.prefetchQuery({
-            queryKey: ['wallet', tripId], // MUST exactly match the key in useWalletData!
+            queryKey: ['wallet', tripId], 
             queryFn: () => fetchWalletDataAPI(tripId, userId),
             staleTime: 1000 * 60 * 5, // Keep it in cache for 5 minutes
         });
 
-        // Prefetch Memory/Photos Data
+        // Prefetch Documents Data
         queryClient.prefetchQuery({
-            queryKey: ['documents', tripId], // MUST exactly match the key in useMemoryData!
+            queryKey: ['documents', tripId], 
             queryFn: () => fetchDocumentsAPI(tripId),
             staleTime: 1000 * 60 * 5,
         });
 
         // Prefetch Memory/Photos Data
         queryClient.prefetchQuery({
-            queryKey: ['memories', tripId], // MUST exactly match the key in useMemoryData!
+            queryKey: ['memories', tripId], 
             queryFn: () => fetchMemoryDataAPI(tripId),
             staleTime: 1000 * 60 * 5,
         });
@@ -285,13 +293,46 @@ export function useTripDashboard() {
     const updateEventDetails = useCallback((updatedEvent, dateStr) => setTripData(prev => ({ ...prev, timelineData: { ...prev.timelineData, [dateStr]: prev.timelineData[dateStr]?.map(e => e.id === updatedEvent.id ? { ...e, ...updatedEvent } : e) }})), [setTripData]);
 
     const updateEventTime = async (eventId, dateStr, formattedTime) => {
-        // Leaving this one as a standard async for simplicity, but proxy updates local state!
-        setTripData(prev => ({ ...prev, timelineData: { ...prev.timelineData, [dateStr]: (prev.timelineData[dateStr] || []).map(item => item.id === eventId ? { ...item, time: formattedTime } : item) } }));
+        console.log("Updating event time:", formattedTime);
+        
+        // 1. Optimistic UI update (keeps the app feeling snappy)
+        setTripData(prev => ({ 
+            ...prev, 
+            timelineData: { 
+                ...prev.timelineData, 
+                [dateStr]: (prev.timelineData[dateStr] || []).map(item => 
+                    item.id === eventId ? { ...item, time: formattedTime } : item
+                ) 
+            } 
+        }));
+
+        // 2. Parse the formatted time string (e.g., "2:30 PM")
         const [time, modifier] = formattedTime.split(' ');
-        let [hours, minutes] = time.split(':');
-        if (hours === '12') hours = '00';
-        if (modifier === 'PM') hours = parseInt(hours, 10) + 12;
-        await supabase.from('Events').update({ start_timestamp: `${dateStr}T${hours.padStart(2, '0')}:${minutes}:00` }).eq('event_id', eventId);
+        const [hoursStr, minutes] = time.split(':');
+        
+        // 3. Safely calculate the 24-hour integer
+        let hoursInt = parseInt(hoursStr, 10);
+        
+        if (hoursInt === 12) {
+            hoursInt = 0; // Handle 12 AM / 12 PM baseline
+        }
+        if (modifier === 'PM') {
+            hoursInt += 12; // Convert PM to 24-hour time
+        }
+
+        // 4. Convert back to string and safely pad
+        const paddedHours = hoursInt.toString().padStart(2, '0');
+        const timestamp = `${dateStr}T${paddedHours}:${minutes}:00`;
+
+        // 5. Update the database
+        const { error } = await supabase
+            .from('Events')
+            .update({ start_timestamp: timestamp })
+            .eq('event_id', eventId);
+            
+        if (error) {
+            console.error("Failed to update time in Supabase:", error);
+        }
     };
 
     return {
@@ -309,6 +350,7 @@ export function useTripDashboard() {
         updateEventTime,
         unassignEvent,
         deleteEvent,
-        updateEventDetails
+        updateEventDetails,
+        updateEventTime
     };
 }

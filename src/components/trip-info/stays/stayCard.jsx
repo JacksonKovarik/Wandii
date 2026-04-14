@@ -1,7 +1,9 @@
 import { Colors } from "@/src/constants/colors";
 import DateUtils from "@/src/utils/DateUtils";
+import { openAddressInMaps } from "@/src/utils/LinkingUtils";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Menu, MenuOption, MenuOptions, MenuTrigger } from "react-native-popup-menu";

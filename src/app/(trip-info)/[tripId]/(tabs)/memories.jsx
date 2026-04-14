@@ -1,7 +1,6 @@
 import AnimatedBottomSheet from "@/src/components/AnimatedBottomSheet";
 import TripInfoScrollView from "@/src/components/trip-info/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
-import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
@@ -13,6 +12,7 @@ import { moderateScale } from "react-native-size-matters";
 // IMPORT SUPABASE
 import { useAuth } from "@/src/context/AuthContext";
 import { useMemoryData } from "@/src/hooks/useMemoryData";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 
 
 
@@ -27,8 +27,10 @@ const cardSpacing = (screenWidth - cardWidth) / 2;
 const JournalCard = ({ item }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const authorName = item.author || "Maria K."; 
-  const authorAvatar = item.avatar || 'https://i.pravatar.cc/150?u=maria';
+  const authorFirst = item.author_first_name || ""; 
+  const authorLast = item.author_last_name || ""; 
+  const authorName = `${authorFirst} ${authorLast}`;
+  const authorAvatar = item.avatar_url || null;
   const entryImages = item.images || []; 
 
   const toggleExpand = () => {
@@ -41,7 +43,14 @@ const JournalCard = ({ item }) => {
       <TouchableOpacity activeOpacity={0.8} onPress={toggleExpand}>
         <View style={styles.cardHeader}>
           <View style={styles.authorRow}>
+            {authorAvatar ? (
               <Image source={{ uri: authorAvatar }} style={styles.authorAvatar} />
+            ) : (
+              <View style={styles.authorAvatar}>
+                <Text style={{ color: 'white', fontSize: 14, fontWeight: 'bold' }}>{authorFirst.charAt(0).toUpperCase()}{authorLast.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
+              
               <View>
                 <Text style={styles.authorName}>{authorName}</Text>
                 <Text style={styles.dateTimeText}>{item.date || "Unknown Date"}</Text> 
@@ -83,7 +92,7 @@ const JournalCard = ({ item }) => {
 // ==========================================
 
 export default function Memories() {
-  const { tripId } = useTrip();
+  const { tripId } = useTripDashboard();
   const { user } = useAuth();
   
   // --- STATE ---
@@ -100,7 +109,6 @@ export default function Memories() {
     setEntryDescription,
     entryImages,
     setEntryImages,
-    fetchMemoriesData,
     handleAddEntryImage,
     handleUploadSharedPhoto,
     isUploading,
@@ -108,7 +116,6 @@ export default function Memories() {
     handleRefresh,
   } = useMemoryData(tripId, user.id);
 
-  // LOGICAL FIX 4: Wrapped everything in <View> and moved BottomSheet outside ScrollView
   return (
     <View style={styles.container}>
       <TripInfoScrollView onRefresh={handleRefresh} style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -287,7 +294,7 @@ const styles = StyleSheet.create({
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  authorAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f1f5f9' },
+  authorAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center'},
   authorName: { fontSize: moderateScale(14), fontWeight: '700', color: Colors.darkBlue },
   dateTimeText: { fontSize: moderateScale(11), fontWeight: '500', color: '#64748b' },
   

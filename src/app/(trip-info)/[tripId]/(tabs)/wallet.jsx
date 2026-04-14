@@ -6,8 +6,8 @@ import { MemberSelecter } from "@/src/components/trip-info/wallet/memberSelector
 import { Colors } from '@/src/constants/colors';
 import { WALLET_CATEGORIES } from "@/src/constants/TripConstants";
 import { useAuth } from "@/src/context/AuthContext";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 import { useWalletData } from "@/src/hooks/useWalletData";
-import { useTrip } from "@/src/utils/TripContext";
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { Checkbox } from 'expo-checkbox';
 import React from 'react';
@@ -32,7 +32,7 @@ const getCurrencySymbol = (code) => {
 };
 
 export default function WalletScreen() {
-  const tripData = useTrip(); 
+  const tripData = useTripDashboard(); 
   const { tripId, defaultCurrency } = tripData;
   const currencySymbol = getCurrencySymbol(defaultCurrency);
   
