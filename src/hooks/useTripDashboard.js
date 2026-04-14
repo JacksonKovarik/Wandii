@@ -67,9 +67,13 @@ export function useTripDashboard() {
                     const dateStr = event.start_timestamp.split('T')[0];
                     if (!timelineData[dateStr]) timelineData[dateStr] = [];
                     const timePart = event.start_timestamp.split('T')[1].substring(0, 5);
-                    let [h, m] = timePart.split(':');
-                    const ampm = h >= 12 ? 'PM' : 'AM';
-                    frontendEvent.time = `${h % 12 || 12}:${m} ${ampm}`;
+                    if (timePart === '00:00') {
+                        frontendEvent.time = 'TBD';
+                    } else {
+                        let [h, m] = timePart.split(':');
+                        const ampm = h >= 12 ? 'PM' : 'AM';
+                        frontendEvent.time = `${h % 12 || 12}:${m} ${ampm}`;
+                    }
                     frontendEvent.type = 'event';
                     timelineData[dateStr].push(frontendEvent);
                 } else {
@@ -218,6 +222,43 @@ export function useTripDashboard() {
         }
     });
 
+    const scheduleWithoutTimeMutation = useMutation({
+        onMutate: async ({ date, event }) => {
+            await queryClient.cancelQueries(['tripDashboard', tripId]);
+            const previousState = queryClient.getQueryData(['tripDashboard', tripId]);
+            
+            setTripData(prev => ({
+                ...prev, 
+                ideaBoard: prev.ideaBoard.map(i => i.id === event.id ? { ...i, status: 'Scheduled' } : i),
+                timelineData: { 
+                    ...prev.timelineData, 
+                    [date]: [
+                        ...(prev.timelineData[date] || []), 
+                        // Optimistically place it in the TBD bucket
+                        { ...event, id: event.id || Date.now().toString(), type: 'event', time: 'TBD' }
+                    ] 
+                }
+            }));
+            return { previousState };
+        },
+        mutationFn: async ({ date, event }) => {
+            // 🚨 NEW LOGIC: Save the date, but use midnight (00:00:00) to flag it as TBD
+            const { error } = await supabase
+                .from('Events')
+                .update({ 
+                    start_timestamp: `${date}T00:00:00`, 
+                    status: 'Scheduled' 
+                }) 
+                .eq('event_id', event.id);
+                
+            if (error) throw error; 
+        },
+        onError: (err, vars, context) => {
+            queryClient.setQueryData(['tripDashboard', tripId], context.previousState);
+            Alert.alert("Error", "Failed to schedule event.");
+        }
+    });
+
     const deleteEventMutation = useMutation({
         onMutate: async ({ eventId, dateStr }) => {
             await queryClient.cancelQueries(['tripDashboard', tripId]);
@@ -283,7 +324,7 @@ export function useTripDashboard() {
 
     // These simply trigger the mutations we defined above, keeping your UI code identical!
     const handleVote = (ideaId, voteType) => voteMutation.mutate({ ideaId, voteType });
-    const addEventToBucket = (date, event) => scheduleMutation.mutate({ date, event });
+    const addEventToBucket = (date, event) => scheduleWithoutTimeMutation.mutate({ date, event });
     const addCustomIdea = (idea) => addCustomIdeaMutation.mutate(idea);
     const deleteEvent = (eventId, dateStr) => deleteEventMutation.mutate({ eventId, dateStr });
     const unassignEvent = (eventId, dateStr) => unassignMutation.mutate({ eventId, dateStr });
