@@ -3,10 +3,13 @@ import { moderateScale } from "react-native-size-matters";
 
 export default function ProfileHeader({
   user,
-  photo,
+  stats,
   initials,
   onPressSettings,
 }) {
+  const name = [user?.first_name, user?.last_name].filter(Boolean).join(" ").trim();
+  const username = user?.username || "";
+
   return (
     <View style={styles.container}>
       {/* top row */}
@@ -29,8 +32,8 @@ export default function ProfileHeader({
         <View style={styles.avatarRow}>
           {/* avatar is no longer a button */}
           <View>
-            {photo ? (
-              <Image source={{ uri: photo }} style={styles.avatar} />
+            {user?.avatar_url ? (
+              <Image source={{ uri: user.avatar_url }} style={styles.avatar} />
             ) : (
               <View style={styles.initialsAvatar}>
                 <Text style={styles.initialsText}>{initials}</Text>
@@ -40,10 +43,10 @@ export default function ProfileHeader({
 
           {/* name and username */}
           <View style={styles.infoContainer}>
-            <Text style={styles.name}>{user?.name || ""}</Text>
+            <Text style={styles.name}>{name}</Text>
 
             {user?.username ? (
-              <Text style={styles.username}>@{user.username}</Text>
+              <Text style={styles.username}>@{username}</Text>
             ) : null}
           </View>
         </View>
@@ -54,17 +57,17 @@ export default function ProfileHeader({
         {/* counters */}
         <View style={styles.countersRow}>
           <View style={styles.counterBox}>
-            <Text style={styles.counterNumber}>{user?.trips ?? 0}</Text>
+            <Text style={styles.counterNumber}>{stats?.trips ?? 0}</Text>
             <Text style={styles.counterLabel}>Trips</Text>
           </View>
 
           <View style={styles.counterBox}>
-            <Text style={styles.counterNumber}>{user?.buddies ?? 0}</Text>
+            <Text style={styles.counterNumber}>{stats?.buddies ?? 0}</Text>
             <Text style={styles.counterLabel}>Travel{"\n"}Buddies</Text>
           </View>
 
           <View style={styles.counterBox}>
-            <Text style={styles.counterNumber}>{user?.countries ?? 0}</Text>
+            <Text style={styles.counterNumber}>{stats?.countries ?? 0}</Text>
             <Text style={styles.counterLabel}>Countries</Text>
           </View>
         </View>

@@ -1,11 +1,6 @@
-import { useAuth } from '@/src/context/AuthContext';
-import {
-  addConnection,
-  getConnectionTableMissingMessage,
-  getConnections,
-  removeConnection,
-  searchUsers,
-} from '@/src/lib/connections';
+import TripInfoScrollView from '@/src/components/trip-info/tripInfoScrollView';
+import { useConnectionsData } from '@/src/hooks/useConnections';
+import { getConnectionTableMissingMessage } from '@/src/lib/connections';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { Image } from 'expo-image';
@@ -13,12 +8,11 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { moderateScale, scale, verticalScale } from 'react-native-size-matters';
 
@@ -89,92 +83,62 @@ function UserRow({ user, actionLabel, onPress, variant = 'primary', disabled = f
 }
 
 export default function Connections() {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [connections, setConnections] = useState([]);
+  // 1. Pull the data and mutation functions from our TanStack hook
+  const {
+    connections,
+    isTableMissing,
+    isLoadingConnections,
+    searchResults,
+    isSearching,
+    performSearch,
+    addConnection,
+    removeConnection,
+    refetchConnections
+  } = useConnectionsData();
+
   const [search, setSearch] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [tableMissing, setTableMissing] = useState(false);
   const [busyUserId, setBusyUserId] = useState(null);
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Safely map connection IDs (handling both normalized 'id' and 'user_id')
   const connectionIds = useMemo(
-    () => new Set((connections || []).map((connection) => String(connection.user_id))),
+    () => new Set((connections || []).map((connection) => String(connection.user_id || connection.id))),
     [connections]
   );
 
-  const loadConnections = useCallback(async () => {
-    if (!user?.id) {
-      setConnections([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await getConnections(user.id);
-      if (response.tableMissing) {
-        setTableMissing(true);
-        setConnections([]);
-      } else {
-        setTableMissing(false);
-        setConnections(response.data || []);
-      }
-    } catch (error) {
-      console.warn(error?.message || 'Could not load connections');
-      setConnections([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
-
-  const runSearch = useCallback(
-    async (value) => {
-      setSearch(value);
-
-      const trimmed = String(value || '').trim();
-      if (!trimmed || !user?.id) {
-        setSearchResults([]);
-        return;
-      }
-
-      try {
-        const response = await searchUsers(trimmed, user.id);
-        setSearchResults(response.data || []);
-      } catch (error) {
-        console.warn(error?.message || 'Could not search users');
-        setSearchResults([]);
-      }
-    },
-    [user?.id]
-  );
-
+  // 2. Silently update in the background when navigating to the tab
   useFocusEffect(
     useCallback(() => {
-      loadConnections();
-    }, [loadConnections])
+      refetchConnections();
+    }, [refetchConnections])
   );
 
-  const handleAddConnection = async (otherUserId) => {
-    if (!user?.id) return;
+  const runSearch = (value) => {
+    setSearch(value);
+    performSearch(value); // Let TanStack handle the actual search query
+  };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetchConnections(); // TanStack handles the promise automatically
+    setRefreshing(false);
+  };
+
+  const handleAddConnection = async (otherUserId) => {
     try {
       setBusyUserId(otherUserId);
-      await addConnection(user.id, otherUserId);
-      await loadConnections();
-      if (search.trim()) {
-        await runSearch(search);
-      }
+      // TanStack handles the database call and automatically refetches!
+      await addConnection(otherUserId); 
     } catch (error) {
-      Alert.alert(
-        'Could not add connection',
-        tableMissing ? getConnectionTableMissingMessage() : error?.message || 'Unknown error'
-      );
+      // The hook handles throwing the alert, but we catch it here so we don't crash
+      console.warn("Add connection error:", error);
     } finally {
       setBusyUserId(null);
     }
   };
 
-  const handleRemoveConnection = async (otherUserId, name) => {
+  const handleRemoveConnection = (otherUserId, name) => {
     Alert.alert('Remove connection', `Remove ${name || 'this connection'} from your list?`, [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -183,13 +147,9 @@ export default function Connections() {
         onPress: async () => {
           try {
             setBusyUserId(otherUserId);
-            await removeConnection(user?.id, otherUserId);
-            await loadConnections();
-            if (search.trim()) {
-              await runSearch(search);
-            }
+            await removeConnection(otherUserId); // Let TanStack handle the deletion and cache update
           } catch (error) {
-            Alert.alert('Could not remove connection', error?.message || 'Unknown error');
+             console.warn("Remove connection error:", error);
           } finally {
             setBusyUserId(null);
           }
@@ -217,8 +177,8 @@ export default function Connections() {
         />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {tableMissing ? (
+      <TripInfoScrollView contentContainerStyle={styles.scrollContent} onRefresh={onRefresh}>
+        {isTableMissing ? (
           <View style={styles.noticeCard}>
             <Text style={styles.noticeTitle}>One database step is still needed</Text>
             <Text style={styles.noticeBody}>{getConnectionTableMissingMessage()}</Text>
@@ -229,17 +189,22 @@ export default function Connections() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Search Results</Text>
 
-            {searchResults.length > 0 ? (
+            {isSearching ? (
+              <View style={styles.loadingWrap}>
+                <ActivityIndicator size="small" color="#FF8820" />
+              </View>
+            ) : searchResults.length > 0 ? (
               searchResults.map((person) => {
-                const alreadyConnected = connectionIds.has(String(person.user_id));
-                const busy = busyUserId === person.user_id;
+                const uniqueId = person.user_id || person.id;
+                const alreadyConnected = connectionIds.has(String(uniqueId));
+                const busy = busyUserId === uniqueId;
                 return (
                   <UserRow
-                    key={person.user_id}
+                    key={uniqueId}
                     user={person}
                     actionLabel={busy ? '...' : alreadyConnected ? 'Connected' : 'Add'}
-                    onPress={() => !alreadyConnected && !busy && handleAddConnection(person.user_id)}
-                    disabled={alreadyConnected || busy || tableMissing}
+                    onPress={() => !alreadyConnected && !busy && handleAddConnection(uniqueId)}
+                    disabled={alreadyConnected || busy || isTableMissing}
                     subtitle={person.username ? `@${person.username}` : person.email}
                   />
                 );
@@ -256,22 +221,25 @@ export default function Connections() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>My Connections</Text>
 
-          {loading ? (
+          {isLoadingConnections ? (
             <View style={styles.loadingWrap}>
               <ActivityIndicator size="large" color="#FF8820" />
             </View>
           ) : connections.length > 0 ? (
-            connections.map((person) => (
-              <UserRow
-                key={person.user_id}
-                user={person}
-                actionLabel={busyUserId === person.user_id ? '...' : 'Remove'}
-                onPress={() => handleRemoveConnection(person.user_id, person.full_name)}
-                variant="secondary"
-                disabled={busyUserId === person.user_id || tableMissing}
-                subtitle={person.username ? `@${person.username}` : person.email}
-              />
-            ))
+            connections.map((person) => {
+              const uniqueId = person.user_id || person.id;
+              return (
+                <UserRow
+                  key={uniqueId}
+                  user={person}
+                  actionLabel={busyUserId === uniqueId ? '...' : 'Remove'}
+                  onPress={() => handleRemoveConnection(uniqueId, person.full_name)}
+                  variant="secondary"
+                  disabled={busyUserId === uniqueId || isTableMissing}
+                  subtitle={person.username ? `@${person.username}` : person.email}
+                />
+              );
+            })
           ) : (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyTitle}>No connections yet</Text>
@@ -279,11 +247,12 @@ export default function Connections() {
             </View>
           )}
         </View>
-      </ScrollView>
+      </TripInfoScrollView>
     </View>
   );
 }
 
+// Keep all the exact original styles you provided!
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -1,63 +1,115 @@
 import { useAuth } from "@/src/context/AuthContext";
+import { getConnections } from "@/src/lib/connections";
+import { getUserProfile } from "@/src/lib/profile"; // 1. Import your profile fetcher
 import { getPastTrips, getUpcomingTrips } from "@/src/lib/trips";
-import { supabase } from "@/src/lib/supabase";
-import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+// 2. Add the same country extractor used in useProfileData
+function extractCountry(destination) {
+  const value = String(destination || '').trim();
+  if (!value) return null;
+
+  const parts = value.split(',').map((part) => part.trim()).filter(Boolean);
+  return parts.length > 1 ? parts.at(-1) : parts[0];
+}
 
 export function useHomeData() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState(null);
-  const [upcomingTrips, setUpcomingTrips] = useState([]);
-  const [pastTrips, setPastTrips] = useState([]);
+  const queryClient = useQueryClient();
 
-  const loadHomeData = useCallback(async () => {
-    if (!user?.id) {
-      setProfile(null);
-      setUpcomingTrips([]);
-      setPastTrips([]);
-      setLoading(false);
-      return;
-    }
+  const {
+    data,
+    isLoading,
+    isRefetching,
+    refetch,
+    error
+  } = useQuery({
+    queryKey: ['homeData', user?.id], 
+    queryFn: async () => {
+      if (!user?.id) return null;
 
-    setLoading(true);
-    try {
-      const [profileResponse, upcomingResponse, pastResponse] = await Promise.all([
-        supabase
-          .from("Users")
-          .select("user_id, first_name, last_name, avatar_url, username")
-          .eq("user_id", user.id)
-          .maybeSingle(),
+      // 3. Swap the manual Supabase call for your clean `getUserProfile` function
+      const [
+        profileResponse, 
+        upcomingResponse, 
+        pastResponse,
+        connectionsResponse 
+      ] = await Promise.all([
+        getUserProfile(user.id),
         getUpcomingTrips(user.id),
         getPastTrips(user.id),
+        getConnections(user.id), 
       ]);
 
-      if (profileResponse.error) {
-        console.warn("Could not load profile:", profileResponse.error.message);
+      // --- THE MAGIC: Seed ALL the caches! ---
+      
+      // 1. Seed Upcoming Trips
+      if (upcomingResponse) {
+        queryClient.setQueryData(['upcomingTrips', user.id], upcomingResponse);
+      }
+      
+      // 2. Seed Past Trips
+      if (pastResponse) {
+        queryClient.setQueryData(['pastTrips', user.id], pastResponse);
       }
 
-      setProfile(profileResponse.data ?? null);
-      setUpcomingTrips((upcomingResponse ?? []).slice(0, 3));
-      setPastTrips((pastResponse ?? []).slice(0, 6));
-    } catch (error) {
-      console.warn(error?.message || "Could not load home data");
-      setProfile(null);
-      setUpcomingTrips([]);
-      setPastTrips([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
+      // 3. Seed Connections
+      if (connectionsResponse) {
+        queryClient.setQueryData(['connections', user.id], {
+          data: connectionsResponse.data ?? [],
+          tableMissing: !!connectionsResponse.tableMissing
+        });
+      }
 
-  useEffect(() => {
-    loadHomeData();
-  }, [loadHomeData]);
+      // 4. Seed Profile Data (Combining what we already fetched!)
+      const allTrips = [...(upcomingResponse ?? []), ...(pastResponse ?? [])];
+      const destinations = [];
+      const seenDestinations = new Set();
+      const seenCountries = new Set();
+
+      for (const trip of allTrips) {
+        const destination = String(trip?.destination || '').trim();
+        if (destination && !seenDestinations.has(destination)) {
+          seenDestinations.add(destination);
+          destinations.push(destination);
+        }
+
+        const country = extractCountry(destination);
+        if (country) {
+          seenCountries.add(country);
+        }
+      }
+
+      // Match the exact object structure that `useProfileData` expects
+      queryClient.setQueryData(['profileData', user.id], {
+        profile: profileResponse ?? null,
+        connections: connectionsResponse?.data ?? [],
+        recentDestinations: destinations.slice(0, 6),
+        stats: {
+          trips: allTrips.length,
+          buddies: connectionsResponse?.data?.length ?? 0,
+          countries: seenCountries.size,
+        },
+      });
+
+      // --- Return the sliced data for the Home Dashboard UI ---
+      return {
+        profile: profileResponse ?? null,
+        upcomingTrips: (upcomingResponse ?? []).slice(0, 3), 
+        pastTrips: (pastResponse ?? []).slice(0, 6),
+      };
+    },
+    enabled: !!user?.id, 
+    staleTime: 1000 * 60 * 5, 
+  });
 
   return {
-    loading,
-    user,
-    profile,
-    upcomingTrips,
-    pastTrips,
-    reloadHomeData: loadHomeData,
+    loading: isLoading, 
+    isRefreshing: isRefetching, 
+    profile: data?.profile ?? null,
+    upcomingTrips: data?.upcomingTrips ?? [],
+    pastTrips: data?.pastTrips ?? [],
+    refetch, 
+    error
   };
 }

@@ -1,4 +1,5 @@
 import PlanNewTripCard from "@/src/components/planNewTripCard";
+import TripInfoScrollView from "@/src/components/trip-info/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
 import { useHomeData } from "@/src/hooks/useHomeData";
 import DateUtils from "@/src/utils/DateUtils";
@@ -6,14 +7,13 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { Image } from "expo-image";
 import { Link, useRouter } from "expo-router";
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { moderateScale, scale, verticalScale } from "react-native-size-matters";
 
@@ -97,12 +97,22 @@ function MemoryCard({ trip, onPress }) {
 
 export default function Home() {
   const router = useRouter();
-  const { loading, profile, upcomingTrips, pastTrips, reloadHomeData } = useHomeData();
+
+  const {
+    loading,
+    isRefreshing, // Optional: useful if you want a subtle background loading spinner
+    profile,
+    upcomingTrips,
+    pastTrips,
+    refetch,
+  } = useHomeData();
+
+  const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
-      reloadHomeData();
-    }, [reloadHomeData])
+      refetch();
+    }, [refetch])
   );
 
   const displayName =
@@ -124,13 +134,19 @@ export default function Home() {
           </View>
         </View>
     </View>
-);
+  );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch(); // TanStack handles the promise automatically
+    setRefreshing(false);
+  };
 
   return (
     <View style={styles.screen}>
       <CustomHeader />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
+      <TripInfoScrollView 
+        onRefresh={onRefresh}
         contentContainerStyle={styles.scrollContent}
       >
         <PlanNewTripCard />
@@ -200,7 +216,7 @@ export default function Home() {
             </Text>
           </View>
         )}
-      </ScrollView>
+      </TripInfoScrollView>
     </View>
   );
 }

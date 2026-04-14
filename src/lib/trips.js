@@ -344,12 +344,61 @@ export async function createTrip(values) {
  * @returns - A promise that resolves to an array of upcoming trips for the specified user, sorted by start date (soonest first). 
  *            Each trip object includes normalized fields and an attached destination label if available.
  */
+
 export async function getUpcomingTrips(userId) {
   const today = new Date().toISOString().split("T")[0];
   const rows = await getAllTripsForUser(userId);
-  return rows
+  
+  // 1. Your original filtering and sorting
+  const upcomingTrips = rows
     .filter((row) => matchesUpcoming(row, today))
     .sort((a, b) => String(a.start_date || "9999-12-31").localeCompare(String(b.start_date || "9999-12-31")));
+
+  if (upcomingTrips.length === 0) return [];
+
+  // 2. Extract just the IDs of the upcoming trips
+  // (Using trip.id or trip.trip_id depending on how getAllTripsForUser maps it)
+  const tripIds = upcomingTrips.map(trip => trip.id || trip.trip_id);
+
+  // 3. Bulk fetch ONLY the start_timestamps for scheduled events in these specific trips
+  const { data: eventsData, error } = await supabase
+    .from('Events')
+    .select('trip_id, start_timestamp')
+    .in('trip_id', tripIds)
+    .not('start_timestamp', 'is', null); // Only get events that are actually scheduled
+
+  if (error) {
+    console.error("Error fetching events for readiness calculation:", error);
+    // Fail gracefully: return the trips anyway, the UI will fall back to 60%
+    return upcomingTrips; 
+  }
+
+  // 4. Group the unique scheduled dates by trip_id for quick math
+  const scheduledDatesByTrip = eventsData.reduce((acc, event) => {
+    if (!acc[event.trip_id]) acc[event.trip_id] = new Set();
+    // Add just the YYYY-MM-DD to the Set (Sets automatically ignore duplicates)
+    acc[event.trip_id].add(event.start_timestamp.split('T')[0]); 
+    return acc;
+  }, {});
+
+  // 5. Calculate readinessPercent and attach it to each trip
+  return upcomingTrips.map(trip => {
+    const start = new Date(trip.start_date);
+    const totalTripDays = trip.end_date 
+      ? Math.max(1, Math.ceil((new Date(trip.end_date) - start) / 86400000) + 1) 
+      : 1;
+
+    // Get the number of unique days planned for this specific trip
+    const tripIdToMatch = trip.id || trip.trip_id;
+    const plannedDays = scheduledDatesByTrip[tripIdToMatch]?.size || 0;
+    
+    const readinessPercent = Math.min(100, Math.round((plannedDays / totalTripDays) * 100));
+
+    return {
+      ...trip,
+      readinessPercent
+    };
+  });
 }
 
 /**

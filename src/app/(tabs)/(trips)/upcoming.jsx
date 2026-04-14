@@ -1,33 +1,37 @@
+import TripInfoScrollView from "@/src/components/trip-info/tripInfoScrollView";
 import { UpcomingTripCard } from "@/src/components/upcomingTripCard";
 import { Colors } from "@/src/constants/colors";
 import { useUpcomingTrips } from "@/src/hooks/useUpcomingTrips";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { Link } from "expo-router";
-import React from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
 import { moderateScale, verticalScale } from "react-native-size-matters";
-// import { fakeUpcomingTrips } from "@/src/data/fakeUpcomingTrips";
 
-
-// main screen
 export default function Upcoming() {
-  const { trips, loading, user, handleDeleteTrip, handleLeaveTrip } =
-    useUpcomingTrips();
+  const { trips, loading, user, refetch, handleDeleteTrip, handleLeaveTrip } = useUpcomingTrips();
+  const [refreshing, setRefreshing] = useState(false);
 
+  // 1. Silently refetch when the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
-  // FAKE TRIPS FOR TESTING  
-  // const trips = fakeTrips;
-  // useEffect(() => {
-  //   setFakeTrips(fakeUpcomingTrips);
-  // }, []);
-
+  // 2. Handle Pull-to-Refresh
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
   if (loading) {
     return (
@@ -38,7 +42,10 @@ export default function Upcoming() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <TripInfoScrollView 
+      contentContainerStyle={styles.container}
+      onRefresh={onRefresh}
+    >
       {trips && trips.length > 0 ? (
         trips.map((trip) => {
           const isCreator = trip.creator_id === user?.id;
@@ -71,7 +78,7 @@ export default function Upcoming() {
           </Link>
         </View>
       )}
-    </ScrollView>
+    </TripInfoScrollView>
   );
 }
 

@@ -2,7 +2,7 @@ import { useAuth } from '@/src/context/AuthContext';
 import { getConnections } from '@/src/lib/connections';
 import { getUserProfile } from '@/src/lib/profile';
 import { getAllTripsForUser } from '@/src/lib/trips';
-import { useCallback, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 function extractCountry(destination) {
   const value = String(destination || '').trim();
@@ -14,24 +14,17 @@ function extractCountry(destination) {
 
 export function useProfileData() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState(null);
-  const [connections, setConnections] = useState([]);
-  const [recentDestinations, setRecentDestinations] = useState([]);
-  const [stats, setStats] = useState({ trips: 0, buddies: 0, countries: 0 });
 
-  const loadProfileData = useCallback(async () => {
-    if (!user?.id) {
-      setProfile(null);
-      setConnections([]);
-      setRecentDestinations([]);
-      setStats({ trips: 0, buddies: 0, countries: 0 });
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
+  const {
+    data,
+    isLoading,
+    isRefetching,
+    refetch,
+  } = useQuery({
+    queryKey: ['profileData', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      console.log('Fetching profile data...');
       const [profileData, tripsData, connectionsResponse] = await Promise.all([
         getUserProfile(user.id),
         getAllTripsForUser(user.id),
@@ -56,35 +49,28 @@ export function useProfileData() {
         }
       }
 
-      setProfile(profileData ?? null);
-      setConnections(connectionsResponse?.data ?? []);
-      setRecentDestinations(destinations.slice(0, 6));
-      setStats({
-        trips: allTrips.length,
-        buddies: connectionsResponse?.data?.length ?? 0,
-        countries: seenCountries.size,
-      });
-    } catch (error) {
-      console.warn(error?.message || 'Could not load profile data');
-      setProfile(null);
-      setConnections([]);
-      setRecentDestinations([]);
-      setStats({ trips: 0, buddies: 0, countries: 0 });
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    loadProfileData();
-  }, [loadProfileData]);
+      return {
+        profile: profileData ?? null,
+        connections: connectionsResponse?.data ?? [],
+        recentDestinations: destinations.slice(0, 6),
+        stats: {
+          trips: allTrips.length,
+          buddies: connectionsResponse?.data?.length ?? 0,
+          countries: seenCountries.size,
+        },
+      };
+    },
+    enabled: !!user?.id,
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes!
+  });
 
   return {
-    loading,
-    profile,
-    connections,
-    recentDestinations,
-    stats,
-    reloadProfileData: loadProfileData,
+    loading: isLoading, // True ONLY on the first load
+    isRefreshing: isRefetching,
+    profile: data?.profile ?? null,
+    connections: data?.connections ?? [],
+    recentDestinations: data?.recentDestinations ?? [],
+    stats: data?.stats ?? { trips: 0, buddies: 0, countries: 0 },
+    refetch,
   };
 }
