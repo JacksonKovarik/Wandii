@@ -69,8 +69,8 @@ export function useConnectionsData() {
 
   // 4. Remove Connection Mutation
   const removeConnectionMutation = useMutation({
-    mutationFn: async (connectionId) => {
-      await removeConnection(connectionId);
+    mutationFn: async (otherUserId) => {
+      await removeConnection(otherUserId, user.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['connections', user?.id] });
@@ -88,7 +88,7 @@ export function useConnectionsData() {
     
     searchResults,
     isSearching,
-    performSearch: setActiveSearchTerm, 
+    performSearch: setActiveSearchTerm, // <-- Fix applied here
     
     addConnection: addConnectionMutation.mutateAsync,
     isAdding: addConnectionMutation.isPending,
