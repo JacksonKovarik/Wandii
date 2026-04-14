@@ -5,8 +5,8 @@ import { DiscoverCard } from "@/src/components/trip-info/idea-board/discoverCard
 import { VotingInProgressCard } from "@/src/components/trip-info/idea-board/votingProgressCard";
 import TripInfoScrollView from "@/src/components/trip-info/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 import { MediaUtils } from "@/src/utils/MediaUtils";
-import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -17,7 +17,7 @@ import { moderateScale } from "react-native-size-matters";
 // 2. MAIN SCREEN
 // ==========================================
 export default function IdeaBoard() {
-  const { discoverFeed, inProgressFeed, handleVote, group, refreshTripData, tripId, addCustomIdea } = useTrip();
+  const { discoverFeed, inProgressFeed, handleVote, group, refreshTripData, tripId, addCustomIdea } = useTripDashboard();
 
   const [swiperData, setSwiperData] = useState([]);
   const [isModalVisible, setModalVisible] = useState(false);
@@ -62,7 +62,6 @@ export default function IdeaBoard() {
     setNewIdea({ title: '', category: 'Food', description: '', imageUri: null });
   };
 
-  // FIX: Wrap everything in a root View
   return (
     <View style={styles.container}>
       {/* 1. SCROLLVIEW SIBLING */}

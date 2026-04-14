@@ -6,8 +6,8 @@ import { MemberSelecter } from "@/src/components/trip-info/wallet/memberSelector
 import { Colors } from '@/src/constants/colors';
 import { WALLET_CATEGORIES } from "@/src/constants/TripConstants";
 import { useAuth } from "@/src/context/AuthContext";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 import { useWalletData } from "@/src/hooks/useWalletData";
-import { useTrip } from "@/src/utils/TripContext";
 import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { Checkbox } from 'expo-checkbox';
 import React from 'react';
@@ -32,7 +32,7 @@ const getCurrencySymbol = (code) => {
 };
 
 export default function WalletScreen() {
-  const tripData = useTrip(); 
+  const tripData = useTripDashboard(); 
   const { tripId, defaultCurrency } = tripData;
   const currencySymbol = getCurrencySymbol(defaultCurrency);
   
@@ -141,15 +141,18 @@ export default function WalletScreen() {
                         <Text style={styles.settledSubtitle}>You don't owe anyone, and nobody owes you.</Text>
                     </View>
                 ) : (
-                    activeMembers.map((member) => (
-                      <BalanceCard 
-                        key={member.id} 
-                        member={member} 
-                        onRemind={handleRemind} 
-                        onPay={handlePay} 
-                        currencySymbol={currencySymbol} 
-                      />
-                    ))
+                    activeMembers.map((member) => {
+                      if (member.id === user.id) return null;
+                      return (
+                        <BalanceCard 
+                          key={member.id} 
+                          member={member} 
+                          onRemind={handleRemind} 
+                          onPay={handlePay} 
+                          currencySymbol={currencySymbol} 
+                        />
+                      )
+                    })
                 )}
             </View>
         </View>
@@ -280,7 +283,7 @@ export default function WalletScreen() {
           </View>
 
           <View style={styles.modalMemberList}>
-            {otherMembers.map((member) => (
+            {activeMembers.map((member) => (
               <MemberSelecter 
                 key={member.id} 
                 member={member} 

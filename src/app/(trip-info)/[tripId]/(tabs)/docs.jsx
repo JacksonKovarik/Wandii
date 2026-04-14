@@ -3,15 +3,14 @@ import DocumentCard from "@/src/components/trip-info/docs/documentCard";
 import TripInfoScrollView from "@/src/components/trip-info/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
 import { useDocsData } from "@/src/hooks/useDocsData";
-import { MediaUtils } from "@/src/utils/MediaUtils";
-import { useTrip } from "@/src/utils/TripContext";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 import { MaterialIcons } from "@expo/vector-icons";
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
 
 export default function Docs() {
-  const { tripId, refreshTripData } = useTrip(); 
+  const { tripId, refreshTripData } = useTripDashboard(); 
 
   const {
     documents, 
@@ -19,7 +18,8 @@ export default function Docs() {
     modalVisible,
     setModalVisible,
     handleRefresh,
-    handleImageUpload,
+    takePhoto: handleImageUpload,
+    pickImage,
     pickDocument,
   } = useDocsData(tripId, refreshTripData);
 
@@ -71,12 +71,12 @@ export default function Docs() {
           
           <View style={styles.sheetActionGroup}>
             {/* FIX: Wired up the media functions so they actually process and upload to Supabase */}
-            <TouchableOpacity style={styles.sheetMinimalRow} onPress={() => handleImageUpload(MediaUtils.takePhoto)}>
+            <TouchableOpacity style={styles.sheetMinimalRow} onPress={() => handleImageUpload()}>
               <MaterialIcons name="photo-camera" size={24} color={Colors.darkBlue} />
               <Text style={styles.sheetActionText}>Take Photo</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.sheetMinimalRow} onPress={() => handleImageUpload(MediaUtils.pickImage)}>
+            <TouchableOpacity style={styles.sheetMinimalRow} onPress={() => pickImage()}>
               <MaterialIcons name="photo-library" size={24} color={Colors.darkBlue} />
               <Text style={styles.sheetActionText}>Choose from Gallery</Text>
             </TouchableOpacity>

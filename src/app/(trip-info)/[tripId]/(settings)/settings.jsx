@@ -1,8 +1,9 @@
 import SettingRow from "@/src/components/trip-info/settings/settingRow";
 import { Colors } from "@/src/constants/colors";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 import { MediaUtils } from "@/src/utils/MediaUtils";
-import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -10,16 +11,15 @@ import { moderateScale } from "react-native-size-matters";
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { tripId, destination, trip_name, name, image, defaultCurrency, default_currency, updateTripContext, group } = useTrip();
+  const queryClient = useQueryClient();
+  const { tripId, destination, name, image, defaultCurrency, group } = useTripDashboard();
   
   const [requireApprovals, setRequireApprovals] = useState(true);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const handleClose = () => {
-    setTimeout(() => {
-      if (router.canGoBack()) router.back();
-      else router.navigate(`/(trip-info)/${tripId}/overview`);
-    }, 300);
+    if (router.canGoBack()) router.back();
+    else router.navigate(`/(trip-info)/${tripId}/overview`);
   };
 
   const handleCoverPhotoPress = () => {
@@ -51,14 +51,15 @@ export default function SettingsScreen() {
     try {
       const newUrl = await MediaUtils.uploadTripCover(uri, tripId);
       
-      if (updateTripContext) {
-        updateTripContext({ image: newUrl }); 
-      }
+      // Update the TanStack cache directly instead of updateTripContext
+      queryClient.setQueryData(['tripDashboard', tripId], (old) => {
+          if (!old) return old;
+          return { ...old, image: newUrl };
+      });
       
       Alert.alert("Success", "Cover photo updated!");
     } catch (error) {
       Alert.alert("Upload Failed", "There was an error updating your cover photo.");
-      console.error(error);
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -83,14 +84,14 @@ export default function SettingsScreen() {
           <SettingRow 
             icon="edit" 
             title="Trip Name" 
-            value={trip_name && trip_name !== undefined ? trip_name : name} 
+            value={name} 
             onPress={() => {
               router.push({
                 pathname: `/(trip-info)/${tripId}/(settings)/editField`,
                 params: { 
-                  fieldKey: 'trip_name', 
+                  fieldKey: 'name', 
                   fieldLabel: 'Trip Name', 
-                  currentValue: trip_name && trip_name !== undefined ? trip_name : name
+                  currentValue: name && name !== undefined ? name : name
                 }
               });
             }} 
@@ -138,7 +139,7 @@ export default function SettingsScreen() {
           <SettingRow 
             icon="payments" 
             title="Default Currency" 
-            value={default_currency && default_currency !== undefined ? default_currency : defaultCurrency} 
+            value={defaultCurrency || 'USD'} 
             onPress={() => router.push(`/(trip-info)/${tripId}/(settings)/editCurrency`)} 
           />
         </View>

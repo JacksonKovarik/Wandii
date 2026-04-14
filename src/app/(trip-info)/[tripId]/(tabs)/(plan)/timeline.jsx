@@ -6,8 +6,8 @@ import ScheduledEventCard from "@/src/components/trip-info/timeline/scheduledEve
 import { Colors } from "@/src/constants/colors";
 import { getCategoryFallback } from "@/src/constants/TripConstants";
 import { useTimeline } from "@/src/hooks/useTimeline";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 import DateUtils from "@/src/utils/DateUtils";
-import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
@@ -20,7 +20,7 @@ import { moderateScale } from "react-native-size-matters";
 // 4. MAIN SCREEN
 // ==========================================
 export default function Timeline() {
-    const tripData = useTrip();
+    const tripData = useTripDashboard();
     const {
         selectedDate,
         isTimePickerVisible,

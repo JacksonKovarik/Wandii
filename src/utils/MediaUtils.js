@@ -112,28 +112,30 @@ export const MediaUtils = {
   uploadImageToSupabase: async (uri, tripId, userId, entryId = null, type = 'memories') => {
     try {
       const fileExt = uri.split('.').pop() || 'jpg';
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${tripId}/${fileName}`;
       
-      // 1. Fetch the local file directly into raw binary (Zero Base64!)
-      const response = await fetch(uri);
-      const arrayBuffer = await response.arrayBuffer();
+      // FIX 1: Pass the RLS policy by putting the userId at the root of the path
+      const fileName = `${userId}/${tripId}_${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      
+      // FIX 2: Use Expo FileSystem to read as Base64 instead of the buggy fetch(uri)
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: 'base64',
+      });
 
-      // 2. Upload the raw bytes directly to Supabase
+      // Upload the decoded raw bytes to Supabase
       const { error: uploadError } = await supabase.storage
         .from('trip-media')
-        .upload(filePath, arrayBuffer, {
+        .upload(fileName, decode(base64), {
           contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`
         });
 
       if (uploadError) throw uploadError;
 
-      // 3. Get the public URL
+      // Get the public URL using the exact same path
       const { data: publicUrlData } = supabase.storage
         .from('trip-media')
-        .getPublicUrl(filePath);
+        .getPublicUrl(fileName);
 
-      // 4. Create the database payload
+      // Create the database payload
       const dbPayload = {
         trip_id: tripId,
         uploader_id: userId,
@@ -142,10 +144,8 @@ export const MediaUtils = {
         type: type
       };
       
-      // Attach to journal entry if applicable
       if (entryId) dbPayload.entry_id = entryId;
 
-      // 5. Insert into the Photos table
       const { data: dbData, error: dbError } = await supabase
         .from('Photos')
         .insert(dbPayload)

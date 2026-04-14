@@ -10,7 +10,7 @@ import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
 
 import TripInfoScrollView from "@/src/components/trip-info/tripInfoScrollView";
-import { useTrip } from "@/src/utils/TripContext";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 import { useRouter } from "expo-router";
 
 // --- Helper: Convert Open-Meteo WMO Codes to MaterialIcons & Colors ---
@@ -34,7 +34,7 @@ const weatherCache = {
 const CACHE_LIMIT_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
 
 export default function Overview() {
-  const tripData = useTrip();
+  const tripData = useTripDashboard();
   
   // Destructure new stats (daysRemaining, completedActivities, memoriesCount)
   const { 

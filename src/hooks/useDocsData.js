@@ -1,24 +1,16 @@
-import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as DocumentPicker from 'expo-document-picker';
+import { useState } from "react";
+import { Alert } from "react-native";
 import { supabase } from "../lib/supabase";
+// Adjust this import path to wherever your MediaUtils file lives!
+import { MediaUtils } from "@/src/utils/MediaUtils";
 
 
-export function useDocsData(tripId, refreshTripData) {
-    const [documents, setDocuments] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [modalVisible, setModalVisible] = useState(false);
-
-    const fetchDocuments = async () => {
-        if (!tripId) {
-        setIsLoading(false);
-        return;
-        }
-
-        try {
-        setIsLoading(true);
-        // FIX: Removed the uploader_id filter so everyone in the group can see the files!
-        const { data: docs, error } = await supabase
-            .from('documents')
-            .select(`
+export const fetchDocumentsAPI = async (tripId) => {
+    const { data: docs, error } = await supabase
+        .from('documents')
+        .select(`
             doc_id,
             file_name,
             file_url,
@@ -26,73 +18,56 @@ export function useDocsData(tripId, refreshTripData) {
             file_type,
             upload_timestamp,
             Users ( first_name, last_name )
-            `)
-            .eq('trip_id', tripId)
-            .order('upload_timestamp', { ascending: false });
+        `)
+        .eq('trip_id', tripId)
+        .order('upload_timestamp', { ascending: false });
 
-        if (error) {
-            console.error("Error fetching documents:", error);
-            return; 
-        }
+    if (error) throw error;
 
-        if (docs) {
-            const formattedDocs = docs.map((doc) => ({
-            id: doc.doc_id,
-            title: doc.file_name,
-            url: doc.file_url,
-            size: doc.file_size_bytes ? doc.file_size_bytes : 'Unknown Size',
-            file_type: doc.file_type,
-            date: new Date(doc.upload_timestamp).toLocaleDateString(),
-            uploader: doc.Users ? `${doc.Users.first_name} ${doc.Users.last_name}` : 'Unknown'
-            }));
-            
-            setDocuments(formattedDocs);
-        }
-        } catch (err) {
-        console.error("Unexpected network/execution error:", err);
-        } finally {
-        setIsLoading(false); 
-        }
-    };
+    return docs.map((doc) => ({
+        id: doc.doc_id,
+        title: doc.file_name,
+        url: doc.file_url,
+        size: doc.file_size_bytes ? doc.file_size_bytes : 'Unknown Size',
+        file_type: doc.file_type,
+        date: new Date(doc.upload_timestamp).toLocaleDateString(),
+        uploader: doc.Users ? `${doc.Users.first_name} ${doc.Users.last_name}` : 'Unknown'
+    }));
+};
 
-    useEffect(() => {
-        fetchDocuments();
-    }, [tripId]);
 
-    const handleRefresh = async () => {
-        if (refreshTripData) await refreshTripData();
-        await fetchDocuments();
-    };
+export function useDocsData(tripId, userId) {
+    const queryClient = useQueryClient();
+    const [modalVisible, setModalVisible] = useState(false);
 
-    const pickDocument = async () => {
-        try {
-        let result = await DocumentPicker.getDocumentAsync({
-            type: '*/*',
-            copyToCacheDirectory: true, 
-        });
+    // 1. Fetching Documents with TanStack
+    const {
+        data: documents = [],
+        isLoading,
+        isFetching,
+        refetch: handleRefresh
+    } = useQuery({
+        queryKey: ['documents', tripId],
+        queryFn: async () => fetchDocumentsAPI(tripId),
+        enabled: !!tripId, 
+        staleTime: 1000 * 60 * 5, 
+    });
 
-        if (result.canceled) {
-            setModalVisible(false);
-            return;
-        }
+    // 2. The Upload Helper (Stays specific to the 'documents' table)
+    const uploadFileToSupabase = async ({ uri, originalName, mimeType, size }) => {
+        if (!userId) throw new Error("User ID is missing!");
 
-        setModalVisible(false);
-        setIsLoading(true);
-
-        const file = result.assets[0];
-        const TEMP_USER_ID = '5b6c11f8-d8d5-45c3-815b-54870bcbb0ad'; 
-
-        const fileExt = file.name.split('.').pop();
-        const fileName = file.name.replace(`.${fileExt}`, '');
+        const fileExt = originalName.split('.').pop() || 'jpg';
+        const fileName = originalName.replace(`.${fileExt}`, '');
         const filePath = `${tripId}/${fileName}-${Date.now()}.${fileExt}`;
 
-        const localFile = new File(file.uri);
-        const arrayBuffer = await localFile.arrayBuffer();
+        const response = await fetch(uri);
+        const arrayBuffer = await response.arrayBuffer();
 
         const { error: uploadError } = await supabase.storage
             .from('trip-documents')
             .upload(filePath, arrayBuffer, { 
-            contentType: file.mimeType || 'application/octet-stream' 
+                contentType: mimeType || 'application/octet-stream' 
             });
 
         if (uploadError) throw uploadError;
@@ -104,84 +79,104 @@ export function useDocsData(tripId, refreshTripData) {
         const { error: dbError } = await supabase
             .from('documents')
             .insert({
-            trip_id: tripId,
-            uploader_id: TEMP_USER_ID,
-            file_name: file.name,
-            file_url: publicUrlData.publicUrl,
-            file_size_bytes: file.size,
-            file_type: fileExt.toLowerCase(),
+                trip_id: tripId,
+                uploader_id: userId,
+                file_name: originalName,
+                file_url: publicUrlData.publicUrl,
+                file_size_bytes: size || 0,
+                file_type: fileExt.toLowerCase(),
             });
 
         if (dbError) throw dbError;
+        return true;
+    };
 
-        await fetchDocuments();
+    // 3. TanStack Mutation for Uploading Files
+    const uploadMutation = useMutation({
+        mutationFn: uploadFileToSupabase,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['documents', tripId] });
+            setModalVisible(false);
+        },
+        onError: (error) => {
+            console.error("Error uploading file:", error);
+            Alert.alert("Upload Error", "There was an issue uploading your file.");
+            setModalVisible(false);
+        }
+    });
 
+    // 4. File Picker Triggers
+    const pickDocument = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: '*/*',
+                copyToCacheDirectory: true, 
+            });
+
+            if (!result.canceled) {
+                const file = result.assets[0];
+                uploadMutation.mutate({
+                    uri: file.uri, 
+                    originalName: file.name, 
+                    mimeType: file.mimeType, 
+                    size: file.size
+                });
+            }
         } catch (error) {
-        console.error("Error uploading document:", error);
-        alert("There was an issue uploading your document.");
-        } finally {
-        setIsLoading(false);
+            console.error("Document picker error:", error);
         }
     };
 
-    const handleImageUpload = async (mediaFunction) => {
+    // 🌟 REFACTORED TO USE YOUR MEDIA UTILS
+    const pickImage = async () => {
         try {
-        const uri = await mediaFunction();
-        if (!uri) return; 
-
-        setModalVisible(false);
-        setIsLoading(true);
-
-        const TEMP_USER_ID = '5b6c11f8-d8d5-45c3-815b-54870bcbb0ad'; 
-        const fileExt = uri.split('.').pop() || 'jpg';
-        const fileName = `Photo_${Date.now()}`;
-        const filePath = `${tripId}/${fileName}.${fileExt}`;
-
-        const localFile = new File(uri);
-        const arrayBuffer = await localFile.arrayBuffer();
-
-        const { error: uploadError } = await supabase.storage
-            .from('trip-documents')
-            .upload(filePath, arrayBuffer, { 
-            contentType: `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}` 
-            });
-
-        if (uploadError) throw uploadError;
-
-        const { data: publicUrlData } = supabase.storage
-            .from('trip-documents')
-            .getPublicUrl(filePath);
-
-        const { error: dbError } = await supabase
-            .from('documents')
-            .insert({
-            trip_id: tripId,
-            uploader_id: TEMP_USER_ID,
-            file_name: `${fileName}.${fileExt}`,
-            file_url: publicUrlData.publicUrl,
-            file_size_bytes: 0, 
-            file_type: fileExt.toLowerCase(),
-            });
-
-        if (dbError) throw dbError;
-
-        await fetchDocuments();
-
+            const uri = await MediaUtils.pickImage();
+            
+            // If uri is null, the user canceled or denied permission
+            if (uri) {
+                // MediaUtils returns compressed JPEGs, so we can safely assume the extension
+                const fileName = `Photo_${Date.now()}.jpg`;
+                uploadMutation.mutate({
+                    uri: uri, 
+                    originalName: fileName, 
+                    mimeType: 'image/jpeg', 
+                    size: 0 // Size is recalculated safely in Supabase Storage
+                });
+            }
         } catch (error) {
-        console.error("Error uploading image:", error);
-        alert("There was an issue uploading your image.");
-        } finally {
-        setIsLoading(false);
+            console.error("Image picker error:", error);
+        }
+    };
+
+    // 🌟 REFACTORED TO USE YOUR MEDIA UTILS
+    const takePhoto = async () => {
+        try {
+            const uri = await MediaUtils.takePhoto();
+            
+            // If uri is null, the user canceled or denied permission
+            if (uri) {
+                const fileName = `Camera_${Date.now()}.jpg`;
+                uploadMutation.mutate({
+                    uri: uri, 
+                    originalName: fileName, 
+                    mimeType: 'image/jpeg', 
+                    size: 0
+                });
+            }
+        } catch (error) {
+            console.error("Camera error:", error);
         }
     };
 
     return {
         documents,
-        isLoading,
+        isLoading: isLoading || uploadMutation.isPending,
+        isRefreshing: isFetching && !isLoading,
         modalVisible,
         setModalVisible,
         handleRefresh,
         pickDocument,
-        handleImageUpload
-    }
+        pickImage,
+        takePhoto
+    };
 }

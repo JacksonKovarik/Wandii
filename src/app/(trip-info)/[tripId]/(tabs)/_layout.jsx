@@ -1,9 +1,9 @@
 import TripInfoTabBar from "@/src/components/trip-info/tripInfoTabBar";
 import { Colors } from "@/src/constants/colors";
 import { useAuth } from "@/src/context/AuthContext";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 import { supabase } from "@/src/lib/supabase";
 import DateUtils from "@/src/utils/DateUtils";
-import { useTrip } from "@/src/utils/TripContext";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Image } from "expo-image";
@@ -14,6 +14,11 @@ import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { moderateScale } from "react-native-size-matters";
 
+// 1. Swap your context import for your new TanStack hook
+
+// ==========================================
+// HELPER COMPONENTS
+// ==========================================
 const HeaderButton = ({ icon, onPress }) => (
   <TouchableOpacity onPress={onPress}>
     <BlurView
@@ -34,71 +39,53 @@ const HeaderButton = ({ icon, onPress }) => (
   </TouchableOpacity>
 );
 
-const CustomHeader = ({ trip }) => {
-  const router = useRouter();
-  const navigation = useNavigation();
+// 2. CustomHeader now consumes the hook directly instead of receiving props!
+const CustomHeader = () => {
+    const router = useRouter();
+    const navigation = useNavigation();
+    
+    // Pull exactly what we need from the cache instantly
+    const { tripId, image, name, startDate, endDate } = useTripDashboard();
 
-  const goBack = () => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      router.replace("/");
-    }
-  };
+    const goBack = () => {
+        if (navigation.canGoBack()) {
+            navigation.goBack();
+        } else {
+            router.replace('/'); 
+        }
+    };
 
-  return (
-    <View style={styles.headerContainer}>
-      <Image source={trip.image} style={styles.gradient} contentFit="cover" cachePolicy="memory-disk" />
-      <LinearGradient
-        style={styles.gradient}
-        colors={["rgba(0,0,0,0)", "rgba(0,0,0,.2)", "rgba(0,0,0,.6)", "rgba(0,0,0,0.8)"]}
-        locations={[0, 0.49, 0.78, 1]}
-      />
+    return (
+        <View style={styles.headerContainer}>
+            <Image source={image} style={styles.gradient} contentFit='cover' cachePolicy='memory-disk' />
+            <LinearGradient style={styles.gradient} colors={['rgba(0,0,0,0)', 'rgba(0,0,0,.2)', 'rgba(0,0,0,.6)', 'rgba(0,0,0,0.8)']} locations={[0, 0.49, 0.78, 1]} />
 
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          paddingHorizontal: "5%",
-          paddingTop: moderateScale(65),
-        }}
-      >
-        <HeaderButton icon="arrow-back" onPress={goBack} />
-        <View style={{ flexDirection: "row", alignItems: "center", gap: moderateScale(12) }}>
-          <HeaderButton icon="search" onPress={() => console.log("search")} />
-          <HeaderButton
-            icon="settings"
-            onPress={() => router.navigate(`/(trip-info)/${trip.id}/(settings)/settings`)}
-          />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: '5%', paddingTop: moderateScale(65) }}>
+                <HeaderButton icon="arrow-back" onPress={goBack}/>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(12) }}>
+                    <HeaderButton icon="settings" onPress={() => router.navigate(`/(trip-info)/${tripId}/(settings)/settings`)} />
+                </View>
+            </View>
+            
+            <View style={ styles.contentWrapper }>
+                <View style={ styles.spacer } />
+                <View style={ styles.textContainer }>
+                    <Text style={ styles.destination } numberOfLines={2}>{ name }</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: moderateScale(6) }}>
+                        <MaterialIcons name="calendar-today" size={moderateScale(12)} color="white" />
+                        <Text style={ styles.dateRange }>
+                          { DateUtils.formatRange(DateUtils.parseYYYYMMDDToDate(startDate), DateUtils.parseYYYYMMDDToDate(endDate)) }
+                        </Text>
+                    </View>
+                </View>
+            </View>
+            <TripInfoTabBar tripId={ tripId }/>
         </View>
-      </View>
-
-      <View style={styles.contentWrapper}>
-        <View style={styles.spacer} />
-        <View style={styles.textContainer}>
-          <Text style={styles.destination} numberOfLines={2}>
-            {trip.name}
-          </Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: moderateScale(6) }}>
-            <MaterialIcons name="calendar-today" size={moderateScale(12)} color="white" />
-            <Text style={styles.dateRange}>
-              {DateUtils.formatRange(
-                DateUtils.parseYYYYMMDDToDate(trip.startDate),
-                DateUtils.parseYYYYMMDDToDate(trip.endDate)
-              )}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <TripInfoTabBar tripId={trip.id} />
-    </View>
   );
 };
 
 export default function TripTabsLayout() {
-  const tripData = useTrip();
+  const tripData = useTripDashboard();
   const { user } = useAuth();
   const pathname = usePathname();
   const [hasUnreadChats, setHasUnreadChats] = useState(false);

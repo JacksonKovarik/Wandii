@@ -1,6 +1,8 @@
 import { Colors } from "@/src/constants/colors";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard"; // ADDED
 import { supabase } from "@/src/lib/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useQueryClient } from '@tanstack/react-query'; // ADDED
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -8,22 +10,21 @@ import { moderateScale } from "react-native-size-matters";
 
 import LocationSearchBar from "@/src/components/locationSearchBar";
 import { createTripDestinationLink } from "@/src/lib/trips";
-import { useTrip } from "@/src/utils/TripContext";
 
 export default function EditDestinationsScreen() {
   const router = useRouter();
-  const tripData = useTrip();
-  const tripId = tripData?.trip_id || tripData?.id; 
-  const [destinations, setDestinations] = useState([]);
-
-  const { updateTripContext } = tripData;
+  const queryClient = useQueryClient();
   
-  // Load existing destinations
-  // Load existing destinations
+  // Fetch from new hook instead of useTrip
+  const { tripId, destination, startDate, endDate } = useTripDashboard(); 
+  
+  const [destinations, setDestinations] = useState([]);
+  const destinationDependency = JSON.stringify(destination);
+ 
   useEffect(() => {
-    if (tripData && tripData.destination) {
-      if (typeof tripData.destination === 'string') {
-        const parsedDestinations = tripData.destination
+    if (destination) {
+      if (typeof destination === 'string') {
+        const parsedDestinations = destination
           .split('&') 
           .map(dest => dest.trim()) 
           .filter(dest => dest.length > 0) 
@@ -32,42 +33,21 @@ export default function EditDestinationsScreen() {
             name: destName
           }));
         setDestinations(parsedDestinations);
-        
-      } else if (Array.isArray(tripData.destination)) {
-        // 1. Map the array into a completely new array
-        const parsedDestinations = tripData.destination.map((dest, index) => {
-            // Failsafe in case a string accidentally snuck into the array
-            if (typeof dest === 'string') {
-              return { id: `initial-${index}-${Date.now()}`, name: dest };
-            }
-
-            const displayCountry = (dest.country && dest.country.length > 10 && dest.country_code) 
-              ? dest.country_code 
-              : dest.country;
-            
-            // Allow for fallbacks so it doesn't return an empty string if city is missing
-            const name = (dest.city && displayCountry) 
-              ? `${dest.city}, ${displayCountry}` 
-              : (dest.city || displayCountry || dest.name || 'Unknown Destination');
-            
-            return { 
-                id: `initial-${index}-${Date.now()}`, 
-                name 
-            };
+      } else if (Array.isArray(destination)) {
+        const parsedDestinations = destination.map((dest, index) => {
+            if (typeof dest === 'string') return { id: `initial-${index}-${Date.now()}`, name: dest };
+            const displayCountry = (dest.country && dest.country.length > 10 && dest.countryCode) ? dest.countryCode : dest.country;
+            const name = (dest.city && displayCountry) ? `${dest.city}, ${displayCountry}` : (dest.city || displayCountry || dest.name || 'Unknown Destination');
+            return { id: `initial-${index}-${Date.now()}`, name };
         });
-
-        // 2. Set the state exactly once, OVERWRITING previous state instead of appending
         setDestinations(parsedDestinations);
       }
     } else {
-        // Clear destinations if tripData.destination becomes empty
         setDestinations([]);
     }
-  }, [tripData]);
+  }, [destinationDependency]);
 
-  // ==========================================
-  // SAVE DESTINATION
-  // ==========================================
+  
   const handleSelectLocation = async (item) => {
     const city = item.address?.city || item.address?.town || item.address?.village || item.address?.county || item.address?.state;
     const country = item.address?.country;
@@ -75,70 +55,60 @@ export default function EditDestinationsScreen() {
     const lat = parseFloat(item.lat);
     const lng = parseFloat(item.lon);
     
-    const displayCountry = (country && country.length > 10 && countryCode) 
-      ? countryCode 
-      : country;
+    const displayCountry = (country && country.length > 10 && countryCode) ? countryCode : country;
     const displayName = city && displayCountry ? `${city}, ${displayCountry}` : item.display_name.split(',')[0];
 
-    // 3. Optimistic UI update
     const newDest = { id: Date.now().toString(), name: displayName };
+    const newDestObj = { name: displayName, city: city || null, country: country || null, countryCode: countryCode || null, latitude: lat, longitude: lng };
+
+    // 1. Optimistic update to Local UI
     setDestinations([...destinations, newDest]);
     
-    const newDestObj = {
-      name: displayName,
-      city: city || null,
-      country: country || null,
-      countryCode: countryCode || null,
-      latitude: lat,
-      longitude: lng
-    };
+    // 2. Optimistic update to TanStack Query Cache instead of Context
+    queryClient.setQueryData(['tripDashboard', tripId], (old) => {
+      if (!old) return old;
+      const currentDests = Array.isArray(old.destination) ? old.destination : [];
+      return { ...old, destination: [...currentDests, newDestObj] };
+    });
 
-    if (updateTripContext) {
-      // Ensure we are working with an array, then append the new destination
-      const currentContextDests = Array.isArray(tripData.destination) ? tripData.destination : [];
-      updateTripContext({ destination: [...tripData.destination, newDestObj] });
-    }
-
-    createTripDestinationLink(tripId, [newDestObj], tripData.startDate, tripData.endDate);
+    // 3. Save to DB
+    createTripDestinationLink(tripId, [newDestObj], startDate, endDate);
   };
 
   const handleDelete = async (itemToRemove) => {
-    // 1. Optimistically update the UI instantly so it feels snappy
+    // 1. Optimistically update the UI instantly
     setDestinations(prev => prev.filter(dest => dest.id !== itemToRemove.id));
 
     try {
-      // 2. Parse the city and country from our display name (e.g. "Paris, France")
       const nameParts = itemToRemove.name.split(',');
       const city = nameParts[0].trim();
       const country = nameParts.length > 1 ? nameParts[1].trim() : null;
-      console.log(city, country)
 
       const { data: cachedDest, error: fetchError } = await supabase
         .from('cached_destinations')
         .select('destination_id')
         .eq('city', city)
-        .eq('country', country)
-        // .single();
+        .eq('country', country);
 
-      if (fetchError || !cachedDest) {
-        console.warn("Could not find destination in cache to delete:", fetchError);
-        return; 
-      }
+      if (fetchError || !cachedDest) return; 
 
-      // 4. Delete the relationship from Trip_Destinations
-      const { error: deleteError } = await supabase
+      // 2. Fire deletion to DB
+      await supabase
         .from('Trip_Destinations')
         .delete()
-        .match({ 
-          trip_id: tripId, 
-          destination_id: cachedDest.destination_id 
-        });
+        .match({ trip_id: tripId, destination_id: cachedDest[0]?.destination_id });
 
-      if (deleteError) throw deleteError;
+      // 3. 憖 Update TanStack Cache to reflect the removal in the background
+      queryClient.setQueryData(['tripDashboard', tripId], (old) => {
+        if (!old || !Array.isArray(old.destination)) return old;
+        return {
+          ...old,
+          destination: old.destination.filter(d => d.city !== city)
+        };
+      });
 
     } catch (error) {
       console.error("Database error deleting destination:", error);
-      // Optional: If the database deletion fails, you could add it back to the UI state here
     }
   };
 

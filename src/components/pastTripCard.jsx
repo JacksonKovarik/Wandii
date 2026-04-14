@@ -68,6 +68,7 @@ const PastTripCard = ({ trip }) => {
       {/* 4. Memory Details */}
       <View style={styles.contentContainer}>
         <View style={styles.dateBadge}>
+          <BlurView intensity={35} tint="light" style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0}}/>
           <Ionicons name="calendar" size={12} color="#FFB97A" />
           <Text style={styles.dateText}>{dateLabel}</Text>
         </View>
@@ -152,8 +153,12 @@ const styles = StyleSheet.create({
   dateBadge: {
     flexDirection: "row",
     alignItems: "center",
+    alignSelf: 'flex-start',
+    borderRadius: 5,
+    overflow: 'hidden',
     gap: scale(6),
-    marginBottom: verticalScale(8),
+    padding: 3,
+    marginBottom: verticalScale(5),
   },
   dateText: {
     fontSize: moderateScale(12),

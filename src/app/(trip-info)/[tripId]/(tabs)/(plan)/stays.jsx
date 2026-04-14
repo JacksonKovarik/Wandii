@@ -3,16 +3,13 @@ import ReusableTabBar from "@/src/components/reusableTabBar";
 import StayCard from "@/src/components/trip-info/stays/stayCard";
 import TripInfoScrollView from "@/src/components/trip-info/tripInfoScrollView";
 import { Colors } from "@/src/constants/colors";
-import { supabase } from '@/src/lib/supabase';
-import DateUtils from "@/src/utils/DateUtils";
-import { getCoordinatesForAddress } from "@/src/utils/LocationUtils";
-import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { moderateScale } from "react-native-size-matters";
-
+// NEW IMPORT:
+import { useStaysData } from "@/src/hooks/useStaysData";
+import { useTripDashboard } from "@/src/hooks/useTripDashboard";
 
 // FIX: Bulletproof date formatting to prevent Hermes engine crashes on Android
 const formatSelectedDate = (date) => {
@@ -28,151 +25,27 @@ const formatSelectedDate = (date) => {
 };
 
 export default function Stays() {
-  const tripData = useTrip();
+  const tripData = useTripDashboard();
   const { tripId, destination } = tripData;
 
-  // --- LOCAL DATA STATE ---
-  const [staysData, setStaysData] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // 🔥 One hook does all the heavy lifting!
+  const {
+    staysData,
+    isLoading,
+    isSaving,
+    isModalVisible, setModalVisible,
+    stayForm, setStayForm,
+    isDatePickerVisible, datePickerTarget,
+    fetchStays,
+    handleDeletePress,
+    handleOpenAdd,
+    handleOpenEdit,
+    handleSaveStay,
+    showDatePicker,
+    hideDatePicker,
+    handleConfirmDate
+  } = useStaysData(tripId, destination);
 
-  // --- FORM STATE ---
-  const defaultStayState = { id: null, title: '', address: '', checkIn: null, checkOut: null };
-  const [isModalVisible, setModalVisible] = useState(false);
-  const [stayForm, setStayForm] = useState(defaultStayState);
-  
-  const [isDatePickerVisible, setDatePickerVisible] = useState(false);
-  const [datePickerTarget, setDatePickerTarget] = useState(null);
-
-  // --- DATABASE ACTIONS ---
-
-  // 1. Fetch Stays
-  const fetchStays = async () => {
-    if (!tripId) return;
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('Accommodations')
-        .select('*')
-        .eq('trip_id', tripId)
-        .order('check_in', { ascending: true }); // Chronological order!
-
-      if (error) throw error;
-      setStaysData(data || []);
-    } catch (err) {
-      console.error("Error fetching stays:", err);
-      Alert.alert("Error", "Could not load accommodations.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Run on mount
-  useEffect(() => {
-    fetchStays();
-  }, [tripId]);
-
-  // 2. Delete Stay
-  const handleDeletePress = (stayId) => {
-    Alert.alert(
-      "Delete Stay",
-      "Are you sure you want to remove this accommodation?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from('Accommodations')
-                .delete()
-                .eq('accommodation_id', stayId);
-              
-              if (error) throw error;
-              fetchStays(); // Refresh list after delete
-            } catch (err) {
-              console.error("Delete Error:", err);
-              Alert.alert("Error", "Could not delete stay.");
-            }
-        }}
-      ]
-    );
-  };
-
-  const handleOpenAdd = () => {
-    setStayForm(defaultStayState);
-    setModalVisible(true);
-  };
-
-  const handleOpenEdit = (stay) => {
-    setStayForm({
-      id: stay.accommodation_id, // Map DB ID
-      title: stay.title,
-      address: stay.address,
-      checkIn: stay.check_in ? new Date(stay.check_in) : null, // Map DB snake_case to UI camelCase
-      checkOut: stay.check_out ? new Date(stay.check_out) : null,
-    });
-    setModalVisible(true);
-  };
-
-  // 3. Save / Update Stay
-  const handleSaveStay = async () => {
-    try {
-      let coords;
-      if (stayForm.address) {
-        coords = await getCoordinatesForAddress(stayForm.address, destination);      
-      }
-
-      const dbPayload = {
-        trip_id: tripId,
-        title: stayForm.title,
-        address: stayForm.address,
-        // FIX: Replaced .toISOString() with toLocalISOString() to prevent timezone shifting
-        check_in: DateUtils.toLocalISOString(stayForm.checkIn),
-        check_out: DateUtils.toLocalISOString(stayForm.checkOut),
-        latitude: coords?.latitude || null,  
-        longitude: coords?.longitude || null,      
-      };
-
-      if (stayForm.id) {
-        // UPDATE
-        const { error } = await supabase
-          .from('Accommodations')
-          .update(dbPayload)
-          .eq('accommodation_id', stayForm.id);
-        
-        if (error) throw error;
-      } else {
-        // INSERT
-        const { error } = await supabase
-          .from('Accommodations')
-          .insert(dbPayload);
-          
-        if (error) throw error;
-      }
-      
-      setModalVisible(false);
-      setStayForm(defaultStayState);
-      fetchStays(); // Refresh UI
-
-    } catch (err) {
-      console.error("Save Error:", err);
-      Alert.alert("Error", "Could not save accommodation details.");
-    }
-  };
-
-  // --- DATE PICKER LOGIC ---
-  const showDatePicker = (target) => {
-    setDatePickerTarget(target);
-    setDatePickerVisible(true);
-  };
-
-  const hideDatePicker = () => {
-    setDatePickerVisible(false);
-    setDatePickerTarget(null);
-  };
-
-  const handleConfirmDate = (date) => {
-    setStayForm(prev => ({ ...prev, [datePickerTarget]: date }));
-    hideDatePicker();
-  };
 
   // FIX: Wrapped everything in a root View and placed AnimatedBottomSheet outside the ScrollView
   return (
@@ -264,7 +137,6 @@ export default function Stays() {
                 <Text style={styles.sectionLabel}>CHECK IN</Text>
                 <TouchableOpacity style={styles.dateSelector} onPress={() => showDatePicker('checkIn')}>
                   <MaterialIcons name="calendar-today" size={16} color={stayForm.checkIn ? Colors.darkBlue : '#94a3b8'} />
-                  {/* FIX: Used formatSelectedDate helper for Android Hermes compatibility */}
                   <Text style={stayForm.checkIn ? styles.dateSelectorText : styles.dateSelectorPlaceholder}>
                     {stayForm.checkIn ? formatSelectedDate(stayForm.checkIn) : 'Select date & time'}
                   </Text>
@@ -275,7 +147,6 @@ export default function Stays() {
                 <Text style={styles.sectionLabel}>CHECK OUT</Text>
                 <TouchableOpacity style={styles.dateSelector} onPress={() => showDatePicker('checkOut')}>
                   <MaterialIcons name="calendar-today" size={16} color={stayForm.checkOut ? Colors.darkBlue : '#94a3b8'} />
-                  {/* FIX: Used formatSelectedDate helper for Android Hermes compatibility */}
                   <Text style={stayForm.checkOut ? styles.dateSelectorText : styles.dateSelectorPlaceholder}>
                     {stayForm.checkOut ? formatSelectedDate(stayForm.checkOut) : 'Select date & time'}
                   </Text>
@@ -284,12 +155,12 @@ export default function Stays() {
             </View>
 
             <TouchableOpacity 
-              style={[styles.premiumSubmitButton, (!stayForm.title || !stayForm.address) && styles.premiumSubmitDisabled]} 
-              disabled={!stayForm.title || !stayForm.address}
+              style={[styles.premiumSubmitButton, (!stayForm.title || !stayForm.address || isSaving) && styles.premiumSubmitDisabled]} 
+              disabled={!stayForm.title || !stayForm.address || isSaving}
               onPress={handleSaveStay}
             >
               <Text style={styles.premiumSubmitText}>
-                {stayForm.id ? 'Update Stay' : 'Save Stay'}
+                {isSaving ? 'Saving...' : (stayForm.id ? 'Update Stay' : 'Save Stay')}
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -340,7 +211,7 @@ const styles = StyleSheet.create({
     borderRadius: moderateScale(16),
     padding: moderateScale(24),
     borderWidth: 1.5,
-    borderColor: '#e2e8f0', // A nice light gray
+    borderColor: '#e2e8f0', 
     borderStyle: 'dashed',
     alignItems: 'center',
   },
