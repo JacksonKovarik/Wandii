@@ -26,6 +26,8 @@ export default function Index() {
   const [mode, setMode] = useState("sign-in");
 
   // input fields
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -33,6 +35,8 @@ export default function Index() {
 
   // validation errors
   const [errors, setErrors] = useState({
+    firstName: false,
+    lastName: false,
     email: false,
     password: false,
     confirm: false,
@@ -52,12 +56,14 @@ export default function Index() {
 
   // clears all input fields
   function resetFields() {
+    setFirstName("");
+    setLastName("");
     setEmail("");
     setPassword("");
     setConfirm("");
     setShowPassword(false);
     setShowConfirm(false);
-    setErrors({ email: false, password: false, confirm: false });
+    setErrors({ firstName: false, lastName: false, email: false, password: false, confirm: false });
   }
 
   // keyboard animation
@@ -145,12 +151,24 @@ export default function Index() {
     const emailValid = /\S+@\S+\.\S+/.test(email.trim());
 
     const newErrors = {
+      firstName: firstName.trim() === "",
+      lastName: lastName.trim() === "",
       email: email.trim() === "" || !emailValid,
       password: password === "",
       confirm: confirm === "",
     };
 
     setErrors(newErrors);
+
+    if (firstName.trim() === "") {
+      Alert.alert("First Name Required", "Please enter your first name.");
+      return;
+    }
+
+    if (lastName.trim() === "") {
+      Alert.alert("Last Name Required", "Please enter your last name.");
+      return;
+    }
 
     if (email.trim() === "") {
       Alert.alert("Email Required", "Please enter your email address.");
@@ -183,6 +201,12 @@ export default function Index() {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
+        options: {
+          data: {
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+          }
+        }
       });
 
       if (error) {
@@ -248,6 +272,31 @@ export default function Index() {
                 },
               ]}
             >
+              {mode === "sign-up" && (
+                <>
+                  <TextInput
+                    style={[styles.input, errors.firstName && styles.errorInput]}
+                    placeholder="First Name"
+                    placeholderTextColor="#6B7280"
+                    value={firstName}
+                    onChangeText={(t) => {
+                      setFirstName(t);
+                      setErrors({ ...errors, firstName: false });
+                    }}
+                  />
+                  <TextInput
+                    style={[styles.input, errors.lastName && styles.errorInput]}
+                    placeholder="Last Name"
+                    placeholderTextColor="#6B7280"
+                    value={lastName}
+                    onChangeText={(t) => {
+                      setLastName(t);
+                      setErrors({ ...errors, lastName: false });
+                    }}
+                  />
+                </>
+              )}
+
               <TextInput
                 style={[styles.input, errors.email && styles.errorInput]}
                 placeholder="Email"

@@ -7,7 +7,7 @@ export default function RecentDestinations({ destinations }) {
   const recent = (destinations || []).slice(0, 5);
 
   return (
-    <View>
+    <View style={{ marginBottom: 20 }}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Recent Destinations</Text>
 

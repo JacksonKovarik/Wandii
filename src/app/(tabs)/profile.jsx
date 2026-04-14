@@ -55,7 +55,6 @@ export default function Profile() {
     try {
       setLoggingOut(true);
       await signOut();
-      router.replace('/(auth)/welcome');
     } catch (error) {
       console.warn('Logout failed', error);
       setLoggingOut(false);
@@ -78,7 +77,7 @@ export default function Profile() {
         initials={initials} 
       />
 
-      <TripInfoScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 60 }} onRefresh={onRefresh}>
+      <TripInfoScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 60, paddingHorizontal: '5%' }} onRefresh={onRefresh}>
         <View style={styles.editButtonWrap}>
           <TouchableOpacity
             style={styles.editButton}
