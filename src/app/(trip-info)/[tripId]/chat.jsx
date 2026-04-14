@@ -6,8 +6,9 @@ import { supabase } from "@/src/lib/supabase";
 import { useTrip } from "@/src/utils/TripContext";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
@@ -16,43 +17,49 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
-// 1 hour in milliseconds
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
 const shouldShowTimestamp = (currentMessage, previousMessage) => {
-  // Always show on the very first message
-  if (!previousMessage) return true; 
+  if (!previousMessage) return true;
 
-  // Make sure you are pulling 'created_at' from your Supabase query!
-  const currentTime = new Date(currentMessage.created_at).getTime();
-  const prevTime = new Date(previousMessage.created_at).getTime();
+  const currentTime = new Date(currentMessage.sent_at).getTime();
+  const prevTime = new Date(previousMessage.sent_at).getTime();
 
-  return (currentTime - prevTime) > ONE_HOUR_MS;
+  if (!Number.isFinite(currentTime) || !Number.isFinite(prevTime)) {
+    return true;
+  }
+
+  return currentTime - prevTime > ONE_HOUR_MS;
 };
 
 const formatChatTimestamp = (dateString) => {
   if (!dateString) return "";
   const date = new Date(dateString);
-  
-  // Format example: "Today 1:50 PM" or "Sun, 1:50 PM"
-  // For a simpler version, we'll just do "Jan 12, 1:50 PM"
-  return date.toLocaleDateString([], { 
-    month: 'short', 
-    day: 'numeric', 
-    hour: 'numeric', 
-    minute: '2-digit' 
+
+  return date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 };
 
 const formatTimeOnly = (dateString) => {
   if (!dateString) return "";
-  return new Date(dateString).toLocaleTimeString([], { 
-    hour: 'numeric', 
-    minute: '2-digit' 
+  return new Date(dateString).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
   });
+};
+
+const getSenderName = (sender) => {
+  if (!sender) return "Traveler";
+
+  const fullName = [sender.first_name, sender.last_name].filter(Boolean).join(" ").trim();
+  return fullName || sender.username || "Traveler";
 };
 
 export default function Chat() {
@@ -64,89 +71,95 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [inputHeight, setInputHeight] = useState(40);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
   const flatListRef = useRef(null);
 
-  useEffect(() => {
-    let intervalId;
+  const fetchMessages = useCallback(async () => {
+    if (!tripId) return;
 
-    const fetchMessages = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("Messages")
-          .select("*, Users(first_name)")
-          .eq("trip_id", tripId)
-          .order("sent_at", { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from("Messages")
+        .select("message_id, sender_id, body, sent_at, Users(first_name, last_name, username, avatar_url)")
+        .eq("trip_id", tripId)
+        .order("sent_at", { ascending: true });
 
-        if (error) {
-          console.error("Error fetching messages:", error);
-          return;
-        }
-        setMessages(data);
-      } catch (err) {
-        console.error("Unexpected error fetching messages:", err);
+      if (error) {
+        throw error;
       }
-    };
 
-    // 1. Fetch immediately when the screen loads
-    fetchMessages();
-
-    // 2. Poll the database every 3 seconds for updates
-    intervalId = setInterval(() => {
-      fetchMessages();
-    }, 3000);
-
-    // 3. Clean up the timer when leaving the chat
-    return () => {
-      clearInterval(intervalId);
-    };
+      setMessages(data || []);
+    } catch (err) {
+      console.error("Unexpected error fetching messages:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [tripId]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [fetchMessages]);
+
+  useEffect(() => {
+    if (!tripId) return undefined;
+
+    const channel = supabase
+      .channel(`trip-chat-${tripId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "Messages",
+          filter: `trip_id=eq.${tripId}`,
+        },
+        () => {
+          fetchMessages();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchMessages, tripId]);
+
   const sendMessage = async () => {
     const messageText = input.trim();
-    if (!messageText || !user?.id) return;
 
-    // 1. Clear input immediately so the UI feels instantly responsive
-    setInput("");
-    setInputHeight(40);
+    if (!messageText || !user?.id || !tripId || sending) return;
 
-    const tempId = Date.now().toString();
+    try {
+      setSending(true);
+      setInput("");
+      setInputHeight(40);
 
-    // 2. Optimistic UI update (shows the message instantly)
-    setMessages(prev => [
-      ...prev,
-      { id: tempId, body: messageText, sender_id: user.id }, // Make sure these keys match how you render items in your FlatList
-    ]);
+      const { error } = await supabase.from("Messages").insert({
+        body: messageText,
+        sender_id: user.id,
+        trip_id: tripId,
+      });
 
-    // 3. Insert into Supabase
-    const { data, error } = await supabase
-      .from("Messages")
-      .insert({ 
-        body: messageText, 
-        sender_id: user.id, // Update this to match your actual column name
-        trip_id: tripId,     // Assuming messages are tied to a specific trip/group
-        sent_at: new Date().toISOString()
-      })
-      .select() // Add .select() to return the newly inserted row (with the real DB ID)
-      .single();
+      if (error) {
+        throw error;
+      }
 
-    // 4. Handle the result
-    if (error) {
+      await fetchMessages();
+    } catch (error) {
       console.error("Error sending message:", error);
-      // Optional: If it fails, remove the optimistic message so they know it didn't send
-      setMessages(prev => prev.filter(msg => msg.id !== tempId));
-      return;
+      setInput(messageText);
+    } finally {
+      setSending(false);
     }
-
-    // 5. Replace the temporary ID with the real database ID
-    setMessages(prev =>
-      prev.map(msg => (msg.id === tempId ? { ...msg, id: data.id } : msg))
-    );
   };
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
-    const showSub = Keyboard.addListener(showEvent, e => {
+    const showSub = Keyboard.addListener(showEvent, (e) => {
       setKeyboardHeight(e.endCoordinates.height);
     });
 
@@ -163,8 +176,7 @@ export default function Chat() {
   const bottomPosition = keyboardHeight > 0 ? keyboardHeight + 8 : 45;
   const isMultiline = inputHeight > 40;
 
-  const handleClose = () => router.back()
-
+  const handleClose = () => router.back();
 
   return (
     <View style={styles.container}>
@@ -174,14 +186,20 @@ export default function Chat() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Chat</Text>
       </View>
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={0}
       >
         <View style={styles.chatArea}>
+          {loading ? (
+            <View style={styles.loadingState}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+          ) : null}
 
-          {messages.length === 0 && (
+          {!loading && messages.length === 0 && (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Start the conversation…</Text>
             </View>
@@ -190,37 +208,35 @@ export default function Chat() {
           <FlatList
             ref={flatListRef}
             data={messages}
-            keyExtractor={(item, index) => item.id || item.message_id || index.toString()}
+            keyExtractor={(item, index) =>
+              item.message_id?.toString?.() || index.toString()
+            }
             contentContainerStyle={styles.messagesContainer}
-
             onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
             onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
             ListFooterComponent={<View style={{ height: 100 }} />}
             renderItem={({ item, index }) => {
-              const isMyMessage = item.sender_id === user?.id; 
-              
-              // Grab the previous message if it exists
+              const isMyMessage = item.sender_id === user?.id;
               const previousMessage = index > 0 ? messages[index - 1] : null;
               const showTimestamp = shouldShowTimestamp(item, previousMessage);
+              const senderName = getSenderName(item.Users);
 
               return (
                 <View>
-                  {/* Render the Timestamp Banner if the 1-hour condition is met */}
                   {showTimestamp && (
                     <Text style={styles.timestampBanner}>
-                      {formatChatTimestamp(item.sent_at || new Date().toISOString())}
+                      {formatChatTimestamp(item.sent_at)}
                     </Text>
                   )}
 
-                  <View style={[
-                    styles.messageWrapper, 
-                    isMyMessage ? styles.myMessageWrapper : styles.theirMessageWrapper
-                  ]}>
-                    
+                  <View
+                    style={[
+                      styles.messageWrapper,
+                      isMyMessage ? styles.myMessageWrapper : styles.theirMessageWrapper,
+                    ]}
+                  >
                     {!isMyMessage && (
-                      <Text style={styles.senderName}>
-                        {item.Users.first_name || "Unknown"}
-                      </Text>
+                      <Text style={styles.senderName}>{senderName}</Text>
                     )}
 
                     <View
@@ -232,16 +248,21 @@ export default function Chat() {
                       <Text
                         style={[
                           styles.messageText,
-                          isMyMessage ? { color: "#FFFFFF" } : { color: Colors.darkBlue },
+                          isMyMessage ? styles.myMessageText : styles.theirMessageText,
                         ]}
                       >
                         {item.body}
                       </Text>
                     </View>
-                    <Text style={[
-                      styles.tinyTimestamp, 
-                      isMyMessage ? { alignSelf: 'flex-end', marginRight: 4 } : { alignSelf: 'flex-start', marginLeft: 4 }
-                    ]}>
+
+                    <Text
+                      style={[
+                        styles.tinyTimestamp,
+                        isMyMessage
+                          ? { alignSelf: "flex-end", marginRight: 4 }
+                          : { alignSelf: "flex-start", marginLeft: 4 },
+                      ]}
+                    >
                       {formatTimeOnly(item.sent_at)}
                     </Text>
                   </View>
@@ -267,13 +288,20 @@ export default function Chat() {
             value={input}
             onChangeText={setInput}
             multiline
-            onContentSizeChange={e =>
+            onContentSizeChange={(e) =>
               setInputHeight(Math.min(e.nativeEvent.contentSize.height, 120))
             }
           />
 
-          <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
-            <Text style={styles.sendIcon}>➤</Text>
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              (!input.trim() || sending) && styles.sendButtonDisabled,
+            ]}
+            onPress={sendMessage}
+            disabled={!input.trim() || sending}
+          >
+            <Text style={styles.sendIcon}>{sending ? "…" : "➤"}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -282,14 +310,39 @@ export default function Chat() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'white' },
+  container: { flex: 1, backgroundColor: "white" },
   chatArea: { flex: 1 },
   messagesContainer: { padding: 16 },
 
-  customHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', paddingHorizontal: 20, paddingBottom: 12, paddingTop: 12, zIndex: 1 },
-  headerTitle: { position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: 18, fontWeight: '700', color: Colors.darkBlue, zIndex: -1 },
+  customHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    paddingTop: 12,
+    zIndex: 1,
+  },
+  headerTitle: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "700",
+    color: Colors.darkBlue,
+    zIndex: -1,
+  },
   headerIconBtn: { padding: 4 },
 
+  loadingState: {
+    position: "absolute",
+    top: "40%",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 1,
+  },
 
   emptyState: {
     position: "absolute",
@@ -308,58 +361,55 @@ const styles = StyleSheet.create({
   },
 
   messageBubble: {
+    width: '1%',
     maxWidth: "85%",
-    paddingVertical: 10,   // slightly smaller
-    paddingHorizontal: 16, // slightly smaller
-    borderRadius: 20,      // slightly smaller
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
   },
 
   myMessage: {
     backgroundColor: Colors.primary,
-    alignSelf: "flex-end",
-    borderBottomRightRadius: 6,
+    borderBottomRightRadius: 4,
   },
 
   theirMessage: {
     backgroundColor: Colors.background,
-    alignSelf: "flex-start",
-    borderBottomLeftRadius: 6,
-  },
-
-  messageText: {
-    color: "#000",
-    fontSize: 17,   // slightly smaller
-    lineHeight: 21,
+    borderBottomLeftRadius: 4,
   },
 
   messageWrapper: {
     marginBottom: 16,
-    maxWidth: '80%',
+    maxWidth: "80%",
   },
+
   myMessageWrapper: {
-    alignSelf: 'flex-end', // Aligns the whole block to the right
+    alignSelf: "flex-end",
   },
+
   theirMessageWrapper: {
-    alignSelf: 'flex-start', // Aligns the whole block to the left
+    alignSelf: "flex-start",
   },
+
   senderName: {
     fontSize: 12,
     color: Colors.textSecondary,
     marginBottom: 4,
     marginLeft: 4,
-    fontWeight: '500',
+    fontWeight: "500",
   },
-  myMessage: {
-    backgroundColor: Colors.primary,
-    borderBottomRightRadius: 4, // Gives that classic iMessage tail effect
-  },
-  theirMessage: {
-    backgroundColor: Colors.background, // Usually a light gray
-    borderBottomLeftRadius: 4,
-  },
+
   messageText: {
     fontSize: 16,
     lineHeight: 22,
+  },
+
+  myMessageText: {
+    color: "#FFFFFF",
+  },
+
+  theirMessageText: {
+    color: Colors.darkBlue,
   },
 
   bottomBar: {
@@ -396,17 +446,28 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
+  sendButtonDisabled: {
+    opacity: 0.55,
+  },
+
   timestampBanner: {
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 12,
-    color: Colors.textSecondaryLight, // Use a very light gray/blue
+    color: Colors.textSecondaryLight,
     marginTop: 16,
     marginBottom: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
+
   tinyTimestamp: {
     fontSize: 10,
     color: Colors.textSecondaryLight,
   },
-  sendIcon: { color: "white", fontSize: 20, marginLeft: 1 },
+
+  sendIcon: {
+    color: "white",
+    fontSize: 20,
+    marginLeft: 1,
+  },
 });
