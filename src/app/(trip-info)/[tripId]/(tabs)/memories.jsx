@@ -30,7 +30,7 @@ const JournalCard = ({ item }) => {
   const authorFirst = item.author_first_name || ""; 
   const authorLast = item.author_last_name || ""; 
   const authorName = `${authorFirst} ${authorLast}`;
-  const authorAvatar = item.avatar_url || null;
+  const authorAvatar = item.author_avatar || null;
   const entryImages = item.images || []; 
 
   const toggleExpand = () => {
