@@ -18,10 +18,8 @@ export default function SettingsScreen() {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const handleClose = () => {
-    setTimeout(() => {
-      if (router.canGoBack()) router.back();
-      else router.navigate(`/(trip-info)/${tripId}/overview`);
-    }, 300);
+    if (router.canGoBack()) router.back();
+    else router.navigate(`/(trip-info)/${tripId}/overview`);
   };
 
   const handleCoverPhotoPress = () => {
