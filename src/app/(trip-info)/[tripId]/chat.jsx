@@ -17,7 +17,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -71,6 +71,7 @@ export default function Chat() {
   const [inputHeight, setInputHeight] = useState(40);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   const flatListRef = useRef(null);
@@ -150,19 +151,33 @@ export default function Chat() {
 
   // --- Keyboard listeners for scroll behavior ---
   useEffect(() => {
-    const showSub = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-      () => setIsKeyboardVisible(true)
-    );
-    const hideSub = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-      () => setIsKeyboardVisible(false)
-    );
+    let showSub, hideSub;
+    if (Platform.OS === "ios")  {
+      console.log("ios")
+      showSub = Keyboard.addListener('keyboardWillShow', (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      })
+
+      hideSub = Keyboard.addListener('keyboardWillHide', () => {
+        setKeyboardHeight(0);
+      })
+     } else {
+      showSub = Keyboard.addListener(
+        "keyboardDidShow", 
+        () => setIsKeyboardVisible(true)
+      );
+      hideSub = Keyboard.addListener(
+        "keyboardDidHide",
+        () => setIsKeyboardVisible(false)
+      );
+     }
     return () => {
       showSub.remove();
       hideSub.remove();
     };
   }, []);
+
+  const bottomPosition = keyboardHeight > 0 ? keyboardHeight + 8 : 45;
 
   // --- Auto-scroll when messages change or keyboard appears ---
   useEffect(() => {
@@ -180,141 +195,273 @@ export default function Chat() {
   const handleClose = () => router.back();
   const isMultiline = inputHeight > 40;
 
-  return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity style={styles.headerIconBtn} onPress={handleClose}>
-          <MaterialIcons name="close" size={24} color={Colors.darkBlue} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chat</Text>
-        <View style={styles.headerIconBtn} />
-      </View>
+  if (Platform.OS === "ios") {
+    return (
+      <View style={[styles.container, {backgroundColor: "white"  }]}>
+        <View style={styles.customHeader}>
+          <TouchableOpacity style={styles.headerIconBtn} onPress={handleClose}>
+            <MaterialIcons name="close" size={24} color={Colors.darkBlue} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chat</Text>
+        </View>
 
-      {/* Chat area with keyboard avoiding */}
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
-      >
-        {/* Message list */}
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item, index) =>
-            item.message_id?.toString?.() || index.toString()
-          }
-          contentContainerStyle={styles.messagesContainer}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            !loading ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>Start the conversation…</Text>
-              </View>
-            ) : null
-          }
-          ListHeaderComponent={
-            loading ? (
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={0}
+        >
+          <View style={styles.chatArea}>
+            {loading ? (
               <View style={styles.loadingState}>
                 <ActivityIndicator size="large" color={Colors.primary} />
               </View>
-            ) : null
-          }
-          renderItem={({ item, index }) => {
-            const isMyMessage = item.sender_id === user?.id;
-            const previousMessage = index > 0 ? messages[index - 1] : null;
-            const showTimestamp = shouldShowTimestamp(item, previousMessage);
-            const senderName = getSenderName(item.Users);
+            ) : null}
 
-            return (
-              <View>
-                {showTimestamp && (
-                  <Text style={styles.timestampBanner}>
-                    {formatChatTimestamp(item.sent_at)}
-                  </Text>
-                )}
+            {!loading && messages.length === 0 && (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>Start the conversation…</Text>
+              </View>
+            )}
 
-                <View
-                  style={[
-                    styles.messageWrapper,
-                    isMyMessage
-                      ? styles.myMessageWrapper
-                      : styles.theirMessageWrapper,
-                  ]}
-                >
-                  {!isMyMessage && (
-                    <Text style={styles.senderName}>{senderName}</Text>
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item, index) =>
+                item.message_id?.toString?.() || index.toString()
+              }
+              contentContainerStyle={styles.messagesContainer}
+              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+              onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
+              ListFooterComponent={<View style={{ height: 100 }} />}
+              renderItem={({ item, index }) => {
+                const isMyMessage = item.sender_id === user?.id;
+                const previousMessage = index > 0 ? messages[index - 1] : null;
+                const showTimestamp = shouldShowTimestamp(item, previousMessage);
+                const senderName = getSenderName(item.Users);
+
+                return (
+                  <View>
+                    {showTimestamp && (
+                      <Text style={styles.timestampBanner}>
+                        {formatChatTimestamp(item.sent_at)}
+                      </Text>
+                    )}
+
+                    <View
+                      style={[
+                        styles.messageWrapper,
+                        isMyMessage ? styles.myMessageWrapper : styles.theirMessageWrapper,
+                      ]}
+                    >
+                      {!isMyMessage && (
+                        <Text style={styles.senderName}>{senderName}</Text>
+                      )}
+
+                      <View
+                        style={[
+                          styles.messageBubble,
+                          isMyMessage ? styles.myMessage : styles.theirMessage,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.messageText,
+                            isMyMessage ? styles.myMessageText : styles.theirMessageText,
+                          ]}
+                        >
+                          {item.body}
+                        </Text>
+                      </View>
+
+                      <Text
+                        style={[
+                          styles.tinyTimestamp,
+                          isMyMessage
+                            ? { alignSelf: "flex-end", marginRight: 4 }
+                            : { alignSelf: "flex-start", marginLeft: 4 },
+                        ]}
+                      >
+                        {formatTimeOnly(item.sent_at)}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              }}
+            />
+          </View>
+
+          <View style={[styles.bottomBar, { bottom: bottomPosition }]}>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  height: inputHeight,
+                  textAlignVertical: isMultiline ? "top" : "center",
+                  paddingTop: isMultiline ? 6 : 10,
+                  paddingBottom: isMultiline ? 6 : 10,
+                },
+              ]}
+              placeholder="Type a message..."
+              placeholderTextColor="#555"
+              value={input}
+              onChangeText={setInput}
+              multiline
+              onContentSizeChange={(e) =>
+                setInputHeight(Math.min(e.nativeEvent.contentSize.height, 120))
+              }
+            />
+
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!input.trim() || sending) && styles.sendButtonDisabled,
+              ]}
+              onPress={sendMessage}
+              disabled={!input.trim() || sending}
+            >
+              <Text style={styles.sendIcon}>{sending ? "…" : "➤"}</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
+    )
+  } else {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: Platform.OS === "ios" ? 15 : insets.top }]}>
+          <TouchableOpacity style={styles.headerIconBtn} onPress={handleClose}>
+            <MaterialIcons name="close" size={24} color={Colors.darkBlue} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Chat</Text>
+          <View style={styles.headerIconBtn} />
+        </View>
+
+        {/* Chat area with keyboard avoiding */}
+        <KeyboardAvoidingView
+          style={styles.container}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        >
+          {/* Message list */}
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item, index) =>
+              item.message_id?.toString?.() || index.toString()
+            }
+            contentContainerStyle={styles.messagesContainer}
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              !loading ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyText}>Start the conversation…</Text>
+                </View>
+              ) : null
+            }
+            ListHeaderComponent={
+              loading ? (
+                <View style={styles.loadingState}>
+                  <ActivityIndicator size="large" color={Colors.primary} />
+                </View>
+              ) : null
+            }
+            renderItem={({ item, index }) => {
+              const isMyMessage = item.sender_id === user?.id;
+              const previousMessage = index > 0 ? messages[index - 1] : null;
+              const showTimestamp = shouldShowTimestamp(item, previousMessage);
+              const senderName = getSenderName(item.Users);
+
+              return (
+                <View>
+                  {showTimestamp && (
+                    <Text style={styles.timestampBanner}>
+                      {formatChatTimestamp(item.sent_at)}
+                    </Text>
                   )}
 
                   <View
                     style={[
-                      styles.messageBubble,
-                      isMyMessage ? styles.myMessage : styles.theirMessage,
+                      styles.messageWrapper,
+                      isMyMessage
+                        ? styles.myMessageWrapper
+                        : styles.theirMessageWrapper,
                     ]}
                   >
-                    <Text
+                    {!isMyMessage && (
+                      <Text style={styles.senderName}>{senderName}</Text>
+                    )}
+
+                    <View
                       style={[
-                        styles.messageText,
-                        isMyMessage
-                          ? styles.myMessageText
-                          : styles.theirMessageText,
+                        styles.messageBubble,
+                        isMyMessage ? styles.myMessage : styles.theirMessage,
                       ]}
                     >
-                      {item.body}
+                      <Text
+                        style={[
+                          styles.messageText,
+                          isMyMessage
+                            ? styles.myMessageText
+                            : styles.theirMessageText,
+                        ]}
+                      >
+                        {item.body}
+                      </Text>
+                    </View>
+
+                    <Text
+                      style={[
+                        styles.tinyTimestamp,
+                        isMyMessage
+                          ? { alignSelf: "flex-end", marginRight: 4 }
+                          : { alignSelf: "flex-start", marginLeft: 4 },
+                      ]}
+                    >
+                      {formatTimeOnly(item.sent_at)}
                     </Text>
                   </View>
-
-                  <Text
-                    style={[
-                      styles.tinyTimestamp,
-                      isMyMessage
-                        ? { alignSelf: "flex-end", marginRight: 4 }
-                        : { alignSelf: "flex-start", marginLeft: 4 },
-                    ]}
-                  >
-                    {formatTimeOnly(item.sent_at)}
-                  </Text>
                 </View>
-              </View>
-            );
-          }}
-        />
-
-        {/* Input bar */}
-        <View style={styles.inputBar}>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                height: Math.max(40, inputHeight),
-                textAlignVertical: isMultiline ? "top" : "center",
-                paddingTop: isMultiline ? 10 : 0,
-                paddingBottom: isMultiline ? 10 : 0,
-              },
-            ]}
-            placeholder="Type a message..."
-            placeholderTextColor="#888"
-            value={input}
-            onChangeText={setInput}
-            multiline
-            onContentSizeChange={(e) =>
-              setInputHeight(Math.min(e.nativeEvent.contentSize.height, 120))
-            }
+              );
+            }}
           />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              (!input.trim() || sending) && styles.sendButtonDisabled,
-            ]}
-            onPress={sendMessage}
-            disabled={!input.trim() || sending}
-          >
-            <Text style={styles.sendIcon}>{sending ? "…" : "➤"}</Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-  );
+
+          {/* Input bar */}
+          <View style={styles.inputBar}>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  height: Math.max(40, inputHeight),
+                  textAlignVertical: isMultiline ? "top" : "center",
+                  paddingTop: isMultiline ? 10 : 0,
+                  paddingBottom: isMultiline ? 10 : 0,
+                },
+              ]}
+              placeholder="Type a message..."
+              placeholderTextColor="#888"
+              value={input}
+              onChangeText={setInput}
+              multiline
+              onContentSizeChange={(e) =>
+                setInputHeight(Math.min(e.nativeEvent.contentSize.height, 120))
+              }
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (!input.trim() || sending) && styles.sendButtonDisabled,
+              ]}
+              onPress={sendMessage}
+              disabled={!input.trim() || sending}
+            >
+              <Text style={styles.sendIcon}>{sending ? "…" : "➤"}</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
@@ -322,9 +469,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+
+  chatArea: { flex: 1 },
+  messagesContainer: { padding: 16 },
+
   container: {
     flex: 1,
   },
+  customHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    paddingTop: 12,
+    zIndex: 1,
+  },
+
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -458,5 +619,21 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 20,
     marginLeft: 1,
+  },
+  bottomBar: {
+    position: "absolute",
+    left: 15,
+    right: 15,
+    backgroundColor: "white",
+    borderRadius: 15,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
   },
 });
