@@ -114,10 +114,8 @@ To get a local copy up and running, follow these simple steps. **Note:** This pr
     ```bash
     npx expo install
     ```
-   
-### ☁️ Backend Setup (Supabase)
 
-Wandii relies on a specific PostgreSQL schema, storage buckets, and serverless Edge Functions to operate. All backend configurations are included in this repository and can be deployed directly to your own Supabase project using the Supabase CLI.
+### ☁️ Backend Setup (Supabase)
 
 **1. Link Your Project**
 
@@ -134,7 +132,17 @@ The included migration files automatically generate all required tables, relatio
 npx supabase db push
 ```
 
-**3. Deploy the Edge Function**
+**3. Create .env File**
+
+Make a copy of the `.env.example` file and add your own projects environment variables
+
+```bash
+EXPO_PUBLIC_SUPABASE_URL=<your_supabase_project_url>
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<your_supabase_publishable_key>
+EXPO_PUBLIC_SUPABASE_ANON_KEY=<your_supabase_anon_key>
+```
+
+**4. Deploy the Edge Function (Optional)**
 
 ⚠️ Disclaimer: The Shared Group Wallet feature relies on a secure serverless environment to process financial splitting logic. If you do not deploy this edge function, the wallet UI will fail to fetch or update balances.
 
