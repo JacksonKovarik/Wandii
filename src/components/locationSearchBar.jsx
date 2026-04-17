@@ -23,8 +23,7 @@ export default function LocationSearchBar({ onSelect, placeholder = "Search for 
     const delayDebounceFn = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const LOCATION_IQ_KEY = 'pk.29ba43c85df756ee6924d2cf82e92464'; 
-        const url = `https://us1.locationiq.com/v1/search?key=${LOCATION_IQ_KEY}&q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=5`;
+        const url = `https://us1.locationiq.com/v1/search?key=${process.env.EXPO_PUBLIC_LOCATION_IQ_KEY}&q=${encodeURIComponent(searchQuery)}&format=json&addressdetails=1&limit=5`;
         
         const response = await fetch(url);
         const data = await response.json();
