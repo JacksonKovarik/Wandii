@@ -141,6 +141,8 @@ EXPO_PUBLIC_SUPABASE_URL=<your_supabase_project_url>
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<your_supabase_publishable_key>
 EXPO_PUBLIC_SUPABASE_ANON_KEY=<your_supabase_anon_key>
 ```
+> 💡 **Tip: Getting your LocationIQ Key**
+> Wandii uses LocationIQ for location searching and map interactions. You can easily generate a free API key by creating a developer account at [locationiq.com](https://locationiq.com/). *(Note: If you choose to skip this step, the app will still run, but map-related features will be disabled).*
 
 **4. Deploy the Edge Function (Optional)**
 
