@@ -1,9 +1,8 @@
 <div align="center">
-  <a href="https://github.com/yourusername/wandii">
+  <!-- <a href="https://github.com/yourusername/wandii">
     <img src="https://via.placeholder.com/1000x300/1B1F23/FFFFFF?text=Wandii+-+Your+Ultimate+Travel+Companion+(Insert+Banner+Here)" alt="Wandii Banner" width="100%">
-  </a>
-
-  <h3 align="center">Wandii</h3>
+  </a> -->
+  <h1 align="center">Wandii</h3>
 
   <p align="center">
     A full-stack, collaborative travel application built to streamline trip planning, manage group finances, and dynamically capture memories.
