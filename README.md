@@ -100,9 +100,44 @@ To get a local copy up and running, follow these simple steps. **Note:** This pr
 * CocoaPods (for iOS dependencies)
 * A [Supabase](https://supabase.com/) account and project.
 
+---
+
 ### Installation
 
 1. **Clone the repository**
    ```bash
    git clone [https://github.com/yourusername/wandii.git](https://github.com/yourusername/wandii.git)
    cd wandii
+   ```
+   
+ 2. **Install Dependencies**
+    ```bash
+    npx expo install
+    ```
+   
+### ☁️ Backend Setup (Supabase)
+
+Wandii relies on a specific PostgreSQL schema, storage buckets, and serverless Edge Functions to operate. All backend configurations are included in this repository and can be deployed directly to your own Supabase project using the Supabase CLI.
+
+**1. Link Your Project**
+
+Ensure Docker Desktop is open and running on your machine. Then, find your Project ID in your Supabase dashboard URL and link it:
+```bash
+npx supabase link --project-ref <your-project-id>
+```
+
+**2. Push the Database Schema**
+
+The included migration files automatically generate all required tables, relationships, strict Row Level Security (RLS) policies, and the essential Storage Buckets (avatars, trip-covers, photos, and documents).
+
+```bash
+npx supabase db push
+```
+
+**3. Deploy the Edge Function**
+
+⚠️ Disclaimer: The Shared Group Wallet feature relies on a secure serverless environment to process financial splitting logic. If you do not deploy this edge function, the wallet UI will fail to fetch or update balances.
+
+```bash
+npx supabase functions deploy get-trip-wallet
+```
